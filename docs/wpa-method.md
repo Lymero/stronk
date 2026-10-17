@@ -12,7 +12,7 @@ No method makes observational data fully unbiased. The goal is to remove every b
 
 ## 2. What we estimate
 
-- **Decision point:** the moment a player starts a new item slot (first component bought after the previous item is completed), or champion select for runes and spells.
+- **Decision point:** the moment a player starts a new item slot (first component bought after the previous item is completed), or champion select for runes and spells. Exact definitions in ADR-026.
 - **Options:** the items realistically chosen at that decision point for that champion and role.
 - **Estimand:** the average effect on win probability of choosing option A instead of the alternatives, **in situations where both are realistically chosen** (the overlap population).
 - **Result per option:** effect, 95% interval, number of decisions, and flags.
@@ -144,5 +144,5 @@ The UI always shows the flag instead of hiding uncertainty.
 
 - Best Δ for the windowed outcome (choose by backtest).
 - Defining the option set per decision point (pick-rate threshold vs propensity threshold).
-- Components vs completed items; boots tiers.
+- Components vs completed items; boots tiers. v1 scores completed items only and leaves boots out (ADR-026).
 - How long a pooling window across patches can be before item changes make it misleading.

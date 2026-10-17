@@ -1,0 +1,7 @@
+# Test corpus kept outside git (ADR-015). `just corpus` fetches and verifies every entry into
+# corpus/ (gitignored). Add entries with `just corpus-pack`, after uploading the archive.
+#
+# [[file]]
+# name = "crawl-euw1-16.20"
+# url = "https://…/crawl-euw1-16.20.tar.gz"
+# sha256 = "…"

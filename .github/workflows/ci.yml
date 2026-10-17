@@ -28,5 +28,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: contracts/generated/rust
+      - uses: actions/cache@v4
+        with:
+          path: corpus
+          key: corpus-${{ hashFiles('corpus.lock') }}
       - run: just setup
+      - run: just corpus
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - run: just check

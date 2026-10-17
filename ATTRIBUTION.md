@@ -4,7 +4,7 @@ Every third-party asset (images, icons, fonts, data files) used by Stronk gets a
 
 | Asset | Source | Licence | Used in |
 |---|---|---|---|
-| _none yet_ | | | |
+| Data Dragon champion and item data | Riot Games, ddragon.leagueoflegends.com | Riot Games' [Legal Jibber Jabber](https://www.riotgames.com/en/legal) policy for fan projects | crawl directories, corpus and test recordings (`static/`) |
 
 ## Riot Games
 

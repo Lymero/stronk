@@ -19,7 +19,13 @@ from stronk_pipeline.domain.result import Err, Result
 log = logging.getLogger(__name__)
 
 type ErrorCode = Literal[
-    "unknown_command", "invalid_params", "not_found", "invalid_input", "internal"
+    "unknown_command",
+    "invalid_params",
+    "not_found",
+    "invalid_input",
+    "unauthorized",
+    "unavailable",
+    "internal",
 ]
 
 

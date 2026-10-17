@@ -60,8 +60,8 @@ stronk/
 │   ├── src/stronk_pipeline/
 │   │   ├── domain/              # game state, features, WPA math (pure)
 │   │   ├── application/         # stages as commands: crawl, extract, winprob, wpa, publish
-│   │   ├── ports.py             # DecisionStore, Estimator; later MatchSource, Publisher, Signer
-│   │   ├── adapters/            # riot_api, recorded_source, parquet_store, local_publisher, r2_publisher
+│   │   ├── ports.py             # MatchSource, MatchStore, DecisionStore, FrameStore, Estimator; later Publisher, Signer
+│   │   ├── adapters/            # riot/ (client, rate limits, payloads), recording, match_store, parquet_store; later local_publisher, r2_publisher
 │   │   ├── config.py            # typed settings (pydantic-settings)
 │   │   └── cli.py               # Typer entry point
 │   └── tests/
@@ -82,12 +82,13 @@ stronk/
 ├── tools/
 │   ├── lcu-mock/                # fake League client replaying recorded sessions
 │   ├── synth/                   # synthetic games with planted effects; `stronk-synth eval`
+│   ├── corpus/                  # `just corpus`: fetch, verify and pack the test corpus
 │   └── checks/                  # floors, budgets and commit-message checks
 ├── perf/
 │   └── budgets.toml             # performance budgets
 ├── metrics/
 │   └── floors.toml              # quality floors (only go up)
-├── fixtures/                    # small committed samples
+├── fixtures/                    # small committed samples (scrubbed Riot recordings)
 └── docs/
 ```
 
@@ -99,7 +100,7 @@ Each stage is a command with explicit inputs and outputs, reading and writing Pa
 
 | Stage | Input | Output |
 |---|---|---|
-| `crawl` | `MatchSource` (Riot API or recorded) | raw matches and timelines |
+| `crawl` | `MatchSource` (Riot API or a recording) | compact validated games and Data Dragon data per patch, in a crawl directory |
 | `extract` | raw data | `frames` (per minute, per team and player, with situation features), `decisions` (decision points with game state, options and the chosen one) |
 | `winprob` | frames | win probability model, calibration report |
 | `wpa` | decisions + model | propensity model, estimates per champion, role, slot and option, with interval, sample size and flags |
@@ -124,11 +125,20 @@ Moving to the CDN means switching the publisher and the app's data URL; no other
 ### Crawler
 
 - Async HTTP (httpx) behind the `MatchSource` port.
-- Seeds players from league endpoints (Challenger to Diamond), walks match histories, fetches match and timeline.
-- Rate limiter driven by Riot's rate-limit headers; exponential backoff on 429 and 5xx.
+- Seeds players from league endpoints (Challenger to Diamond), walks match histories, fetches match and timeline. The timeline is fetched only for games that pass the header checks (queue, map, remake, patch).
+- Rate limiter driven by Riot's rate-limit headers; Retry-After on 429, exponential backoff on 5xx and transport errors.
 - Riot payloads become validated models at the boundary; nothing raw passes inward.
-- Features are extracted at download time and raw JSON is discarded (except the recorded samples used in tests).
+- Games are stored compact and pseudonymous, one file per game, and raw JSON is discarded (ADR-027). Reruns resume.
+- Recording and playback are httpx transports: `crawl.run` with `record` saves scrubbed responses, with `replay` plays them back with no key or network.
 - Player skill comes from the crawl itself (prior games only), not from extra rank or mastery calls.
+
+```
+runs/crawl/<platform>/
+├── matches/<match_id>.json.gz   # domain Match: participants, frames, item/kill/objective events
+├── static/<patch>.json.gz       # Data Dragon champions and items
+├── skipped.jsonl                # rejected games and why: never refetched
+└── .salt                        # pseudonym key: never packed, published or committed
+```
 
 ### WPA
 

@@ -17,11 +17,11 @@ Build a thin version end to end first, then improve each part. Structure is set 
 
 ## M1 · Data in
 
-- [ ] Development API key in `.env`
-- [ ] `crawl`: Riot adapter with rate limiting, recorded-response adapter
+- [ ] Development API key in `.env` (present; Riot rejects it with 401, regenerate)
+- [x] `crawl`: Riot adapter with rate limiting, recorded-response adapter
 - [ ] Crawl a few thousand high-elo games (one region, one patch)
-- [ ] Commit a small fixture sample; publish the larger one and pin it in `corpus.lock`; `just corpus`
-- [ ] `extract`: frames with situation features, decision points, crawl-derived skill
+- [ ] Commit a small fixture sample; publish the larger one and pin it in `corpus.lock`; `just corpus` (tooling done)
+- [x] `extract`: frames with situation features, decision points, crawl-derived skill
 
 ## M2 · Statistics v1
 

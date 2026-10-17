@@ -14,7 +14,9 @@ runner = CliRunner()
 def test_lists_commands() -> None:
     result = runner.invoke(app, ["commands"])
     assert result.exit_code == 0
-    assert "wpa.estimate" in result.stdout
+    assert {"crawl.run", "extract.run", "wpa.estimate"} <= {
+        line.split("\t")[0] for line in result.stdout.splitlines()
+    }
 
 
 def test_runs_a_command(tmp_path: Path) -> None:

@@ -34,7 +34,8 @@ The app runs on players' machines and writes into their League client. These are
 ### Secrets and privacy
 
 - Never log the LCU password, auth headers or API keys.
-- `RIOT_API_KEY` lives in `.env` or CI secrets only; the app needs no Riot key.
+- `RIOT_API_KEY` lives in `.env` or CI secrets only; the app needs no Riot key. It travels in a request header, never in URLs, so it never reaches recordings or error messages.
+- Crawled players are pseudonymous (keyed hash; the key stays in the crawl directory). Recordings meant for commits drop Riot ids and names and pseudonymise PUUIDs (ADR-027).
 - No telemetry. Logs stay on the user's machine.
 
 ## Reporting

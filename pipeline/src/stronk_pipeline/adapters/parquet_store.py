@@ -1,4 +1,4 @@
-"""DecisionStore on Parquet files. Validates every file into a DecisionTable at the boundary."""
+"""DecisionStore and FrameStore on Parquet files. Decision tables are validated when read."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import numpy as np
 import polars as pl
 
 from stronk_pipeline.domain.decisions import DecisionTable, InvalidDecisionsError
+from stronk_pipeline.domain.frames import FrameTable
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.ports import StoreError
 
@@ -74,6 +75,24 @@ class ParquetDecisionStore:
             "slot": table.slot,
             "minute": table.minute,
             "option": table.option,
+            "outcome": table.outcome,
+        }
+        for i, name in enumerate(table.feature_names):
+            columns[FEATURE_PREFIX + name] = table.features[:, i]
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            pl.DataFrame(columns).write_parquet(path)
+        except OSError as e:
+            return Err(StoreError("invalid", f"cannot write {path}: {e}"))
+        return Ok(path)
+
+
+class ParquetFrameStore:
+    def write_frames(self, table: FrameTable, path: Path) -> Result[Path, StoreError]:
+        columns: dict[str, object] = {
+            "match_id": table.match_id,
+            "team": table.team,
+            "minute": table.minute,
             "outcome": table.outcome,
         }
         for i, name in enumerate(table.feature_names):

@@ -32,7 +32,16 @@ stronk-synth = { workspace = true }
 stronk-contracts = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["pipeline/tests", "tools/synth/tests", "tools/checks/tests", "contracts/tests"]
+testpaths = [
+    "pipeline/tests",
+    "tools/synth/tests",
+    "tools/checks/tests",
+    "tools/corpus/tests",
+    "contracts/tests",
+]
 addopts = ["--import-mode=importlib", "--strict-markers", "-ra"]
-pythonpath = ["tools/checks"]
-markers = ["slow: statistical tests that take more than a few seconds"]
+pythonpath = ["tools/checks", "tools/corpus", "pipeline/tests"]
+markers = [
+    "slow: statistical tests that take more than a few seconds",
+    "corpus: needs the real-data corpus (`just corpus`); skipped when it is absent",
+]

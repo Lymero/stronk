@@ -55,6 +55,34 @@ gen:
 gen-check:
     uv run python contracts/codegen.py --check
 
+# Crawl ranked games from the Riot API (needs RIOT_API_KEY); rerun to resume
+crawl platform="euw1" games="100" out=("runs/crawl/" + platform):
+    uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}"}'
+
+# Frames and decision points from a crawl directory
+extract crawl="runs/crawl/euw1" out="runs/extract/euw1":
+    uv run stronk-pipeline run extract.run --params '{"crawl": "{{ crawl }}", "out": "{{ out }}"}'
+
+# One pipeline stage by name (crawl, extract, wpa) with JSON parameters
+pipeline-stage name params="{}":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ name }}" in
+        crawl) id=crawl.run ;;
+        extract) id=extract.run ;;
+        wpa) id=wpa.estimate ;;
+        *) echo "unknown stage {{ name }}; known: crawl, extract, wpa" >&2; exit 2 ;;
+    esac
+    uv run stronk-pipeline run "$id" --params '{{ params }}'
+
+# Fetch and verify the pinned test corpus (corpus.lock) into corpus/
+corpus:
+    uv run python tools/corpus/corpus.py fetch
+
+# Archive a crawl directory for the corpus and print its corpus.lock entry
+corpus-pack crawl name:
+    uv run python tools/corpus/corpus.py pack {{ crawl }} {{ name }}
+
 # Synthetic-truth metrics against metrics/floors.toml
 floors:
     uv run stronk-synth eval --out metrics/out/synthetic.json > /dev/null

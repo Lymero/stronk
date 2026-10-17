@@ -6,8 +6,10 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from stronk_pipeline.cli import build_registry
+from stronk_pipeline.config import Settings
 
-REGISTRY = build_registry()
+# No API key: the crawl must refuse before touching the network.
+REGISTRY = build_registry(Settings.model_construct(riot_api_key=None))
 COMMAND_IDS = [c.id for c in REGISTRY.commands()]
 
 json_values = st.recursive(
@@ -17,7 +19,13 @@ json_values = st.recursive(
     ),
     max_leaves=10,
 )
-field_names = st.sampled_from(["decisions", "estimator", "bootstrap_samples", "seed", "x"])
+field_names = st.sampled_from(
+    [
+        *("decisions", "estimator", "bootstrap_samples", "seed"),
+        *("platform", "tiers", "patch", "max_matches", "replay", "record", "out", "crawl"),
+        "x",
+    ]
+)
 params = st.dictionaries(field_names, json_values, max_size=5).map(json.dumps) | st.text(
     max_size=50
 )
