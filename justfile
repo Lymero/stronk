@@ -17,7 +17,7 @@ setup:
     if git rev-parse --git-dir >/dev/null 2>&1; then uv run pre-commit install --hook-type pre-commit --hook-type commit-msg; fi
 
 # Format, lint, typecheck, architecture rules, tests, codegen drift, floors, budgets
-check: fmt-check lint typecheck arch test gen-check floors budgets
+check: fmt-check lint typecheck arch test gen-check floors bench budgets
     @echo "check: all green"
 
 # Format all code in place
@@ -109,6 +109,10 @@ floors:
 # Benchmark results against perf/budgets.toml
 budgets:
     uv run python tools/checks/check_budgets.py
+
+# Performance scenarios, results in perf/out/ (checked by `just budgets`)
+bench:
+    uv run python tools/checks/bench.py
 
 # Run a pipeline command: just pipeline-run wpa.estimate '{"decisions": "runs/synth/decisions.parquet"}'
 pipeline-run id params="{}":

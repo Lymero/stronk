@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import bench
 import check_budgets
 import check_floors
 import pipeline_metrics
@@ -98,3 +99,11 @@ def test_committed_floors_and_budgets_parse() -> None:
 def test_pipeline_metrics_read_the_extract_report() -> None:
     report = {"stage": "extract", "result": {"skip_rate": 0.25}}
     assert pipeline_metrics.metrics(report) == {"pipeline.skip_rate": 0.25}
+
+
+def test_bench_reports_median_and_max() -> None:
+    ticks = iter([0.0, 1.0, 1.0, 4.0, 4.0, 6.0])  # runs of 1, 3 and 2 s
+    runs: list[None] = []
+    result = bench.measure(lambda: runs.append(None), repeats=3, clock=lambda: next(ticks))
+    assert result == {"p50": 2.0, "max": 3.0}
+    assert len(runs) == 3

@@ -27,3 +27,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: commits not pushed, so CI has never run; `pipeline_fixtures` budget is met (1.3 s vs 60 s) but `just bench` doesn't exist to measure it; `invalid` skips aren't retried after parser fixes. Next: M2 `winprob`.
 - 2026-10-18: quarantine (ADR-029): games failing validation keep their scrubbed payloads in `<crawl>/quarantine/` with a reason; `just extract … --retry-quarantine` stores the ones that now pass; report.json counts skips and quarantine by reason plus `skip_rate`, floored at 0.01 on `just pipeline` (0 today, about 0.09 before the ADR-028 fixes).
   Open: the full crawl predates quarantine, so its 32 early rejects were refetched by hand, not retried; `just bench` next.
+- 2026-10-18: `just bench` times `just pipeline` 3 times into `perf/out/pipeline_fixtures.json`; the budget (max 60 s, measured 1.2 s) is enforced and `just check` runs bench before budgets.
+  Open: lock-in, data-fetch and app-start scenarios with the app (M3). Next: M2 `winprob`.
