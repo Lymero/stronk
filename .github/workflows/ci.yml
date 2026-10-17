@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.local/share/pnpm/store
+          key: deps-${{ hashFiles('uv.lock', 'pnpm-lock.yaml') }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/generated/rust
+      - run: just setup
+      - run: just check

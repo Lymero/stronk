@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "patch": "26.20",
+  "region": "euw1",
+  "elo": "diamond_plus",
+  "champion": "Viego",
+  "role": "JUNGLE",
+  "games": 18432,
+  "runes": [
+    {
+      "page": { "primaryStyle": 8000, "subStyle": 8100, "perks": [8010, 9111, 9104, 8299, 8143, 8135, 5005, 5008, 5001] },
+      "wpa": 0.012,
+      "ci": [0.004, 0.02],
+      "n": 9120,
+      "flags": []
+    }
+  ],
+  "items": [
+    { "slot": 1, "item": 6672, "wpa": 0.008, "ci": [0.001, 0.015], "n": 5400, "flags": [] },
+    { "slot": 1, "item": 6692, "wpa": null, "ci": null, "n": 140, "flags": ["low_sample", "low_overlap"] }
+  ],
+  "spells": [{ "spells": [4, 11], "wpa": 0.0, "ci": [-0.004, 0.004], "n": 18000, "flags": ["no_clear_difference"] }],
+  "skillOrder": [{ "order": ["Q", "E", "W", "Q", "Q", "R"], "n": 12000 }]
+}

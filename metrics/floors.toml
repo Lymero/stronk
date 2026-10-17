@@ -1,0 +1,69 @@
+# Quality floors (docs/architecture.md, section 7). Checked by `just check`.
+#
+# Floors only tighten. Loosening one (raising a `max`, lowering a `min`, or turning `enforce`
+# off) fails the check unless docs/decisions.md names the metric.
+#
+# Each floor reads `metric` from the JSON file `source`. A floor without a threshold, or with
+# `enforce = false`, is reported but never fails.
+
+# Synthetic truth (tools/synth, 8 seeds). WPA v1 reference with the M0 baseline WP model.
+# Measured 2026-10-16: clean MAE 0.0035, confounded MAE 0.0052, coverage 1.0 and 0.875,
+# planted bias 0.0015 and 0.0061.
+
+[[floor]]
+metric = "synthetic.clean.mean_abs_error"
+source = "metrics/out/synthetic.json"
+max = 0.0045
+
+[[floor]]
+metric = "synthetic.confounded.mean_abs_error"
+source = "metrics/out/synthetic.json"
+max = 0.0065
+
+[[floor]]
+metric = "synthetic.clean.coverage"
+source = "metrics/out/synthetic.json"
+min = 0.9
+
+[[floor]]
+metric = "synthetic.confounded.coverage"
+source = "metrics/out/synthetic.json"
+min = 0.8
+
+[[floor]]
+metric = "synthetic.confounded.planted_bias"
+source = "metrics/out/synthetic.json"
+min = -0.008
+max = 0.008
+
+[[floor]]
+metric = "synthetic.clean.meta_lock_flagged"
+source = "metrics/out/synthetic.json"
+min = 1.0
+
+[[floor]]
+metric = "synthetic.confounded.meta_lock_flagged"
+source = "metrics/out/synthetic.json"
+min = 1.0
+
+# Set once the stage exists (M2: winprob, coverage; M5: backtests).
+
+[[floor]]
+metric = "winprob.calibration_error"
+source = "metrics/out/winprob.json"
+enforce = false
+
+[[floor]]
+metric = "winprob.log_loss"
+source = "metrics/out/winprob.json"
+enforce = false
+
+[[floor]]
+metric = "coverage.confident_pairs_share"
+source = "metrics/out/coverage.json"
+enforce = false
+
+[[floor]]
+metric = "backtest.direction_share"
+source = "metrics/out/backtest.json"
+enforce = false

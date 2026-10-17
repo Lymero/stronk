@@ -1,0 +1,39 @@
+# Architecture rules for the pipeline (docs/architecture.md, sections 2 and 8). `just check` runs them.
+
+[importlinter]
+root_packages =
+    stronk_pipeline
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = Pipeline layers point inward
+type = layers
+layers =
+    stronk_pipeline.cli
+    stronk_pipeline.adapters | stronk_pipeline.config
+    stronk_pipeline.application
+    stronk_pipeline.ports
+    stronk_pipeline.domain
+
+[importlinter:contract:pure-domain]
+name = Domain does no I/O and knows no frameworks or contracts
+type = forbidden
+source_modules =
+    stronk_pipeline.domain
+forbidden_modules =
+    polars
+    pydantic
+    pydantic_settings
+    typer
+    stronk_contracts
+
+[importlinter:contract:application-io]
+name = Application reaches I/O only through ports
+type = forbidden
+source_modules =
+    stronk_pipeline.application
+    stronk_pipeline.ports
+forbidden_modules =
+    polars
+    pydantic_settings
+    typer

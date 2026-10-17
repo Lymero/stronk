@@ -1,0 +1,12 @@
+# Pinned toolchains. `mise install` provides everything `just` needs.
+[tools]
+python = "3.13"
+uv = "0.13.1"
+node = "24.22.0"
+pnpm = "12.11.2"
+rust = { version = "1.99.0", components = "rustfmt,clippy", profile = "minimal" }
+just = "1.59.0"
+"cargo:cargo-typify" = "0.8.0"
+
+[settings]
+experimental = true

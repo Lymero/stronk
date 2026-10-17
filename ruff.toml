@@ -1,0 +1,24 @@
+target-version = "py313"
+line-length = 100
+extend-exclude = ["contracts/generated"]
+force-exclude = true
+
+[lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "PTH", "PT", "PL", "RUF",
+    "S", "TID", "ERA", "BLE", "T20",
+]
+ignore = [
+    "PLR0913",  # use cases and builders take many keyword arguments
+    "PLR2004",  # statistical thresholds read better inline
+    "PLC0415",  # local imports are occasionally clearer in tests
+]
+
+[lint.per-file-ignores]
+"**/tests/**" = ["S101", "PLR0913"]
+"**/cli.py" = ["T20"]
+"tools/checks/*.py" = ["T20", "S603", "S607"]
+"contracts/codegen.py" = ["T20", "S603"]
+
+[lint.isort]
+known-first-party = ["stronk_pipeline", "stronk_synth", "stronk_contracts"]

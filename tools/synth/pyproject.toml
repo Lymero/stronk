@@ -1,0 +1,20 @@
+[project]
+name = "stronk-synth"
+version = "0.1.0"
+description = "Synthetic League games with planted effects, for testing the WPA method."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "numpy>=2.2",
+    "stronk-pipeline",
+    "typer>=0.16",
+]
+
+[project.scripts]
+stronk-synth = "stronk_synth.cli:main"
+
+[tool.uv.sources]
+stronk-pipeline = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"

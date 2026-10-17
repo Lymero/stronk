@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stronk.gg/schemas/manifest.v1.schema.json",
+  "title": "Manifest",
+  "description": "Lists every published file of one patch with its hash. Published at /{patch}/manifest.json and signed by /{patch}/manifest.json.minisig (see contracts/README.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "patch",
+    "generatedAt",
+    "runId",
+    "keyId",
+    "files"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [
+        1
+      ],
+      "description": "Contract major version. A breaking change publishes a new version alongside this one."
+    },
+    "patch": {
+      "type": "string",
+      "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}$"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC time the manifest was written (RFC 3339)."
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,64}$",
+      "description": "Pipeline run that produced the files."
+    },
+    "keyId": {
+      "type": "string",
+      "pattern": "^[0-9A-F]{16}$",
+      "description": "Minisign key id of the signing key, upper-case hex."
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FileEntry"
+      }
+    }
+  },
+  "$defs": {
+    "FileEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-][A-Za-z0-9._+-]*(/[A-Za-z0-9_+-][A-Za-z0-9._+-]*)*$",
+          "description": "Path relative to the patch directory, '/'-separated; no segment starts with '.', so '.' and '..' are impossible."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

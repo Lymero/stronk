@@ -1,0 +1,10 @@
+{
+  "include": ["pipeline", "tools", "contracts"],
+  "exclude": ["**/node_modules", "**/.venv", "**/__pycache__", "contracts/generated/rust", "contracts/generated/ts"],
+  "extraPaths": ["tools/checks"],
+  "pythonVersion": "3.13",
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "strict",
+  "reportMissingTypeStubs": false
+}

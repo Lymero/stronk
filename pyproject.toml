@@ -1,0 +1,38 @@
+# uv workspace root. Not a package; holds shared dev tooling and config.
+[project]
+name = "stronk-workspace"
+version = "0.0.0"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "stronk-pipeline",
+    "stronk-synth",
+    "stronk-contracts",
+    "datamodel-code-generator",
+    "hypothesis",
+    "import-linter",
+    "jsonschema",
+    "rfc3339-validator",
+    "pre-commit",
+    "pytest",
+    "ruff",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["pipeline", "tools/synth", "contracts/generated/python"]
+
+[tool.uv.sources]
+stronk-pipeline = { workspace = true }
+stronk-synth = { workspace = true }
+stronk-contracts = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["pipeline/tests", "tools/synth/tests", "tools/checks/tests", "contracts/tests"]
+addopts = ["--import-mode=importlib", "--strict-markers", "-ra"]
+pythonpath = ["tools/checks"]
+markers = ["slow: statistical tests that take more than a few seconds"]

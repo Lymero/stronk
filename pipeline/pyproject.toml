@@ -1,0 +1,23 @@
+[project]
+name = "stronk-pipeline"
+version = "0.1.0"
+description = "Stronk pipeline: crawl, extract, winprob, wpa, publish."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "numpy>=2.2",
+    "polars>=1.30",
+    "pydantic>=2.11",
+    "pydantic-settings>=2.9",
+    "stronk-contracts",
+    "typer>=0.16",
+]
+
+[project.scripts]
+stronk-pipeline = "stronk_pipeline.cli:main"
+
+[tool.uv.sources]
+stronk-contracts = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"

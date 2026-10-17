@@ -1,0 +1,10 @@
+[project]
+name = "stronk-contracts"
+version = "1.0.0"
+description = "Generated pydantic models for the Stronk data contract. Do not edit; run `just gen`."
+requires-python = ">=3.13,<3.14"
+dependencies = ["pydantic>=2.11"]
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"

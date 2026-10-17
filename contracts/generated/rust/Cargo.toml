@@ -1,0 +1,21 @@
+[package]
+name = "stronk-contracts"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.99"
+description = "Generated Rust types for the Stronk data contract. Do not edit src/; run `just gen`."
+license = "MIT"
+publish = false
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["serde", "std"] }
+regress = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+indexing_slicing = "deny"

@@ -1,0 +1,39 @@
+# Performance budgets (docs/architecture.md, section 7). Checked by `just check`.
+#
+# A budget has `enforce = false` until first met, then `true`. Budgets only tighten: lowering a
+# limit is fine, raising one or turning `enforce` off fails unless docs/decisions.md names the
+# scenario. `just bench` writes results to `source` as JSON: {"p50": .., "p95": .., "p99": .., "max": ..}.
+# P99 and max are reported, never enforced.
+
+[[budget]]
+scenario = "lockin_import_cache_hit"
+description = "Lock-in event to import confirmed, cache hit (lcu-mock, 200 replays)"
+source = "perf/out/lockin_import_cache_hit.json"
+unit = "ms"
+p50 = 100
+p95 = 300
+enforce = false
+
+[[budget]]
+scenario = "cold_data_fetch"
+description = "Cold fetch of one champion's data (serve-data)"
+source = "perf/out/cold_data_fetch.json"
+unit = "ms"
+p95 = 1000
+enforce = false
+
+[[budget]]
+scenario = "app_cold_start"
+description = "App cold start to ready (release build)"
+source = "perf/out/app_cold_start.json"
+unit = "ms"
+p95 = 1000
+enforce = false
+
+[[budget]]
+scenario = "pipeline_fixtures"
+description = "Whole pipeline on committed fixtures (CI)"
+source = "perf/out/pipeline_fixtures.json"
+unit = "s"
+max = 60
+enforce = false

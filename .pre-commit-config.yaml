@@ -1,0 +1,54 @@
+# Installed by `just setup`. Fast checks only; `just check` runs everything.
+# Toolchain hooks go through `mise exec` so they work without mise activated in the shell.
+default_install_hook_types: [pre-commit, commit-msg]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-merge-conflict
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude: ^contracts/generated/
+      - id: trailing-whitespace
+        exclude: ^contracts/generated/
+
+  - repo: local
+    hooks:
+      - id: riot-api-key
+        name: no Riot API keys
+        language: pygrep
+        entry: 'RGAPI-[0-9a-fA-F]{8}-'
+      - id: ruff-format
+        name: ruff format
+        language: system
+        entry: uv run ruff format
+        types_or: [python, pyi]
+      - id: ruff-check
+        name: ruff check
+        language: system
+        entry: uv run ruff check --fix
+        types_or: [python, pyi]
+      - id: cargo-fmt
+        name: cargo fmt (contracts)
+        language: system
+        entry: mise exec -- cargo fmt --manifest-path contracts/generated/rust/Cargo.toml --check
+        files: ^contracts/generated/rust/.*\.rs$
+        pass_filenames: false
+      - id: codegen
+        name: generated contracts up to date
+        language: system
+        entry: mise exec -- uv run python contracts/codegen.py --check
+        files: ^contracts/(schemas/|codegen\.py)
+        pass_filenames: false
+      - id: conventional-commit
+        name: conventional commit message
+        language: system
+        entry: uv run python tools/checks/commit_msg.py
+        stages: [commit-msg]
