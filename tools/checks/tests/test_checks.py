@@ -85,15 +85,18 @@ def test_loosening_needs_a_decision(tmp_path: Path) -> None:
     assert unjustified(["m.error", "m.other"], decisions) == ["m.other"]
 
 
-def test_committed_floors_and_budgets_parse() -> None:
+def test_committed_floors_and_budgets_parse(tmp_path: Path) -> None:
+    """Well-formed config only: measured results are `just budgets`' job, after `just bench`."""
     import tomllib
 
     root = Path(__file__).resolve().parents[3]
     floors = tomllib.loads((root / "metrics/floors.toml").read_text())["floor"]
     budgets = tomllib.loads((root / "perf/budgets.toml").read_text())["budget"]
     assert all({"metric", "source"} <= f.keys() for f in floors)
-    _, problems = check_budgets.check(budgets, root)
-    assert problems == []
+    _, problems = check_budgets.check(budgets, tmp_path)  # no results there
+    enforced = {b["scenario"] for b in budgets if b["enforce"]}
+    assert {p.split(":")[0] for p in problems} == enforced
+    assert all(p.endswith("over budget or not measured") for p in problems)
 
 
 def test_pipeline_metrics_read_the_extract_report() -> None:
