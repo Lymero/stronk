@@ -3,5 +3,10 @@
 #
 # [[file]]
 # name = "crawl-euw1-16.20"
-# url = "https://…/crawl-euw1-16.20.tar.gz"
+# url = "https://api.github.com/repos/<owner>/<repo>/releases/assets/<id>"  # needs GITHUB_TOKEN
 # sha256 = "…"
+
+[[file]]
+name = "crawl-euw1-16.20"
+url = "https://api.github.com/repos/Lymero/stronk/releases/assets/651699669"
+sha256 = "d7c769f75dd7e10fa073aa04fe4e7f75ec52ced10b8e34fff7e7e7feb075178e"

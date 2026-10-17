@@ -55,6 +55,13 @@ gen:
 gen-check:
     uv run python contracts/codegen.py --check
 
+# Full pipeline offline on the committed recording (fixtures/riot/euw1), into runs/pipeline/
+pipeline out="runs/pipeline":
+    rm -rf {{ out }}
+    uv run stronk-pipeline run crawl.run --params '{"platform": "euw1", "max_matches": 10, "replay": "fixtures/riot/euw1", "out": "{{ out }}/crawl"}'
+    uv run stronk-pipeline run extract.run --params '{"crawl": "{{ out }}/crawl", "out": "{{ out }}/extract"}'
+    uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}/extract/decisions.parquet"}' > {{ out }}/wpa.json
+
 # Crawl ranked games from the Riot API (needs RIOT_API_KEY); rerun to resume
 crawl platform="euw1" games="100" out=("runs/crawl/" + platform):
     uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}"}'
@@ -77,7 +84,7 @@ pipeline-stage name params="{}":
 
 # Fetch and verify the pinned test corpus (corpus.lock) into corpus/
 corpus:
-    uv run python tools/corpus/corpus.py fetch
+    GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}" uv run python tools/corpus/corpus.py fetch
 
 # Archive a crawl directory for the corpus and print its corpus.lock entry
 corpus-pack crawl name:

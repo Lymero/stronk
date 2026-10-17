@@ -20,7 +20,7 @@ target/
 # Pipeline and check outputs
 dist/
 runs/
-corpus/
+/corpus/
 metrics/out/
 perf/out/
 

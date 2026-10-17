@@ -27,7 +27,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just test` | All tests |
 | `just gen` | Regenerate types from `contracts/schemas/` |
 | `just corpus` | Fetch and verify the pinned test corpus |
-| `just pipeline` | Full pipeline on fixtures, publishing to `dist/data/` |
+| `just pipeline` | Full pipeline on the committed fixture (crawl replay, extract, wpa) into `runs/pipeline/`; publishes to `dist/data/` once `publish` exists |
 | `just pipeline-stage <name>` | One stage: `crawl`, `extract`, `winprob`, `wpa`, `publish` |
 | `just crawl <platform> <games>` | Crawl ranked games from the Riot API (needs `RIOT_API_KEY`); rerun to resume |
 | `just extract` | Frames and decision points from a crawl directory |
