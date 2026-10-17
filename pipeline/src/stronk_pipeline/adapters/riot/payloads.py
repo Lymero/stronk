@@ -7,9 +7,10 @@ rejected as a whole.
 
 from __future__ import annotations
 
-from typing import Annotated, Final, Literal
+from collections.abc import Mapping
+from typing import Annotated, Final, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from stronk_pipeline.domain.match import (
     BuildingEvent,
@@ -26,6 +27,7 @@ from stronk_pipeline.domain.match import (
     Team,
     patch_of,
 )
+from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import Champion, Item, StaticData
 from stronk_pipeline.ports import MatchHeader
 
@@ -261,6 +263,51 @@ class PayloadError(ValueError):
     """A payload that validated but cannot form a consistent domain object."""
 
 
+def parse_match(body: object) -> Result[MatchPayload, str]:
+    try:
+        return Ok(_MATCH.validate_python(body))
+    except ValidationError as e:
+        return Err(rejection(e))
+
+
+def parse_game(match: MatchPayload, timeline: object) -> Result[Match, str]:
+    try:
+        return Ok(to_match(match, _TIMELINE.validate_python(timeline)))
+    except (PayloadError, ValidationError) as e:
+        return Err(rejection(e))
+
+
+def parse_quarantined(payload: object) -> Result[Match | None, str]:
+    """`PayloadParser` for games quarantined by the crawl (`ports.Rejected`)."""
+    if not isinstance(payload, Mapping):
+        return Err("quarantine entry is not an object")
+    entry = cast("Mapping[str, object]", payload)
+    match parse_match(entry.get("match")):
+        case Err() as e:
+            return e
+        case Ok(value=match):
+            pass
+    if entry.get("timeline") is None:
+        return Ok(None)
+    match parse_game(match, entry["timeline"]):
+        case Ok(value=game):
+            return Ok(game)
+        case Err() as e:
+            return e
+
+
+def rejection(error: Exception) -> str:
+    """Why a payload was rejected, without ids or positions, so reasons group by cause:
+    `event.ELITE_MONSTER_KILL.killerTeamId: literal_error`."""
+    if isinstance(error, ValidationError):
+        first = error.errors()[0] if error.errors() else None
+        if first is None:
+            return "validation_error"
+        where = ".".join("*" if isinstance(part, int) else str(part) for part in first["loc"])
+        return f"{where or '(root)'}: {first['type']}"
+    return str(error) or type(error).__name__
+
+
 def to_match(match: MatchPayload, timeline: TimelinePayload) -> Match:
     """Raises PayloadError, or pydantic's ValidationError for a malformed event."""
     info = match.info
@@ -408,3 +455,7 @@ def _is_ownerless(event: object) -> bool:
 def _is_known(event: dict[str, object]) -> bool:
     kind = event.get("type")
     return isinstance(kind, str) and kind in _KNOWN_EVENTS
+
+
+_MATCH = TypeAdapter(MatchPayload)
+_TIMELINE = TypeAdapter(TimelinePayload)

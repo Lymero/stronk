@@ -30,7 +30,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just pipeline` | Full pipeline on the committed fixture (crawl replay, extract, wpa) into `runs/pipeline/`; publishes to `dist/data/` once `publish` exists |
 | `just pipeline-stage <name>` | One stage: `crawl`, `extract`, `winprob`, `wpa`, `publish` |
 | `just crawl <platform> <games>` | Crawl ranked games from the Riot API (needs `RIOT_API_KEY`); rerun to resume |
-| `just extract` | Frames and decision points from a crawl directory |
+| `just extract [crawl] [out] [--retry-quarantine]` | Frames and decision points from a crawl directory; the flag first re-reads games the crawl quarantined |
 | `just corpus-pack <crawl> <name>` | Archive a crawl for the corpus and print its `corpus.lock` entry |
 | `just serve-data` | Serve `dist/data/` locally, like the CDN |
 | `just app-mock` | UI in the browser against `MockBackend` |

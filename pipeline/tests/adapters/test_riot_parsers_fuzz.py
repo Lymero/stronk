@@ -10,6 +10,7 @@ from riot_builders import buy, kill, match_payload, timeline_payload, tower
 from riot_server import FakeRiot, run, source
 
 from stronk_pipeline.domain.result import Err, Ok
+from stronk_pipeline.ports import Rejected
 
 MATCH = "/lol/match/v5/matches/EUW1_1"
 BASE_MATCH = match_payload()
@@ -82,4 +83,4 @@ def test_mutated_payloads_never_raise(
 def test_arbitrary_bodies_never_raise(body: bytes) -> None:
     riot = FakeRiot({MATCH: [httpx.Response(200, content=body)]})
     result = run(source(riot).fetch("EUW1_1", lambda _: None))
-    assert isinstance(result, Err)
+    assert isinstance(result, Err) or isinstance(result.value, Rejected)  # JSON is kept

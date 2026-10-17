@@ -1,8 +1,10 @@
 """`crawl.run`: ranked solo games of one platform and one patch, into a crawl directory.
 
 Seeds players from the ranked ladder (best first), walks each one's latest games and keeps the
-ones from the target patch. Resumable: games already stored or skipped are never fetched
-again, so rerunning the command continues where the last run stopped.
+ones from the target patch. Games that fail validation go to quarantine with their payloads, for
+`extract.run` with `retry_quarantine` once the parser is fixed. Resumable: games already
+stored, skipped or quarantined are never fetched again, so rerunning the command continues where
+the last run stopped.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from stronk_pipeline.ports import (
     MatchSource,
     MatchStore,
     Platform,
+    Rejected,
     Skipped,
     SourceError,
     StoreError,
@@ -180,10 +183,15 @@ class _Crawl:
                 return "next"
             case Err(error=e):
                 log.warning("skipping %s: %s", match_id, e.message)
-                outcome: Match | Skipped = Skipped(e.kind)
+                outcome: Match | Skipped | Rejected = Skipped(e.kind)
             case Ok(value=outcome):
                 pass
         seen.add(match_id)
+        if isinstance(outcome, Rejected):
+            log.warning("quarantining %s: %s", match_id, outcome.reason)
+            self.skipped["quarantined"] += 1
+            stored = self.store.quarantine(match_id, outcome.reason, outcome.payload)
+            return self._check(stored) or "next"
         if isinstance(outcome, Skipped):
             self.skipped[outcome.reason] += 1
             if (failure := self._check(self.store.skip(match_id, outcome.reason))) is not None:

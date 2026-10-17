@@ -13,7 +13,7 @@ from riot_server import FakeClock, FakeRiot, run, source
 
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok
-from stronk_pipeline.ports import MatchHeader, Skipped
+from stronk_pipeline.ports import MatchHeader, Rejected, Skipped
 
 MATCH = "/lol/match/v5/matches/EUW1_1"
 CHALLENGER = "/lol/league/v4/challengerleagues/by-queue/RANKED_SOLO_5x5"
@@ -78,12 +78,12 @@ def test_events_owned_by_participant_zero_are_dropped() -> None:
     assert game.skills == ()
 
 
-def test_event_owned_by_participant_eleven_is_invalid() -> None:
+def test_event_owned_by_participant_eleven_is_rejected() -> None:
     events = [buy(300_000, 11, 1037)]
     riot = FakeRiot({MATCH: match_payload(), f"{MATCH}/timeline": timeline_payload(events=events)})
     result = run(source(riot).fetch("EUW1_1", keep))
-    assert isinstance(result, Err)
-    assert result.error.kind == "invalid"
+    assert isinstance(result, Ok)
+    assert isinstance(result.value, Rejected)
 
 
 def test_monster_kills_by_the_neutral_team_are_dropped() -> None:
@@ -96,12 +96,37 @@ def test_monster_kills_by_the_neutral_team_are_dropped() -> None:
     assert [m.team for m in game.monsters] == [200]
 
 
-def test_monster_kill_by_an_unknown_team_is_invalid() -> None:
+def test_monster_kill_by_an_unknown_team_is_rejected() -> None:
     events = [monster(500_000, 400, "HORDE")]
     riot = FakeRiot({MATCH: match_payload(), f"{MATCH}/timeline": timeline_payload(events=events)})
     result = run(source(riot).fetch("EUW1_1", keep))
-    assert isinstance(result, Err)
-    assert result.error.kind == "invalid"
+    assert isinstance(result, Ok)
+    assert isinstance(result.value, Rejected)
+
+
+def test_rejected_game_keeps_both_payloads() -> None:
+    events = [monster(500_000, 400, "HORDE")]
+    riot = FakeRiot({MATCH: match_payload(), f"{MATCH}/timeline": timeline_payload(events=events)})
+    result = run(source(riot).fetch("EUW1_1", keep))
+    assert isinstance(result, Ok)
+    rejected = result.value
+    assert isinstance(rejected, Rejected)
+    assert (
+        rejected.reason == "event.ELITE_MONSTER_KILL.killerTeamId.literal[100,200]: literal_error"
+    )
+    assert rejected.payload == {
+        "match": match_payload(),
+        "timeline": timeline_payload(events=events),
+    }
+
+
+def test_unreadable_match_is_rejected_without_fetching_its_timeline() -> None:
+    payload = match_payload()
+    del payload["info"]["gameVersion"]
+    riot = FakeRiot({MATCH: payload, f"{MATCH}/timeline": timeline_payload()})
+    result = run(source(riot).fetch("EUW1_1", keep))
+    assert result == Ok(Rejected("info.gameVersion: missing", {"match": payload, "timeline": None}))
+    assert riot.paths() == [MATCH]
 
 
 def test_fetch_skips_the_timeline_of_unwanted_games() -> None:
@@ -118,13 +143,13 @@ def test_header_flags_remakes() -> None:
     assert headers[0].remake
 
 
-def test_inconsistent_game_is_invalid() -> None:
+def test_inconsistent_game_is_rejected() -> None:
     payload = match_payload()
     payload["info"]["participants"][0]["teamPosition"] = ""
     riot = FakeRiot({MATCH: payload, f"{MATCH}/timeline": timeline_payload()})
     result = run(source(riot).fetch("EUW1_1", keep))
-    assert isinstance(result, Err)
-    assert result.error.kind == "invalid"
+    assert isinstance(result, Ok)
+    assert isinstance(result.value, Rejected)
 
 
 def test_not_found() -> None:

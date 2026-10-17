@@ -15,6 +15,7 @@ from stronk_pipeline.adapters.match_store import FileMatchStore
 from stronk_pipeline.adapters.parquet_store import ParquetDecisionStore, ParquetFrameStore
 from stronk_pipeline.adapters.recording import PlaybackTransport, RecordingTransport, Scrubber
 from stronk_pipeline.adapters.riot.client import RiotApiSource
+from stronk_pipeline.adapters.riot.payloads import parse_quarantined
 from stronk_pipeline.adapters.riot.rate_limit import RateLimiter
 from stronk_pipeline.application.crawl import CrawlParams, SourceFactory, crawl_command
 from stronk_pipeline.application.extract import extract_command
@@ -37,7 +38,13 @@ def build_registry(settings: Settings | None = None) -> CommandRegistry:
     return CommandRegistry(
         [
             crawl_command(riot_sources(settings), FileMatchStore),
-            extract_command(FileMatchStore, decisions, ParquetFrameStore(), JsonReportWriter()),
+            extract_command(
+                FileMatchStore,
+                parse_quarantined,
+                decisions,
+                ParquetFrameStore(),
+                JsonReportWriter(),
+            ),
             wpa_estimate_command(decisions, estimators),
         ]
     )

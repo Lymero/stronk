@@ -29,3 +29,6 @@ perf/out/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Games that failed validation (crawl directories keep them in quarantine/)
+quarantine/

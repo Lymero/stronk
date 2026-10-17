@@ -19,17 +19,24 @@ from stronk_pipeline.adapters.riot.payloads import (
     ItemsPayload,
     League,
     LeagueEntry,
-    MatchPayload,
     PayloadError,
-    TimelinePayload,
-    to_match,
+    parse_game,
+    parse_match,
     to_static,
 )
 from stronk_pipeline.adapters.riot.rate_limit import RateLimiter
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
-from stronk_pipeline.ports import MatchHeader, Platform, Skipped, SourceError, SourceStats, Tier
+from stronk_pipeline.ports import (
+    MatchHeader,
+    Platform,
+    Rejected,
+    Skipped,
+    SourceError,
+    SourceStats,
+    Tier,
+)
 
 log = logging.getLogger(__name__)
 
@@ -49,8 +56,6 @@ _MATCH_IDS = TypeAdapter(list[str])
 _VERSIONS = TypeAdapter(list[str])
 _ENTRIES = TypeAdapter(list[LeagueEntry])
 _LEAGUE = TypeAdapter(League)
-_MATCH = TypeAdapter(MatchPayload)
-_TIMELINE = TypeAdapter(TimelinePayload)
 _CHAMPIONS = TypeAdapter(ChampionsPayload)
 _ITEMS = TypeAdapter(ItemsPayload)
 
@@ -100,27 +105,31 @@ class RiotApiSource:
 
     async def fetch(
         self, match_id: str, wanted: Callable[[MatchHeader], str | None]
-    ) -> Result[Match | Skipped, SourceError]:
+    ) -> Result[Match | Skipped | Rejected, SourceError]:
         url = f"{self._region}/lol/match/v5/matches/{match_id}"
-        body = await self._riot(url, "match", {})
-        match _then(body, lambda b: _validate(_MATCH, b, f"match {match_id}")):
+        match await self._riot(url, "match", {}):
             case Err() as e:
                 return e
+            case Ok(value=body):
+                pass
+        match parse_match(body):
+            case Err(error=reason):
+                return Ok(Rejected(reason, {"match": body, "timeline": None}))
             case Ok(value=payload):
                 pass
-        reason = wanted(payload.header())
-        if reason is not None:
-            return Ok(Skipped(reason))
-        body = await self._riot(f"{url}/timeline", "timeline", {})
-        match _then(body, lambda b: _validate(_TIMELINE, b, f"timeline {match_id}")):
+        skip = wanted(payload.header())
+        if skip is not None:
+            return Ok(Skipped(skip))
+        match await self._riot(f"{url}/timeline", "timeline", {}):
             case Err() as e:
                 return e
             case Ok(value=timeline):
                 pass
-        try:
-            return Ok(to_match(payload, timeline))
-        except (PayloadError, ValidationError) as e:
-            return Err(SourceError("invalid", f"match {match_id}: {_first_line(e)}"))
+        match parse_game(payload, timeline):
+            case Err(error=reason):
+                return Ok(Rejected(reason, {"match": body, "timeline": timeline}))
+            case Ok(value=game):
+                return Ok(game)
 
     async def static_data(self, patch: str) -> Result[StaticData, SourceError]:
         body = await self._get(f"{DATA_DRAGON}/api/versions.json", None, {}, {})

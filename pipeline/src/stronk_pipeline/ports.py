@@ -57,6 +57,33 @@ class Skipped:
 
 
 @dataclass(frozen=True)
+class Rejected:
+    """A game fetched whole that failed validation: kept in quarantine for a later retry."""
+
+    reason: str
+    """Short and free of ids, so rejections group by cause."""
+    payload: Mapping[str, object]
+    """`{"match": ..., "timeline": ...}` as received; `timeline` is None when the match itself
+    failed, before the timeline was fetched."""
+
+
+@dataclass(frozen=True)
+class Quarantined:
+    match_id: str
+    reason: str
+    payload: Mapping[str, object]
+    """As `Rejected.payload`, with identities scrubbed and PUUIDs replaced by the crawl's
+    pseudonyms, so a game that parses on retry is stored as it is."""
+
+
+class PayloadParser(Protocol):
+    def __call__(self, payload: object) -> Result[Match | None, str]:
+        """A quarantined game read with today's parser: the game; None when only its match
+        was kept and it now reads (crawl it again for its timeline); or why it still fails."""
+        ...
+
+
+@dataclass(frozen=True)
 class SourceStats:
     requests: int
     retries: int
@@ -77,7 +104,7 @@ class MatchSource(Protocol):
 
     async def fetch(
         self, match_id: str, wanted: Callable[[MatchHeader], str | None]
-    ) -> Result[Match | Skipped, SourceError]:
+    ) -> Result[Match | Skipped | Rejected, SourceError]:
         """The whole game, unless `wanted` returns a reason to skip it after the header."""
         ...
 
@@ -93,7 +120,7 @@ class MatchStore(Protocol):
     fetched again."""
 
     def known(self) -> Result[frozenset[str], StoreError]:
-        """Ids of games stored or skipped."""
+        """Ids of games stored, skipped or quarantined."""
         ...
 
     def salt(self) -> Result[bytes, StoreError]:
@@ -107,6 +134,22 @@ class MatchStore(Protocol):
     def put(self, match: Match) -> Result[None, StoreError]: ...
 
     def skip(self, match_id: str, reason: str) -> Result[None, StoreError]: ...
+
+    def skip_counts(self) -> Result[dict[str, int], StoreError]:
+        """Skipped games by reason."""
+        ...
+
+    def quarantine(
+        self, match_id: str, reason: str, payload: Mapping[str, object]
+    ) -> Result[None, StoreError]:
+        """Keep a rejected game, scrubbed, for `quarantined`; replaces an earlier entry."""
+        ...
+
+    def quarantined(self) -> Result[list[Quarantined], StoreError]: ...
+
+    def release(self, match_id: str) -> Result[None, StoreError]:
+        """Forget a quarantined game: stored since, or to be crawled again."""
+        ...
 
     def has_static(self, patch: str) -> bool: ...
 

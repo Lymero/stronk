@@ -15,6 +15,7 @@ from stronk_pipeline.domain.static import StaticData
 from stronk_pipeline.ports import (
     MatchHeader,
     MatchSource,
+    Rejected,
     Skipped,
     SourceError,
     SourceStats,
@@ -32,10 +33,12 @@ class FakeSource:
         histories: dict[str, list[Match]],
         *,
         failures: dict[str, SourceError] | None = None,
+        rejections: dict[str, Rejected] | None = None,
     ) -> None:
         self.histories = histories
         self.games = {g.match_id: g for gs in histories.values() for g in gs}
         self.failures = failures or {}
+        self.rejections = rejections or {}
         self.fetched: list[str] = []
         self.timelines: list[str] = []
         self.static_calls: list[str] = []
@@ -51,10 +54,12 @@ class FakeSource:
 
     async def fetch(
         self, match_id: str, wanted: Callable[[MatchHeader], str | None]
-    ) -> Result[Match | Skipped, SourceError]:
+    ) -> Result[Match | Skipped | Rejected, SourceError]:
         self.fetched.append(match_id)
         if match_id in self.failures:
             return Err(self.failures[match_id])
+        if match_id in self.rejections:
+            return Ok(self.rejections[match_id])
         g = self.games[match_id]
         reason = wanted(MatchHeader(match_id, g.patch, g.queue, 11, remake=False))
         if reason is not None:
@@ -165,6 +170,23 @@ def test_invalid_games_are_remembered_as_skipped(tmp_path: Path) -> None:
     assert isinstance(result, Ok)
     assert result.value.skipped == {"invalid": 1}
     again = FakeSource({puuid(1): [game("EUW1_1")]})
+    crawl(again, tmp_path)
+    assert again.fetched == []
+
+
+def test_rejected_games_are_quarantined_and_not_fetched_again(tmp_path: Path) -> None:
+    rejected = Rejected("timeline: bad", {"match": {"metadata": {}}, "timeline": {"info": {}}})
+    games = {puuid(1): [game("EUW1_1"), game("EUW1_2")]}
+    result = crawl(FakeSource(games, rejections={"EUW1_1": rejected}), tmp_path)
+    assert isinstance(result, Ok)
+    assert result.value.skipped == {"quarantined": 1}
+    assert result.value.stored == 1
+    held = FileMatchStore(tmp_path).quarantined()
+    assert isinstance(held, Ok)
+    assert [(q.match_id, q.reason, q.payload) for q in held.value] == [
+        ("EUW1_1", "timeline: bad", rejected.payload)
+    ]
+    again = FakeSource(games)
     crawl(again, tmp_path)
     assert again.fetched == []
 

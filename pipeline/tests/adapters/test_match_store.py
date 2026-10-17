@@ -3,6 +3,7 @@ from pathlib import Path
 from riot_builders import domain_match, domain_static
 
 from stronk_pipeline.adapters.match_store import FileMatchStore
+from stronk_pipeline.domain.match import pseudonym
 from stronk_pipeline.domain.result import Err, Ok
 
 
@@ -71,3 +72,41 @@ def test_unexpected_ids_are_refused(tmp_path: Path) -> None:
     result = FileMatchStore(tmp_path).put(domain_match("../escape"))
     assert isinstance(result, Err)
     assert not list(tmp_path.parent.glob("escape*"))
+
+
+def test_quarantine_scrubs_identities_into_the_crawl_pseudonyms(tmp_path: Path) -> None:
+    store = FileMatchStore(tmp_path)
+    player = "p" * 78
+    payload = {"match": {"riotIdGameName": "Faker", "puuid": player, "metadata": [player]}}
+    assert store.quarantine("EUW1_3", "why", payload) == Ok(None)
+    salt = store.salt()
+    assert isinstance(salt, Ok)
+    pseudonymous = pseudonym(player, salt.value)
+    held = store.quarantined()
+    assert isinstance(held, Ok)
+    assert held.value[0].payload == {"match": {"puuid": pseudonymous, "metadata": [pseudonymous]}}
+    raw = (tmp_path / "quarantine" / "EUW1_3.json.gz").read_bytes()
+    assert b"Faker" not in raw
+    assert player.encode() not in raw
+
+
+def test_quarantined_games_are_known_until_released(tmp_path: Path) -> None:
+    store = FileMatchStore(tmp_path)
+    store.quarantine("EUW1_3", "why", {"match": None})
+    assert store.known() == Ok(frozenset({"EUW1_3"}))
+    assert store.release("EUW1_3") == Ok(None)
+    assert store.known() == Ok(frozenset[str]())
+    assert store.quarantined() == Ok([])
+
+
+def test_skip_counts_by_reason(tmp_path: Path) -> None:
+    store = FileMatchStore(tmp_path)
+    for i, reason in enumerate(["remake", "older_patch", "remake"]):
+        store.skip(f"EUW1_{i}", reason)
+    assert store.skip_counts() == Ok({"older_patch": 1, "remake": 2})
+
+
+def test_quarantine_rejects_unsafe_ids(tmp_path: Path) -> None:
+    store = FileMatchStore(tmp_path)
+    assert isinstance(store.quarantine("../x", "why", {}), Err)
+    assert isinstance(store.release("../x"), Err)

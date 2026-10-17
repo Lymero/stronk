@@ -4,6 +4,7 @@ from typing import Any
 
 import check_budgets
 import check_floors
+import pipeline_metrics
 from ratchet import loosened, unjustified
 
 FLOOR = {"metric": "m.error", "source": "out.json", "max": 0.1}
@@ -92,3 +93,8 @@ def test_committed_floors_and_budgets_parse() -> None:
     assert all({"metric", "source"} <= f.keys() for f in floors)
     _, problems = check_budgets.check(budgets, root)
     assert problems == []
+
+
+def test_pipeline_metrics_read_the_extract_report() -> None:
+    report = {"stage": "extract", "result": {"skip_rate": 0.25}}
+    assert pipeline_metrics.metrics(report) == {"pipeline.skip_rate": 0.25}

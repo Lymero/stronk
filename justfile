@@ -66,9 +66,18 @@ pipeline out="runs/pipeline":
 crawl platform="euw1" games="100" out=("runs/crawl/" + platform):
     uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}"}'
 
-# Frames and decision points from a crawl directory
-extract crawl="runs/crawl/euw1" out="runs/extract/euw1":
-    uv run stronk-pipeline run extract.run --params '{"crawl": "{{ crawl }}", "out": "{{ out }}"}'
+# Frames and decision points from a crawl directory; --retry-quarantine re-reads quarantined games first
+extract crawl="runs/crawl/euw1" out="runs/extract/euw1" *flags:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    retry=false
+    for flag in {{ flags }}; do
+        case "$flag" in
+            --retry-quarantine) retry=true ;;
+            *) echo "unknown flag $flag; known: --retry-quarantine" >&2; exit 2 ;;
+        esac
+    done
+    uv run stronk-pipeline run extract.run --params '{"crawl": "{{ crawl }}", "out": "{{ out }}", "retry_quarantine": '"$retry"'}'
 
 # One pipeline stage by name (crawl, extract, wpa) with JSON parameters
 pipeline-stage name params="{}":
@@ -93,6 +102,8 @@ corpus-pack crawl name:
 # Synthetic-truth metrics against metrics/floors.toml
 floors:
     uv run stronk-synth eval --out metrics/out/synthetic.json > /dev/null
+    just pipeline > /dev/null
+    uv run python tools/checks/pipeline_metrics.py runs/pipeline/extract/report.json metrics/out/pipeline.json
     uv run python tools/checks/check_floors.py
 
 # Benchmark results against perf/budgets.toml

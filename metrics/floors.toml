@@ -67,3 +67,12 @@ enforce = false
 metric = "backtest.direction_share"
 source = "metrics/out/backtest.json"
 enforce = false
+
+# Pipeline on the committed live recording (`just pipeline`). Skip rate: games lost to a failure
+# (quarantined by the crawl, or dropped whole by extract) over games attempted. Measured
+# 2026-10-18: 0 on the fixture and on the 3305-game crawl; the first crawl, before the two
+# live-payload fixes (ADR-028), would have been about 0.09.
+[[floor]]
+metric = "pipeline.skip_rate"
+source = "metrics/out/pipeline.json"
+max = 0.01
