@@ -1,0 +1,22 @@
+[package]
+name = "stronk-data"
+description = "BuildSource adapters: published data from a directory, verified against its signature"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+minisign-verify = "0.3.0"
+serde_json = "1"
+sha2 = "0.10"
+stronk-contracts = { path = "../../../../contracts/generated/rust" }
+stronk-domain = { path = "../domain" }
+stronk-service = { path = "../service" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

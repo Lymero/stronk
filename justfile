@@ -4,6 +4,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 contracts_rs := "--manifest-path contracts/generated/rust/Cargo.toml"
+core_rs := "--manifest-path app/core/Cargo.toml"
 ci_corpus := "crawl-ci-16.20"
 full_corpus := "crawl-all-16.20"
 
@@ -16,6 +17,7 @@ setup:
     uv sync --all-packages --locked
     pnpm install --frozen-lockfile
     cargo fetch {{ contracts_rs }} --locked
+    cargo fetch {{ core_rs }} --locked
     if git rev-parse --git-dir >/dev/null 2>&1; then uv run pre-commit install --hook-type pre-commit --hook-type commit-msg; fi
 
 # Format, lint, typecheck, architecture rules, tests, codegen drift, floors, budgets
@@ -27,27 +29,32 @@ fmt:
     uv run ruff format .
     uv run ruff check --fix-only --quiet .
     cargo fmt {{ contracts_rs }}
+    cargo fmt {{ core_rs }} --all
 
 fmt-check:
     uv run ruff format --check .
     cargo fmt --check {{ contracts_rs }}
+    cargo fmt --check {{ core_rs }} --all
 
 lint:
     uv run ruff check .
     cargo clippy {{ contracts_rs }} --all-targets --locked --quiet -- -D warnings
+    cargo clippy {{ core_rs }} --all-targets --locked --quiet -- -D warnings
 
 typecheck:
     pnpm exec pyright
     pnpm exec tsc -p contracts/generated/ts
 
-# Dependency rules between layers (import-linter)
+# Dependency rules between layers (import-linter; Cargo crate graph)
 arch:
     uv run lint-imports
+    uv run python tools/checks/rust_layers.py
 
 # All tests
 test:
     uv run pytest
     cargo test {{ contracts_rs }} --locked --quiet
+    cargo test {{ core_rs }} --locked --quiet
 
 # Regenerate types from contracts/schemas/
 gen:
@@ -167,3 +174,14 @@ pipeline-run id params="{}":
 synth out="runs/synth/decisions.parquet":
     uv run stronk-synth generate --out {{ out }}
     uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}"}'
+
+# Run an app command from the terminal: just core build.get '{"champion": "LeeSin", "role": "JUNGLE"}'
+core id params="{}":
+    cargo run {{ core_rs }} --quiet -p stronk-cli -- run {{ id }} --params '{{ params }}'
+
+# Refresh fixtures/data (signed fixture pipeline output) and its throwaway public key
+fixture-data:
+    just pipeline > /dev/null
+    rm -rf fixtures/data && mkdir -p fixtures/data
+    cp -r runs/pipeline/dist/. fixtures/data/
+    cp runs/pipeline/throwaway.key.pub fixtures/data.pub

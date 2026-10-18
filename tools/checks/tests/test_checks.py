@@ -134,3 +134,15 @@ def test_bench_reports_median_and_max() -> None:
     result = bench.measure(lambda: runs.append(None), repeats=3, clock=lambda: next(ticks))
     assert result == {"p50": 2.0, "max": 3.0}
     assert len(runs) == 3
+
+
+def test_rust_layers_point_inward() -> None:
+    import rust_layers
+
+    def package(name: str, *deps: str) -> rust_layers.Package:
+        return {"name": name, "dependencies": [{"name": d, "kind": None} for d in deps]}
+
+    ok = [package("stronk-domain"), package("stronk-service", "stronk-domain", "serde")]
+    assert rust_layers.violations(ok) == []
+    bad = [package("stronk-domain", "stronk-service"), package("stronk-service")]
+    assert rust_layers.violations(bad) == ["stronk-domain must not depend on stronk-service"]

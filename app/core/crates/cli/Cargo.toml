@@ -1,0 +1,22 @@
+[package]
+name = "stronk-cli"
+description = "`stronk-core`: run app commands from the terminal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "stronk-core"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+serde_json = "1"
+stronk-data = { path = "../data" }
+stronk-lcu = { path = "../lcu" }
+stronk-service = { path = "../service" }
+
+[lints]
+workspace = true
