@@ -14,6 +14,7 @@ because both groups are weighted to the same situations.
 from __future__ import annotations
 
 import numpy as np
+from numpy.typing import NDArray
 
 from stronk_pipeline.domain.decisions import DecisionTable
 from stronk_pipeline.domain.logistic import Floats
@@ -39,6 +40,13 @@ class OverlapWeightedEstimator:
     id = "overlap-weighted"
 
     def estimate(
-        self, table: DecisionTable, wp: Floats, settings: WpaSettings
+        self,
+        table: DecisionTable,
+        wp: Floats,
+        settings: WpaSettings,
+        outcome: Floats | None = None,
+        strata: NDArray[np.str_] | None = None,
     ) -> list[OptionEstimate]:
-        return estimate(table, wp, settings, overlap_weighted)
+        return estimate(
+            table, wp, settings, effect=overlap_weighted, outcome=outcome, strata=strata
+        )

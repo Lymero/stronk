@@ -2,8 +2,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
+import pytest
+from pydantic import ValidationError
 
 from stronk_pipeline.adapters.json_estimates import JsonEstimateStore
+from stronk_pipeline.adapters.parquet_store import ParquetFrameStore
 from stronk_pipeline.adapters.winprob_store import JsonWinProbStore
 from stronk_pipeline.application.registry import CommandError
 from stronk_pipeline.application.wpa_estimate import (
@@ -36,7 +39,9 @@ class FakeStore:
 
 def run(store: FakeStore, **params: object) -> Result[WpaEstimateResult, CommandError]:
     estimators = {"v1-reference": ReferenceEstimatorV1()}
-    command = wpa_estimate_command(store, estimators, JsonWinProbStore(), JsonEstimateStore())
+    command = wpa_estimate_command(
+        store, estimators, JsonWinProbStore(), JsonEstimateStore(), ParquetFrameStore()
+    )
     return command.run(WpaEstimateParams.model_validate({"bootstrap_samples": 20, **params}))
 
 
@@ -120,3 +125,23 @@ def test_writes_estimates_that_read_back(table_factory: TableFactory, tmp_path: 
     assert [(e.option, e.wpa, e.n) for e in read.value] == [
         (e.option, e.wpa, e.n) for e in result.value.estimates
     ]
+
+
+def test_group_by_class_pools_champions(table_factory: TableFactory) -> None:
+    rng = np.random.default_rng(3)
+    n = 400
+    table = table_factory(
+        np.where(rng.random(n) < 0.5, "A", "B").tolist(),
+        (rng.random(n) < 0.5).astype(int).tolist(),
+        champions=np.where(rng.random(n) < 0.5, "Jinx", "Ashe").tolist(),
+        champion_class="marksman",
+        features=rng.normal(size=(n, 1)),
+    )
+    result = run(FakeStore({"d.parquet": table}), decisions="d.parquet", group="class")
+    assert isinstance(result, Ok)
+    assert {e.champion for e in result.value.estimates} == {"marksman"}
+
+
+def test_window_needs_frames_and_a_model() -> None:
+    with pytest.raises(ValidationError, match="window needs frames and winprob"):
+        WpaEstimateParams.model_validate({"decisions": "d.parquet", "window": 5})

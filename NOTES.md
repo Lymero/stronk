@@ -45,3 +45,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: first run of the `full-corpus` workflow (dispatch by hand once merged); fresh crawls need a new dev key.
 - 2026-10-18: M2 complete. Finding: at 22,954 games (16.20, three regions) no comparison survives FDR (125 contrasts of claimable options against the most played, smallest q 0.085), and 284 of 390 decision points have a single claimable option, so there is nothing to compare there. More data per champion is the bottleneck, and the production key (unlocked by the M3 prototype) is the main path to it.
   Open: before M3, outcome check (final result vs WP at t+5 and t+8) and class-level item estimates.
+- 2026-10-18: pre-M3 checks (ADR-039): windowed outcome (WP at t+5, t+8) halves interval widths but also effects, 0 survivors; class pooling with champion fixed effects: 1 survivor (final result), 2 (t+8, tank supports). Defaults unchanged.
+  Open: whether to publish class-level estimates next to champion ones (needs a contract field and your call).

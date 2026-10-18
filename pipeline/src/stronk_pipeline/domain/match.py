@@ -151,6 +151,9 @@ class Match:
                 raise InvalidMatchError(f"team {team} does not fill every position once")
             if any(p.win != (team == self.winning_team) for p in members):
                 raise InvalidMatchError(f"team {team} players disagree with the result")
+        if any((p.team == 100) != (p.participant_id <= 5) for p in self.participants):
+            # Riot's convention, relied on by tables that keep the participant, not the team.
+            raise InvalidMatchError("participants 1 to 5 must be team 100, 6 to 10 team 200")
 
     def _check_frames(self) -> None:
         if not self.frames:

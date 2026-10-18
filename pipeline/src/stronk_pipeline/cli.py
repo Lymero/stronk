@@ -51,7 +51,7 @@ def build_registry(settings: Settings | None = None) -> CommandRegistry:
             crawl_command(riot_sources(settings), FileMatchStore),
             extract_command(FileMatchStore, parse_quarantined, decisions, frames, reports),
             winprob_train_command(frames, learners, models, reports),
-            wpa_estimate_command(decisions, estimators, models, JsonEstimateStore()),
+            wpa_estimate_command(decisions, estimators, models, JsonEstimateStore(), frames),
             signing_keygen_command(MinisignKeys()),
             publish_command(JsonEstimateStore(), FileMatchStore, MinisignKeys(), LocalPublisher),
         ]

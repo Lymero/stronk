@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from stronk_pipeline.application.registry import Command, CommandError
 from stronk_pipeline.domain.decisions import DecisionTable
@@ -18,8 +18,17 @@ from stronk_pipeline.domain.winprob import (
     columns,
     symmetric,
 )
+from stronk_pipeline.domain.wpa.outcome import windowed_outcome
+from stronk_pipeline.domain.wpa.pooling import pool_by_class
 from stronk_pipeline.domain.wpa.types import WpaSettings
-from stronk_pipeline.ports import DecisionStore, EstimateStore, Estimator, WinProbStore
+from stronk_pipeline.ports import (
+    DecisionStore,
+    EstimateStore,
+    Estimator,
+    FrameStore,
+    WinProbModel,
+    WinProbStore,
+)
 
 
 class WpaEstimateParams(BaseModel):
@@ -34,6 +43,19 @@ class WpaEstimateParams(BaseModel):
     estimator: str = "v1-reference"
     bootstrap_samples: Annotated[int, Field(ge=10, le=10_000)] = 200
     seed: int = 0
+    window: Annotated[float, Field(gt=0, le=60)] | None = None
+    """Score against the team's WP this many minutes later instead of the final result
+    (ADR-039). Needs `frames` and `winprob`."""
+    frames: str | None = None
+    """Frame table (Parquet) of the same games, for `window`."""
+    group: Literal["champion", "class"] = "champion"
+    """`class` pools every champion of a class at each decision point, champion as a feature."""
+
+    @model_validator(mode="after")
+    def _window_needs_frames(self) -> Self:
+        if self.window is not None and (self.frames is None or self.winprob is None):
+            raise ValueError("window needs frames and winprob")
+        return self
 
 
 class OptionEstimateRow(BaseModel):
@@ -61,23 +83,42 @@ def wpa_estimate_command(
     estimators: Mapping[str, Estimator],
     models: WinProbStore,
     estimates_out: EstimateStore,
+    frames: FrameStore,
 ) -> Command[WpaEstimateParams, WpaEstimateResult]:
-    def win_probability(
-        table: DecisionTable, model_path: str | None
-    ) -> Result[Floats, CommandError]:
-        if model_path is None:
-            return Ok(BaselineWinProb.fit(table).predict(table))
-        match models.load(Path(model_path)):
+    def inputs(
+        params: WpaEstimateParams,
+    ) -> Result[tuple[DecisionTable, Floats, Floats | None], CommandError]:
+        """The decisions, WP at each and what scores measure against it (None: the result)."""
+        match store.read_decisions(Path(params.decisions)):
             case Err(error=e):
-                code = "not_found" if e.kind == "not_found" else "invalid_input"
-                return Err(CommandError(code=code, message=e.message))
+                return Err(_error(e.kind, e.message))
+            case Ok(value=table):
+                pass
+        if len(table) == 0:
+            return Err(CommandError(code="invalid_input", message="decision table is empty"))
+        if params.winprob is None:
+            return Ok((table, BaselineWinProb.fit(table).predict(table), None))
+        match models.load(Path(params.winprob)):
+            case Err(error=e):
+                return Err(_error(e.kind, e.message))
             case Ok(value=model):
                 pass
         try:
-            x = columns(table.features, table.feature_names, model.feature_names)
+            wp = _predict(model, table.features, table.feature_names, table.minute)
         except MissingFeaturesError as e:
-            return Err(CommandError(code="invalid_input", message=f"{model_path}: {e}"))
-        return Ok(symmetric(model.predict, x, table.minute))
+            return Err(CommandError(code="invalid_input", message=f"{params.winprob}: {e}"))
+        if params.window is None or params.frames is None:
+            return Ok((table, wp, None))
+        match frames.read_frames(Path(params.frames)):
+            case Err(error=e):
+                return Err(_error(e.kind, e.message))
+            case Ok(value=f):
+                pass
+        try:
+            frame_wp = _predict(model, f.features, f.feature_names, f.minute)
+        except MissingFeaturesError as e:
+            return Err(CommandError(code="invalid_input", message=f"{params.frames}: {e}"))
+        return Ok((table, wp, windowed_outcome(table, f, frame_wp, params.window)))
 
     def run(params: WpaEstimateParams) -> Result[WpaEstimateResult, CommandError]:
         estimator = estimators.get(params.estimator)
@@ -85,21 +126,20 @@ def wpa_estimate_command(
             known = ", ".join(sorted(estimators))
             message = f"unknown estimator {params.estimator!r}; known: {known}"
             return Err(CommandError(code="invalid_params", message=message))
-        match store.read_decisions(Path(params.decisions)):
-            case Err(error=e):
-                code = "not_found" if e.kind == "not_found" else "invalid_input"
-                return Err(CommandError(code=code, message=e.message))
-            case Ok(value=table):
-                pass
-        if len(table) == 0:
-            return Err(CommandError(code="invalid_input", message="decision table is empty"))
-        match win_probability(table, params.winprob):
+        match inputs(params):
             case Err() as e:
                 return e
-            case Ok(value=wp):
+            case Ok(value=(table, wp, target)):
                 pass
         settings = WpaSettings(bootstrap_samples=params.bootstrap_samples, seed=params.seed)
-        estimates = estimator.estimate(table, wp, settings)
+        if params.group == "class":
+            pooled = pool_by_class(table)
+            reordered = None if target is None else target[pooled.order]
+            estimates = estimator.estimate(
+                pooled.table, wp[pooled.order], settings, reordered, pooled.strata
+            )
+        else:
+            estimates = estimator.estimate(table, wp, settings, target)
         if params.out is not None:
             match estimates_out.write_estimates(estimator.id, estimates, Path(params.out)):
                 case Err(error=e):
@@ -129,4 +169,14 @@ def wpa_estimate_command(
         params=WpaEstimateParams,
         result=WpaEstimateResult,
         run=run,
+    )
+
+
+def _predict(model: WinProbModel, features: Floats, names: Sequence[str], minute: Floats) -> Floats:
+    return symmetric(model.predict, columns(features, names, model.feature_names), minute)
+
+
+def _error(kind: str, message: str) -> CommandError:
+    return CommandError(
+        code="not_found" if kind == "not_found" else "invalid_input", message=message
     )

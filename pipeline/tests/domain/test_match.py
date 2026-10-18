@@ -37,6 +37,16 @@ def test_wrong_team_size_is_rejected() -> None:
         replace(match, participants=tuple(participants))
 
 
+def test_participants_one_to_five_are_team_100() -> None:
+    match = domain_match()
+    participants = list(match.participants)
+    first, sixth = participants[0], participants[5]
+    participants[0] = replace(first, team=sixth.team, win=sixth.win)
+    participants[5] = replace(sixth, team=first.team, win=first.win)
+    with pytest.raises(InvalidMatchError, match="1 to 5 must be team 100"):
+        replace(match, participants=tuple(participants))
+
+
 def test_result_must_agree_with_players() -> None:
     with pytest.raises(InvalidMatchError, match="disagree"):
         replace(domain_match(), winning_team=200)

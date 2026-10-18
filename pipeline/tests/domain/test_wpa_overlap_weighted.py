@@ -59,4 +59,4 @@ def test_agrees_with_v1_when_the_situation_does_not_drive_the_choice(
 def test_is_registered_through_the_shared_pipeline(table_factory: TableFactory) -> None:
     table, wp = situational(table_factory, 4000)
     via_class = OverlapWeightedEstimator().estimate(table, wp, WpaSettings())
-    assert via_class == estimate(table, wp, WpaSettings(), overlap_weighted)
+    assert via_class == estimate(table, wp, WpaSettings(), effect=overlap_weighted)

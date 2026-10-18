@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
 
+import numpy as np
+from numpy.typing import NDArray
+
 from stronk_pipeline.domain.decisions import DecisionTable
 from stronk_pipeline.domain.frames import FrameTable
 from stronk_pipeline.domain.logistic import Floats
@@ -226,8 +229,16 @@ class Estimator(Protocol):
     def id(self) -> str: ...
 
     def estimate(
-        self, table: DecisionTable, wp: Floats, settings: WpaSettings
-    ) -> list[OptionEstimate]: ...
+        self,
+        table: DecisionTable,
+        wp: Floats,
+        settings: WpaSettings,
+        outcome: Floats | None = None,
+        strata: NDArray[np.str_] | None = None,
+    ) -> list[OptionEstimate]:
+        """`outcome` defaults to the final result (docs/wpa-method.md, section 5); `strata`
+        compares options within each label (champion, when pooled by class)."""
+        ...
 
 
 class Signer(Protocol):

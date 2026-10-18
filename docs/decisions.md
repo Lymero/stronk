@@ -238,6 +238,24 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - Floors are per corpus, named after it, each from its own baseline with the earlier margins: `winprob.ci.log_loss` max 0.535 (measured 0.5308), `winprob.ci.calibration_error` max 0.013 (0.0114), `extract.ci.skip_rate` max 0.01 (0); `winprob.full.log_loss` max 0.525 (0.5215), `winprob.full.calibration_error` max 0.0095 (0.0082), `extract.full.skip_rate` max 0.01 (0). A floor's `suite` (`check` or `full`) says which run measures it. `winprob.log_loss` and `winprob.calibration_error`, measured on the EUW-only corpus, are removed.
 - **Consequences:** each floor ratchets against data it was measured on. The full corpus's floors fail only in the weekly job, not on a push. The corpus extract test runs on the CI corpus only.
 
+### ADR-039 · Windowed outcome and class-level pooling as options; the defaults stay
+
+- **Context:** at 22,954 games no comparison survives FDR (ADR-036). Two cheap ways to more power were checked before M3: scoring against a shorter-term outcome (docs/wpa-method.md, section 5: WP at t + Δ, less noise), and pooling every champion of a class at each decision point (more decisions per point).
+- **Decision:**
+  - `wpa.estimate` takes `window` (minutes; needs `frames` and `winprob`): the outcome becomes the decision maker's team's WP at the first frame at least that long after the decision, or the result when the game ends first. Estimators take the outcome as an argument; the default is the final result. `Match` now rejects games where participants 1–5 aren't team 100 (Riot's convention, true of all 22,954 games), since decision tables keep the participant, not the team.
+  - `group: "class"` pools champions of a class. Champion is a confounder there, handled twice: a 0/1 feature per champion, so propensity and overlap are within champion; and a stratum, so event scores are centred within champion at each point (champion fixed effects) before options are compared. Pooling returns the row permutation, since canonical order sorts by the new champion column, and WP and outcomes follow it. Columns constant at a point are dropped before fitting (exactly the same fit, faster).
+  - Neither default changes. Results (crawl-all-16.20, v1, family of ADR-036):
+
+    | Outcome | Grouping | Claimable | Contrasts | Survive | Smallest q | Median interval width |
+    |---|---|---|---|---|---|---|
+    | Final result | champion | 515 | 125 | 0 | 0.085 | 0.073 |
+    | WP at t+5 | champion | 515 | 125 | 0 | 0.380 | 0.031 |
+    | WP at t+8 | champion | 515 | 125 | 0 | 0.531 | 0.041 |
+    | Final result | class | 449 | 351 | 1 | 0.022 | 0.080 |
+    | WP at t+8 | class | 449 | 351 | 2 | 0.005 | 0.047 |
+
+- **Consequences:** the window narrows intervals to 43% (t+5) and 55% (t+8) of the final result's, but effects shrink about as much (median |WPA| 0.0157 to 0.0074 and 0.0083) and correlate only 0.43 and 0.56 with the final-result estimates: it measures a shorter-term effect, not the same one more precisely. Class pooling turns 76 of 98 class decision points into comparisons (against 106 of 390 per champion); survivors: fighters MIDDLE slot 1, Blade of the Ruined King (3153) against Immortal Shieldbow (6673), −0.078, n 743 (final result); tank supports, Zeke's Convergence (3050) against Knight's Vow (3109) at slot 2, −0.039, n 840, and Knight's Vow against Locket (3190) at slot 1, +0.023, n 2247 (t+8). More data per champion stays the main path; the production key needs the M3 prototype.
+
 ### ADR-040 · App core: a Cargo workspace with synchronous ports, verified data from the first slice
 
 - **Context:** M3 starts the desktop app. The core must run every feature without the game or the network, crash on nothing, and only ever use data whose signature checked out (ADR-016). The local machine (WSL) has no WebKitGTK, which the Tauri shell needs to build on Linux.

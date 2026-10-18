@@ -60,9 +60,14 @@ class ReferenceEstimatorV1:
     id = "v1-reference"
 
     def estimate(
-        self, table: DecisionTable, wp: Floats, settings: WpaSettings
+        self,
+        table: DecisionTable,
+        wp: Floats,
+        settings: WpaSettings,
+        outcome: Floats | None = None,
+        strata: NDArray[np.str_] | None = None,
     ) -> list[OptionEstimate]:
-        return estimate(table, wp, settings)
+        return estimate(table, wp, settings, outcome=outcome, strata=strata)
 
 
 @dataclass(frozen=True)
@@ -82,24 +87,45 @@ def estimate(
     table: DecisionTable,
     wp: Floats,
     settings: WpaSettings | None = None,
+    *,
     effect: Effect = difference_of_means,
+    outcome: Floats | None = None,
+    strata: NDArray[np.str_] | None = None,
 ) -> list[OptionEstimate]:
-    """Estimate every option at every decision point. `wp` is P(win) for each row of `table`."""
+    """Estimate every option at every decision point. `wp` is P(win) for each row of `table`;
+    `outcome`, what the score measures against it, defaults to the final result. With
+    `strata` (one label per row), scores are centred within each stratum at each point, so
+    options are compared within strata (fixed effects; `pooling.pool_by_class`)."""
     settings = settings or WpaSettings()
     if wp.shape != (len(table),):
         raise ValueError(f"wp has shape {wp.shape}, expected ({len(table)},)")
     if not ((wp >= 0.0) & (wp <= 1.0)).all():
         raise ValueError("wp must lie in [0, 1]")
-    score = event_scores(table, wp)
+    if strata is not None and strata.shape != (len(table),):
+        raise ValueError(f"strata has shape {strata.shape}, expected ({len(table)},)")
+    score = event_scores(table, wp, outcome)
     raw: list[_Raw] = []
     for key, rows in table.decision_points():
+        if strata is not None:
+            score[rows] = _centred(score[rows], strata[rows])
         raw.extend(_estimate_point(table, rows, score, key, settings, effect=effect))
     return _flag_unclear(_shrink_across_champions(raw, settings), settings)
 
 
-def event_scores(table: DecisionTable, wp: Floats) -> Floats:
-    """outcome - WP at the decision: in [-1, 1] because both lie in [0, 1]."""
-    return table.outcome - wp
+def _centred(scores: Floats, strata: NDArray[np.str_]) -> Floats:
+    labels, group = np.unique(strata, return_inverse=True)
+    means = np.bincount(group, weights=scores, minlength=len(labels)) / np.bincount(group)
+    return scores - means[group]
+
+
+def event_scores(table: DecisionTable, wp: Floats, outcome: Floats | None = None) -> Floats:
+    """outcome - WP at the decision: in [-1, 1] because both lie in [0, 1]. The outcome is the
+    final result unless given (a windowed WP, `outcome.windowed_outcome`)."""
+    if outcome is None:
+        return table.outcome - wp
+    if outcome.shape != (len(table),) or not ((outcome >= 0.0) & (outcome <= 1.0)).all():
+        raise ValueError("outcome must lie in [0, 1], one per row")
+    return outcome - wp
 
 
 def _estimate_point(
@@ -137,6 +163,9 @@ def _estimate_point(
         return [result(options[0], len(rows), {Flag.LOW_OVERLAP})]
 
     features = table.features[rows]
+    # Columns constant at this point (another champion's indicator) carry nothing: dropping them
+    # leaves every fit unchanged and keeps pooled points fast.
+    features = features[:, features.std(axis=0) > 0.0]
     weights = _bootstrap_weights(table.match_id[rows], key, settings)
     alpha = 1.0 - settings.confidence
 
