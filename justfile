@@ -21,7 +21,7 @@ setup:
     if git rev-parse --git-dir >/dev/null 2>&1; then uv run pre-commit install --hook-type pre-commit --hook-type commit-msg; fi
 
 # Format, lint, typecheck, architecture rules, tests, codegen drift, floors, budgets
-check: fmt-check lint typecheck arch test gen-check floors bench budgets
+check: fmt-check lint typecheck arch test core-e2e gen-check floors bench budgets
     @echo "check: all green"
 
 # Format all code in place
@@ -185,3 +185,12 @@ fixture-data:
     rm -rf fixtures/data && mkdir -p fixtures/data
     cp -r runs/pipeline/dist/. fixtures/data/
     cp runs/pipeline/throwaway.key.pub fixtures/data.pub
+
+# The real core against lcu-mock and the signed fixture data
+core-e2e:
+    cargo build {{ core_rs }} --locked --quiet -p stronk-cli
+    STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" uv run pytest -q tools/lcu_mock/tests/test_core_against_mock.py
+
+# Fake League client replaying a session: just lcu-mock tools/lcu_mock/sessions/<file>.json
+lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":
+    uv run python tools/lcu_mock/lcu_mock.py {{ session }}

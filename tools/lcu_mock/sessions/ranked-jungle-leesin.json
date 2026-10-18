@@ -1,0 +1,60 @@
+{
+  "source": "Hand-written in the shape of the client's /lol-champ-select/v1/session responses, not captured from a client: replace with a real recording (`just lcu-record`, M3) when one is made. Only the fields the app reads, plus a few it must ignore.",
+  "champions": [
+    {"id": -1, "alias": "None", "name": "None"},
+    {"id": 64, "alias": "LeeSin", "name": "Lee Sin"},
+    {"id": 104, "alias": "Graves", "name": "Graves"},
+    {"id": 222, "alias": "Jinx", "name": "Jinx"},
+    {"id": 412, "alias": "Thresh", "name": "Thresh"}
+  ],
+  "steps": [
+    {"name": "lobby", "session": null},
+    {
+      "name": "planning: hovering Graves",
+      "session": {
+        "localPlayerCellId": 1,
+        "timer": {"phase": "PLANNING", "adjustedTimeLeftInPhase": 25000},
+        "myTeam": [
+          {"cellId": 0, "championId": 0, "championPickIntent": 222, "assignedPosition": "bottom"},
+          {"cellId": 1, "championId": 0, "championPickIntent": 104, "assignedPosition": "jungle"},
+          {"cellId": 2, "championId": 0, "championPickIntent": 412, "assignedPosition": "utility"}
+        ],
+        "actions": [],
+        "bans": {"myTeamBans": [], "theirTeamBans": []}
+      }
+    },
+    {
+      "name": "pick turn: hovering Lee Sin",
+      "session": {
+        "localPlayerCellId": 1,
+        "timer": {"phase": "BAN_PICK", "adjustedTimeLeftInPhase": 27000},
+        "myTeam": [
+          {"cellId": 0, "championId": 222, "championPickIntent": 0, "assignedPosition": "bottom"},
+          {"cellId": 1, "championId": 0, "championPickIntent": 104, "assignedPosition": "jungle"},
+          {"cellId": 2, "championId": 0, "championPickIntent": 412, "assignedPosition": "utility"}
+        ],
+        "actions": [
+          [{"id": 1, "actorCellId": 0, "championId": 222, "completed": true, "isInProgress": false, "type": "pick"}],
+          [{"id": 2, "actorCellId": 1, "championId": 64, "completed": false, "isInProgress": true, "type": "pick"}]
+        ]
+      }
+    },
+    {
+      "name": "locked Lee Sin",
+      "session": {
+        "localPlayerCellId": 1,
+        "timer": {"phase": "FINALIZATION", "adjustedTimeLeftInPhase": 30000},
+        "myTeam": [
+          {"cellId": 0, "championId": 222, "championPickIntent": 0, "assignedPosition": "bottom"},
+          {"cellId": 1, "championId": 64, "championPickIntent": 0, "assignedPosition": "jungle"},
+          {"cellId": 2, "championId": 412, "championPickIntent": 0, "assignedPosition": "utility"}
+        ],
+        "actions": [
+          [{"id": 1, "actorCellId": 0, "championId": 222, "completed": true, "isInProgress": false, "type": "pick"}],
+          [{"id": 2, "actorCellId": 1, "championId": 64, "completed": true, "isInProgress": false, "type": "pick"}],
+          [{"id": 3, "actorCellId": 2, "championId": 412, "completed": true, "isInProgress": false, "type": "pick"}]
+        ]
+      }
+    }
+  ]
+}
