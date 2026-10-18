@@ -2,7 +2,9 @@
 //! (`stronk-data`, `stronk-lcu`); tests use in-memory fakes.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use stronk_contracts::build_v1::Build;
+use stronk_domain::select::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
 
 use crate::{CommandError, ErrorCode};
@@ -56,6 +58,18 @@ pub struct ChampSelect {
     pub locked: bool,
     pub role: Option<Role>,
     pub phase: String,
+    /// The player's summoner spells now, D then F.
+    pub spells: Option<(i64, i64)>,
+}
+
+/// A rune page to create.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct NewRunePage {
+    pub name: String,
+    pub primary_style: i64,
+    pub sub_style: i64,
+    /// Nine: four primary, two secondary, three shards.
+    pub perks: Vec<i64>,
 }
 
 /// The running League client (`stronk-lcu`, or `tools/lcu-mock` in tests).
@@ -64,4 +78,16 @@ pub trait LeagueClient: Send + Sync {
     fn champ_select(&self) -> Result<Option<ChampSelect>, PortError>;
     /// Champion id to its key in published data (`LeeSin`), from the client's own data.
     fn champion_key(&self, champion_id: i64) -> Result<String, PortError>;
+    fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError>;
+    /// How many editable rune pages the account may have.
+    fn rune_page_capacity(&self) -> Result<usize, PortError>;
+    fn delete_rune_page(&self, id: i64) -> Result<(), PortError>;
+    /// Creates the page and makes it the current one.
+    fn create_rune_page(&self, page: &NewRunePage) -> Result<(), PortError>;
+    /// The client's item set document, kept whole so everything but Stronk's set goes back
+    /// unchanged.
+    fn item_sets(&self) -> Result<Value, PortError>;
+    fn save_item_sets(&self, document: &Value) -> Result<(), PortError>;
+    /// Summoner spells for the current champion select, D then F.
+    fn set_spells(&self, spells: (i64, i64)) -> Result<(), PortError>;
 }

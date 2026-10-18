@@ -1,25 +1,24 @@
 // MockBackend: scripted scenarios in a plain browser (`just app-mock`) and in tests. The
-// `ranked-jungle` scenario follows the same steps as tools/lcu_mock's session; its builds are
-// the signed fixture data the core verifies (fixtures/data).
+// `ranked-jungle` scenario follows the same steps as tools/lcu_mock's session; its plans are
+// what the core's `build.plan` gives for the signed fixture data (fixtures/data).
 
-import graves from "../../../../../fixtures/data/16.20/all/master_plus/Graves/JUNGLE.json";
-import leeSin from "../../../../../fixtures/data/16.20/all/master_plus/LeeSin/JUNGLE.json";
 import {
   type Backend,
-  type Build,
   type ChampSelectState,
   type CommandError,
   type CommandId,
   type Commands,
   type DataStatus,
   err,
+  type Imported,
   ok,
+  type Plan,
   type Result,
 } from "./backend.ts";
 
 export interface Scenario {
   steps: (ChampSelectState | CommandError)[];
-  builds: Record<string, Build | CommandError>;
+  plans: Record<string, Plan | CommandError>;
   status: DataStatus | CommandError;
 }
 
@@ -27,12 +26,26 @@ const lobby: ChampSelectState = { session: null, champion: null, role: null };
 const status: DataStatus = { patch: "16.20", run_id: "fixture", key_id: "036EAC4B585E4DCA", files: 80 };
 
 function selecting(champion: string, champion_id: number, phase: string, locked = false): ChampSelectState {
-  return { session: { champion_id, locked, role: "JUNGLE", phase }, champion, role: "JUNGLE" };
+  return { session: { champion_id, locked, role: "JUNGLE", phase, spells: [4, 14] }, champion, role: "JUNGLE" };
 }
 
-/** JSON imports widen tuples (rune pages) to arrays; these are the signed fixture files the
- * core verifies against build.v1 in its own tests, so the cast stays at this one boundary. */
-const fixture = (json: unknown): Build => json as Build;
+const leeSin: Plan = {
+  champion: "LeeSin",
+  role: "JUNGLE",
+  patch: "16.20",
+  runes: {
+    value: { primary_style: 8000, sub_style: 8300, perks: [8010, 9111, 9104, 8014, 8304, 8347, 5005, 5008, 5001] },
+    label: "popular",
+  },
+  spells: { value: [11, 4], label: "popular" },
+  items: [
+    { slot: 1, value: 6692, label: "popular" },
+    { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021 },
+    { slot: 3, value: 3053, label: "popular" },
+  ],
+};
+
+const graves: Plan = { ...leeSin, champion: "Graves", items: [{ slot: 1, value: 6676, label: "popular" }] };
 
 export const scenarios = {
   "ranked-jungle": {
@@ -42,17 +55,17 @@ export const scenarios = {
       selecting("LeeSin", 64, "BAN_PICK"),
       selecting("LeeSin", 64, "FINALIZATION", true),
     ],
-    builds: { "Graves/JUNGLE": fixture(graves), "LeeSin/JUNGLE": fixture(leeSin) },
+    plans: { "Graves/JUNGLE": graves, "LeeSin/JUNGLE": leeSin },
     status,
   },
   "no-client": {
     steps: [{ code: "unavailable", message: "no lockfile: is the League client running?" }],
-    builds: {},
+    plans: {},
     status,
   },
   "bad-data": {
     steps: [selecting("LeeSin", 64, "FINALIZATION", true)],
-    builds: { "LeeSin/JUNGLE": { code: "invalid_data", message: "16.20 all/master_plus/LeeSin/JUNGLE.json: hash mismatch" } },
+    plans: { "LeeSin/JUNGLE": { code: "invalid_data", message: "16.20 all/master_plus/LeeSin/JUNGLE.json: hash mismatch" } },
     status,
   },
 } satisfies Record<string, Scenario>;
@@ -74,24 +87,33 @@ export class MockBackend implements Backend {
     this.#step = Math.min(this.#step + 1, this.scenario.steps.length - 1);
   }
 
-  get stepIndex(): number {
-    return this.#step;
-  }
-
   async run<K extends CommandId>(id: K, params: Commands[K]["params"]): Promise<Result<Commands[K]["result"]>> {
     this.calls.push({ id, params });
     type Out = Result<Commands[K]["result"]>;
+    const current = this.scenario.steps[this.#step] ?? lobby;
     switch (id) {
       case "data.status":
         return result(this.scenario.status) as Out;
-      case "champselect.state": {
-        const current = this.scenario.steps[this.#step] ?? lobby;
+      case "champselect.state":
         return result(current) as Out;
+      case "build.plan": {
+        const { champion, role } = params as Commands["build.plan"]["params"];
+        const plan = this.scenario.plans[`${champion}/${role}`];
+        return (plan ? result(plan) : err("not_found", `no build for ${champion} ${role}`)) as Out;
       }
-      case "build.get": {
-        const { champion, role } = params as Commands["build.get"]["params"];
-        const build = this.scenario.builds[`${champion}/${role}`];
-        return (build ? result(build) : err("not_found", `no build for ${champion} ${role}`)) as Out;
+      case "build.import": {
+        if (isError(current) || !current.champion || !current.role) {
+          return err("invalid_params", "no champion select to import for") as Out;
+        }
+        const name = `Stronk: ${current.champion} ${current.role}`;
+        const imported: Imported = {
+          champion: current.champion,
+          role: current.role,
+          runes: { status: "imported", name, label: "popular" },
+          item_set: { status: "imported", name, label: "popular" },
+          spells: { status: "imported", name: "4 11", label: "popular" },
+        };
+        return ok(imported) as Out;
       }
       default:
         return err("unknown_command", `unknown command ${String(id)}`) as Out;

@@ -8,6 +8,11 @@ lockfile's password (Basic auth, user `riot`). The session file's steps are repl
 time: `POST /mock/step` moves to the next, `GET /mock/state` says where it is. Every write the
 app makes (PUT, POST, PATCH, DELETE outside `/mock/`) is recorded and listed by
 `GET /mock/recorded`, so tests can check what was imported.
+
+The account side the imports touch is kept in memory, with made-up defaults, never in session
+files: rune pages (two of the player's, room for one more), the page inventory, the current
+summoner, item sets (one of the player's), and the spell selection, which is laid over the
+local player in the session.
 """
 
 from __future__ import annotations
@@ -36,6 +41,24 @@ from cryptography.x509.oid import NameOID
 
 SESSION = "/lol-champ-select/v1/session"
 CHAMPIONS = "/lol-game-data/assets/v1/champion-summary.json"
+PAGES = "/lol-perks/v1/pages"
+INVENTORY = "/lol-perks/v1/inventory"
+SUMMONER = "/lol-summoner/v1/current-summoner"
+SELECTION = "/lol-champ-select/v1/session/my-selection"
+SUMMONER_ID = 1
+ITEM_SETS = f"/lol-item-sets/v1/item-sets/{SUMMONER_ID}/sets"
+
+
+def default_pages() -> list[dict[str, Any]]:
+    """The player's own pages: one editable, one preset."""
+    perks = [8010, 9111, 9104, 8014, 8304, 8347, 5005, 5008, 5001]
+    mine = {"id": 101, "name": "My Lee Sin", "isEditable": True, "primaryStyleId": 8000,
+            "subStyleId": 8300, "selectedPerkIds": perks}  # fmt: skip
+    return [mine, {"id": 102, "name": "Domination preset", "isEditable": False}]
+
+
+def default_item_sets() -> dict[str, Any]:
+    return {"accountId": 1, "timestamp": 0, "itemSets": [{"title": "My Lee Sin", "blocks": []}]}
 
 
 @dataclass
@@ -47,6 +70,11 @@ class Replay:
     step: int = 0
     recorded: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
     lock: threading.Lock = field(default_factory=threading.Lock)
+    pages: list[dict[str, Any]] = field(default_factory=default_pages)
+    page_capacity: int = 3
+    item_sets: dict[str, Any] = field(default_factory=default_item_sets)
+    spells: tuple[int, int] | None = None
+    """The spell selection, D then F, laid over the local player; `None` keeps the session's."""
 
     @classmethod
     def load(cls, path: Path) -> Replay:
@@ -60,6 +88,20 @@ class Replay:
     def current(self) -> dict[str, Any]:
         with self.lock:
             return self.steps[self.step]
+
+    def session(self) -> dict[str, Any] | None:
+        """The current step's session with the spell selection on the local player."""
+        with self.lock:
+            session: dict[str, Any] | None = self.steps[self.step].get("session")
+            if session is None or self.spells is None:
+                return session
+            local = session.get("localPlayerCellId")
+            d, f = self.spells
+            team = [
+                {**m, "spell1Id": d, "spell2Id": f} if m.get("cellId") == local else m
+                for m in session.get("myTeam", [])
+            ]
+            return {**session, "myTeam": team}
 
     def advance(self) -> dict[str, Any]:
         with self.lock:
@@ -109,13 +151,23 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
                     with replay.lock:
                         self._send(HTTPStatus.OK, list(replay.recorded))
                 case path if path == SESSION:
-                    session = replay.current().get("session")
+                    session = replay.session()
                     if session is None:  # what the client answers outside champion select
                         self._send(HTTPStatus.NOT_FOUND, {"message": "No active delegate"})
                     else:
                         self._send(HTTPStatus.OK, session)
                 case path if path == CHAMPIONS:
                     self._send(HTTPStatus.OK, replay.champions)
+                case path if path == PAGES:
+                    with replay.lock:
+                        self._send(HTTPStatus.OK, list(replay.pages))
+                case path if path == INVENTORY:
+                    self._send(HTTPStatus.OK, {"ownedPageCount": replay.page_capacity})
+                case path if path == SUMMONER:
+                    self._send(HTTPStatus.OK, {"summonerId": SUMMONER_ID})
+                case path if path == ITEM_SETS:
+                    with replay.lock:
+                        self._send(HTTPStatus.OK, replay.item_sets)
                 case _:
                     self._send(HTTPStatus.NOT_FOUND, {"message": f"not mocked: {self.path}"})
 
@@ -126,10 +178,40 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
             if self.path == "/mock/step" and self.command == "POST":
                 self._send(HTTPStatus.OK, replay.advance())
                 return
-            entry = {"method": self.command, "path": self.path, "body": self._body()}
+            body = self._body()
             with replay.lock:
-                replay.recorded.append(entry)
-            self._send(HTTPStatus.OK, {})
+                replay.recorded.append({"method": self.command, "path": self.path, "body": body})
+                status, answer = self._apply(body)
+            self._send(status, answer)
+
+        def _apply(self, body: Any) -> tuple[HTTPStatus, object]:
+            """The client's behaviour for the writes the app makes; holds `replay.lock`."""
+            match (self.command, self.path):
+                case ("POST", path) if path == PAGES:
+                    editable = sum(1 for p in replay.pages if p.get("isEditable"))
+                    if editable >= replay.page_capacity:
+                        return HTTPStatus.BAD_REQUEST, {"message": "Max pages reached"}
+                    page_id = max((int(p["id"]) for p in replay.pages), default=100) + 1
+                    page = {**body, "id": page_id, "isEditable": True}
+                    replay.pages.append(page)
+                    return HTTPStatus.OK, page
+                case ("DELETE", path) if path.startswith(PAGES + "/"):
+                    page_id = int(path.rsplit("/", 1)[1])
+                    page = next((p for p in replay.pages if p["id"] == page_id), None)
+                    if page is None:
+                        return HTTPStatus.NOT_FOUND, {"message": "no such page"}
+                    if not page.get("isEditable"):
+                        return HTTPStatus.BAD_REQUEST, {"message": "page is not editable"}
+                    replay.pages.remove(page)
+                    return HTTPStatus.NO_CONTENT, None
+                case ("PUT", path) if path == ITEM_SETS:
+                    replay.item_sets = body
+                    return HTTPStatus.CREATED, None
+                case ("PATCH", path) if path == SELECTION:
+                    replay.spells = (body["spell1Id"], body["spell2Id"])
+                    return HTTPStatus.NO_CONTENT, None
+                case _:
+                    return HTTPStatus.OK, {}
 
         def do_PUT(self) -> None:
             self._write()

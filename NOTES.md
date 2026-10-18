@@ -55,3 +55,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the Windows CI job's first full pass; the real-client run.
 - 2026-10-19: first real recording (`tools/lcu_mock/sessions/custom-2026-10-19.json`, custom game on Windows): Riot's CA validated the client, scrub check clean, the core replays it (Diana, BOTTOM, hover then lock-in) in `just core-e2e`.
   Open: the champion-select watcher (websocket), imports, HttpSource and cache.
+- 2026-10-19: imports (ADR-043): `build.plan` and `build.import`, most played whole combination unless clearly better; Stronk's own rune page and item set only; Flash stays on its key; auto-import toggle; UI labels Popular / Clearly better. build.v1 gains optional popularity and comparison fields; publish writes spell pairs.
+  Open: check imports on the real client (custom game, Windows); the websocket watcher; the production key draft.

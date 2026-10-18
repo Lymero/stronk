@@ -3,19 +3,22 @@ use std::error::Error as _;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use reqwest::Method;
 use reqwest::StatusCode;
 use reqwest::blocking::Client;
-use reqwest::header::{ACCEPT, AUTHORIZATION};
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use stronk_service::ports::{ChampSelect, LeagueClient, PortError};
+use stronk_domain::select::PageInfo;
+use stronk_service::ports::{ChampSelect, LeagueClient, NewRunePage, PortError};
 
 use crate::lockfile::Lockfile;
-use crate::models::{ChampionSummary, Session};
+use crate::models::{ChampionSummary, CurrentSummoner, PerkInventory, PerkPage, Session};
 use crate::tls::{Trust, client_config};
 
 pub const SESSION: &str = "/lol-champ-select/v1/session";
 pub const CHAMPION_SUMMARY: &str = "/lol-game-data/assets/v1/champion-summary.json";
+const PAGES: &str = "/lol-perks/v1/pages";
 
 const TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -57,31 +60,59 @@ impl LcuClient {
     }
 
     fn get<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, PortError> {
+        let Some(body) = self.send(Method::GET, path, None)? else {
+            return Ok(None);
+        };
+        serde_json::from_slice(&body)
+            .map(Some)
+            .map_err(|e| PortError::Invalid(format!("League client {path}: {e}")))
+    }
+
+    /// A write; the client answering 404 means the thing written to isn't there.
+    fn write(&self, method: Method, path: &str, body: Option<&Value>) -> Result<(), PortError> {
+        self.send(method, path, body)?
+            .map(|_| ())
+            .ok_or_else(|| PortError::NotFound(format!("League client: {path}")))
+    }
+
+    /// The body of a successful response, `None` on 404.
+    fn send(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&Value>,
+    ) -> Result<Option<Vec<u8>>, PortError> {
         let unavailable =
             |e: reqwest::Error| PortError::Unavailable(format!("League client: {}", chain(&e)));
-        let response = self
+        let mut request = self
             .http
-            .get(format!("{}{path}", self.base))
+            .request(method.clone(), format!("{}{path}", self.base))
             .header(AUTHORIZATION, &self.auth)
-            .header(ACCEPT, "application/json")
-            .send()
-            .map_err(unavailable)?;
+            .header(ACCEPT, "application/json");
+        if let Some(body) = body {
+            request = request
+                .header(CONTENT_TYPE, "application/json")
+                .body(body.to_string());
+        }
+        let response = request.send().map_err(unavailable)?;
         match response.status() {
             StatusCode::NOT_FOUND => return Ok(None),
             status if status.is_success() => {}
             status => {
                 return Err(PortError::Unavailable(format!(
-                    "League client: HTTP {status} on {path}"
+                    "League client: HTTP {status} on {method} {path}"
                 )));
             }
         }
-        let body = response.bytes().map_err(unavailable)?;
-        serde_json::from_slice(&body)
-            .map(Some)
-            .map_err(|e| PortError::Invalid(format!("League client {path}: {e}")))
+        Ok(Some(response.bytes().map_err(unavailable)?.to_vec()))
+    }
+
+    fn summoner_id(&self) -> Result<i64, PortError> {
+        self.get::<CurrentSummoner>("/lol-summoner/v1/current-summoner")?
+            .map(|s| s.summoner_id)
+            .ok_or_else(|| PortError::Unavailable("no summoner logged in".into()))
     }
 }
-
 /// An error with its causes: a rejected certificate's description sits a few levels down.
 fn chain(e: &reqwest::Error) -> String {
     let mut text = e.to_string();
@@ -114,5 +145,59 @@ impl LeagueClient for LcuClient {
             .as_ref()
             .and_then(|by_id| by_id.get(&champion_id).cloned())
             .ok_or_else(|| PortError::NotFound(format!("champion {champion_id}")))
+    }
+
+    fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {
+        let pages: Vec<PerkPage> = self.get(PAGES)?.unwrap_or_default();
+        Ok(pages
+            .into_iter()
+            .map(|p| PageInfo {
+                id: p.id,
+                name: p.name,
+                editable: p.is_editable,
+            })
+            .collect())
+    }
+
+    fn rune_page_capacity(&self) -> Result<usize, PortError> {
+        Ok(self
+            .get::<PerkInventory>("/lol-perks/v1/inventory")?
+            .unwrap_or_default()
+            .owned_page_count)
+    }
+
+    fn delete_rune_page(&self, id: i64) -> Result<(), PortError> {
+        self.write(Method::DELETE, &format!("{PAGES}/{id}"), None)
+    }
+
+    fn create_rune_page(&self, page: &NewRunePage) -> Result<(), PortError> {
+        let body = serde_json::json!({
+            "name": page.name,
+            "primaryStyleId": page.primary_style,
+            "subStyleId": page.sub_style,
+            "selectedPerkIds": page.perks,
+            "current": true,
+        });
+        self.write(Method::POST, PAGES, Some(&body))
+    }
+
+    fn item_sets(&self) -> Result<Value, PortError> {
+        let path = format!("/lol-item-sets/v1/item-sets/{}/sets", self.summoner_id()?);
+        self.get(&path)?
+            .ok_or_else(|| PortError::NotFound("item sets".into()))
+    }
+
+    fn save_item_sets(&self, document: &Value) -> Result<(), PortError> {
+        let path = format!("/lol-item-sets/v1/item-sets/{}/sets", self.summoner_id()?);
+        self.write(Method::PUT, &path, Some(document))
+    }
+
+    fn set_spells(&self, (d, f): (i64, i64)) -> Result<(), PortError> {
+        let body = serde_json::json!({"spell1Id": d, "spell2Id": f});
+        self.write(
+            Method::PATCH,
+            "/lol-champ-select/v1/session/my-selection",
+            Some(&body),
+        )
     }
 }

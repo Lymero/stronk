@@ -1,16 +1,27 @@
 <script lang="ts">
-  import BuildView from "./lib/features/build-view/BuildView.svelte";
+  import PlanView from "./lib/features/build-view/PlanView.svelte";
   import ChampSelect from "./lib/features/champ-select/ChampSelect.svelte";
   import type { App } from "./lib/state/app.svelte.ts";
 
   let { app, onstep }: { app: App; onstep?: () => void } = $props();
   const state = $derived(app.state);
+  const imported = $derived(
+    state.imported && state.imported.key === state.plan?.key ? state.imported.value : null,
+  );
 </script>
 
 <main>
   <header>
     <h1>Stronk</h1>
     {#if state.data}<span class="meta">Data {state.data.patch}</span>{/if}
+    <label class="toggle">
+      <input
+        type="checkbox"
+        checked={state.settings.autoImport}
+        onchange={(e) => app.setAutoImport(e.currentTarget.checked)}
+      />
+      Auto-import on lock-in
+    </label>
     {#if onstep}<button type="button" onclick={onstep}>Next step</button>{/if}
   </header>
 
@@ -19,8 +30,8 @@
   {/if}
 
   <ChampSelect select={state.champSelect} />
-  {#if state.build && state.champSelect?.champion}
-    <BuildView build={state.build.value} />
+  {#if state.plan && state.champSelect?.champion}
+    <PlanView plan={state.plan.value} {imported} onimport={() => void app.importBuild()} />
   {/if}
 </main>
 
@@ -44,8 +55,12 @@
   .meta {
     color: var(--color-muted);
   }
-  button {
+  .toggle {
     margin-left: auto;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+  }
+  button {
     padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);

@@ -3,6 +3,7 @@
 pub mod build_key;
 pub mod patch;
 pub mod role;
+pub mod select;
 
 pub use build_key::{BuildKey, InvalidKey};
 pub use patch::{InvalidPatch, Patch};

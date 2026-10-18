@@ -22,6 +22,8 @@ pub struct TeamMember {
     pub champion_id: i64,
     pub champion_pick_intent: i64,
     pub assigned_position: String,
+    pub spell1_id: i64,
+    pub spell2_id: i64,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -68,8 +70,36 @@ impl Session {
             locked: locked.is_some(),
             role: me.and_then(|m| Role::from_lcu(&m.assigned_position)),
             phase: self.timer.phase.clone(),
+            spells: me
+                .map(|m| (m.spell1_id, m.spell2_id))
+                .filter(|&(d, f)| d > 0 && f > 0),
         }
     }
+}
+
+/// One entry of `GET /lol-perks/v1/pages`.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerkPage {
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub is_editable: bool,
+}
+
+/// `GET /lol-perks/v1/inventory`.
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PerkInventory {
+    pub owned_page_count: usize,
+}
+
+/// `GET /lol-summoner/v1/current-summoner`: only the id the item set path needs.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CurrentSummoner {
+    pub summoner_id: i64,
 }
 
 /// One entry of `GET /lol-game-data/assets/v1/champion-summary.json`; `alias` is the key

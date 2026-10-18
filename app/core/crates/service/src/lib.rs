@@ -24,6 +24,8 @@ pub struct Context {
 pub fn registry() -> Registry {
     Registry::new(vec![
         commands::build_get::command(),
+        commands::build_import::command(),
+        commands::build_plan::command(),
         commands::champselect_state::command(),
         commands::data_status::command(),
     ])

@@ -2,18 +2,32 @@ import { fireEvent, render, screen } from "@testing-library/svelte";
 import { describe, expect, it } from "vitest";
 import App from "./App.svelte";
 import { MockBackend, scenarios } from "./lib/backend/mock.ts";
-import { createApp } from "./lib/state/app.svelte.ts";
+import { createApp, type Settings, type SettingsStore } from "./lib/state/app.svelte.ts";
 
-function setup(name: keyof typeof scenarios) {
+function memory(initial: Settings | null = null): SettingsStore & { saved: Settings | null } {
+  return {
+    saved: initial,
+    load() {
+      return this.saved;
+    },
+    save(settings) {
+      this.saved = settings;
+    },
+  };
+}
+
+function setup(name: keyof typeof scenarios, store = memory()) {
   const backend = new MockBackend(scenarios[name]);
-  const app = createApp(backend);
-  const onstep = async () => {
+  const app = createApp(backend, store);
+  const next = async () => {
     backend.step();
     await app.refresh();
   };
-  render(App, { app, onstep });
-  return { backend, app };
+  render(App, { app, onstep: () => void next() });
+  return { backend, app, next, store };
 }
+
+const imports = (backend: MockBackend) => backend.calls.filter((c) => c.id === "build.import").length;
 
 describe("App with MockBackend", () => {
   it("waits outside champion select", async () => {
@@ -23,30 +37,53 @@ describe("App with MockBackend", () => {
     expect(screen.getByText("Data 16.20")).toBeInTheDocument();
   });
 
-  it("loads the hovered champion's build, and lock-in reuses it", async () => {
-    const { backend, app } = setup("ranked-jungle");
+  it("plans the hovered champion's build once, and lock-in reuses it", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
-    await fireEvent.click(screen.getByRole("button", { name: "Next step" }));
+    await next();
     expect(await screen.findByRole("heading", { name: "Graves" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Build")).toHaveTextContent("Patch 16.20");
-
-    await fireEvent.click(screen.getByRole("button", { name: "Next step" }));
+    await next();
     expect(await screen.findByRole("heading", { name: "LeeSin" })).toBeInTheDocument();
-    await fireEvent.click(screen.getByRole("button", { name: "Next step" }));
+    await next();
     expect(await screen.findByText(/Locked in/)).toBeInTheDocument();
-
-    const fetched = backend.calls.filter((c) => c.id === "build.get").map((c) => c.params);
-    expect(fetched).toEqual([
+    const planned = backend.calls.filter((c) => c.id === "build.plan").map((c) => c.params);
+    expect(planned).toEqual([
       { champion: "Graves", role: "JUNGLE" },
-      { champion: "LeeSin", role: "JUNGLE" }, // once, while hovering: not again at lock-in
+      { champion: "LeeSin", role: "JUNGLE" },
     ]);
   });
 
-  it("shows flags instead of numbers it can't stand behind", async () => {
-    const { app } = setup("ranked-jungle");
-    await fireEvent.click(screen.getByRole("button", { name: "Next step" }));
+  it("labels each choice Popular or Clearly better with its win impact", async () => {
+    const { app, next } = setup("ranked-jungle");
     await app.refresh();
-    expect((await screen.findAllByText("No comparison")).length).toBeGreaterThan(0);
+    await next();
+    await next();
+    expect(await screen.findAllByText("Popular")).toHaveLength(4); // runes, spells, items 1 and 3
+    expect(screen.getByText("Clearly better · +2.1% win")).toBeInTheDocument();
+  });
+
+  it("imports only when asked, unless auto-import is on", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    for (let i = 0; i < 3; i++) await next(); // locked in
+    expect(imports(backend)).toBe(0);
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Runes imported");
+    expect(imports(backend)).toBe(1);
+  });
+
+  it("auto-imports once on lock-in when the setting is on, and remembers it", async () => {
+    const store = memory();
+    const { backend, app, next } = setup("ranked-jungle", store);
+    await fireEvent.click(screen.getByLabelText("Auto-import on lock-in"));
+    expect(store.saved).toEqual({ autoImport: true });
+    await app.refresh();
+    await next();
+    await next();
+    expect(imports(backend)).toBe(0); // hovering only
+    await next();
+    await app.refresh();
+    expect(imports(backend)).toBe(1); // once, not on every refresh
   });
 
   it("says when the League client isn't running", async () => {

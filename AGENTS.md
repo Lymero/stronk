@@ -45,6 +45,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just app-build` | Build and lint the Tauri shell (CI's `app-shell` job) |
 | `just core-e2e` | The real `stronk-core` against lcu-mock and the signed fixture data (in `just check`) |
 | `just fixture-data` | Refresh `fixtures/data`, the signed fixture data the app tests use |
+| `just core build.plan '{"champion": "LeeSin", "role": "JUNGLE"}'` | What an import would write, each choice labelled (`build.import` writes it to the client) |
 | `stronk-core record-champselect --out <file>` | Record one champion select from the real client, scrubbed (on Windows: docs/windows.md) |
 | `just core <command-id> <params>` | Run an app command from the terminal |
 | `just e2e` | Playwright end-to-end tests |

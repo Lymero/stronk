@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use stronk_service::ports::{ChampSelect, LeagueClient, PortError};
+use serde_json::Value;
+use stronk_domain::select::PageInfo;
+use stronk_service::ports::{ChampSelect, LeagueClient, NewRunePage, PortError};
 
 use crate::tls::Trust;
 use crate::{LcuClient, Lockfile, discover};
@@ -58,6 +60,34 @@ impl LeagueClient for Absent {
     }
 
     fn champion_key(&self, _: i64) -> Result<String, PortError> {
+        Err(self.0.clone())
+    }
+
+    fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {
+        Err(self.0.clone())
+    }
+
+    fn rune_page_capacity(&self) -> Result<usize, PortError> {
+        Err(self.0.clone())
+    }
+
+    fn delete_rune_page(&self, _: i64) -> Result<(), PortError> {
+        Err(self.0.clone())
+    }
+
+    fn create_rune_page(&self, _: &NewRunePage) -> Result<(), PortError> {
+        Err(self.0.clone())
+    }
+
+    fn item_sets(&self) -> Result<Value, PortError> {
+        Err(self.0.clone())
+    }
+
+    fn save_item_sets(&self, _: &Value) -> Result<(), PortError> {
+        Err(self.0.clone())
+    }
+
+    fn set_spells(&self, _: (i64, i64)) -> Result<(), PortError> {
         Err(self.0.clone())
     }
 }

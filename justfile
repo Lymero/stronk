@@ -191,7 +191,7 @@ fixture-data:
 # The real core against lcu-mock and the signed fixture data, and the recorder's scrubbing
 core-e2e:
     cargo build {{ core_rs }} --locked --quiet -p stronk-cli
-    STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" uv run pytest -q tools/lcu_mock/tests/test_core_against_mock.py tools/lcu_mock/tests/test_record_against_mock.py
+    STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" uv run pytest -q tools/lcu_mock/tests/test_core_against_mock.py tools/lcu_mock/tests/test_record_against_mock.py tools/lcu_mock/tests/test_import_against_mock.py
 
 # Fake League client replaying a session: just lcu-mock tools/lcu_mock/sessions/<file>.json
 lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":

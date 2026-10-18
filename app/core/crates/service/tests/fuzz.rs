@@ -10,8 +10,10 @@ use proptest::prelude::*;
 use serde_json::{Map, Value};
 use stronk_contracts::build_v1::Build;
 use stronk_domain::{BuildKey, Patch};
-use stronk_service::ports::{BuildSource, ChampSelect, DataStatus, LeagueClient, PortError};
+use stronk_service::ports::{BuildSource, ChampSelect, DataStatus, PortError};
 use stronk_service::{Context, registry};
+
+mod common;
 
 struct Empty;
 
@@ -21,20 +23,6 @@ impl BuildSource for Empty {
     }
     fn build(&self, _: Patch, key: &BuildKey) -> Result<Build, PortError> {
         Err(PortError::NotFound(key.path()))
-    }
-}
-
-impl LeagueClient for Empty {
-    fn champ_select(&self) -> Result<Option<ChampSelect>, PortError> {
-        Ok(Some(ChampSelect {
-            champion_id: 7,
-            locked: true,
-            role: None,
-            phase: "FINALIZATION".into(),
-        }))
-    }
-    fn champion_key(&self, id: i64) -> Result<String, PortError> {
-        Err(PortError::NotFound(id.to_string()))
     }
 }
 
@@ -72,11 +60,12 @@ fn json() -> impl Strategy<Value = Value> {
 proptest! {
     #[test]
     fn commands_never_panic(
-        id in prop_oneof![Just("build.get"), Just("champselect.state"), Just("data.status"), Just("x")],
+        id in prop_oneof![Just("build.get"), Just("build.plan"), Just("build.import"),
+                          Just("champselect.state"), Just("data.status"), Just("x")],
         params in json(),
     ) {
-        let empty = Arc::new(Empty);
-        let ctx = Context { builds: empty.clone(), client: empty };
+        let session = ChampSelect { champion_id: 7, locked: true, role: None, phase: "FINALIZATION".into(), spells: None };
+        let ctx = Context { builds: Arc::new(Empty), client: Arc::new(common::FakeClient::new(Some(session))) };
         let _ = registry().run(&ctx, id, params);
     }
 }

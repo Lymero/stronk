@@ -37,10 +37,37 @@ pub fn command() -> Command {
 }
 
 fn run(ctx: &Context, params: Params) -> Result<Build, CommandError> {
-    let key = BuildKey::new(&params.region, &params.elo, &params.champion, params.role)
-        .map_err(|e| CommandError::new(ErrorCode::InvalidParams, e.to_string()))?;
-    let patch = match params.patch {
-        Some(patch) => patch,
+    let patch = params.patch.map(|p| p.to_string());
+    fetch(
+        ctx,
+        &params.champion,
+        params.role,
+        patch.as_deref(),
+        Some(&params.region),
+        Some(&params.elo),
+    )
+}
+
+/// The verified build file; `None` means the newest patch, `all` regions, `master_plus`.
+pub fn fetch(
+    ctx: &Context,
+    champion: &str,
+    role: Role,
+    patch: Option<&str>,
+    region: Option<&str>,
+    elo: Option<&str>,
+) -> Result<Build, CommandError> {
+    let invalid =
+        |e: &dyn std::fmt::Display| CommandError::new(ErrorCode::InvalidParams, e.to_string());
+    let key = BuildKey::new(
+        region.unwrap_or("all"),
+        elo.unwrap_or("master_plus"),
+        champion,
+        role,
+    )
+    .map_err(|e| invalid(&e))?;
+    let patch: Patch = match patch {
+        Some(text) => text.parse().map_err(|e| invalid(&e))?,
         None => ctx.builds.status()?.patch,
     };
     Ok(ctx.builds.build(patch, &key)?)
