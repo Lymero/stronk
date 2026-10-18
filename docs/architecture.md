@@ -80,7 +80,7 @@ stronk/
 │           ├── features/        # champ-select, build-view, settings
 │           └── ui/              # design system: components and tokens
 ├── tools/
-│   ├── lcu-mock/                # fake League client replaying recorded sessions
+│   ├── lcu_mock/                # fake League client replaying recorded sessions
 │   ├── synth/                   # synthetic games with planted effects; `stronk-synth eval`
 │   ├── corpus/                  # `just corpus`: fetch, verify and pack the test corpus
 │   └── checks/                  # floors, budgets and commit-message checks
@@ -195,7 +195,7 @@ Data for the likely champions is loaded when champion select starts and on hover
 
 ### League client mock
 
-`tools/lcu-mock` impersonates the League client: writes a fake lockfile, serves the endpoints the core uses, replays recorded champion-select sessions, adds configurable latency and records what the app imported. The real Rust core is tested end to end without the game.
+`tools/lcu_mock` impersonates the League client: writes a fake lockfile, serves the endpoints the core uses, replays recorded champion-select sessions, adds configurable latency and records what the app imported. The real Rust core is tested end to end without the game.
 
 ## 6. Data contract
 

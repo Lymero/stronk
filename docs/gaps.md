@@ -8,11 +8,11 @@ Status: **missing** · **partial** · **done**
 
 | Capability | Reference | Status |
 |---|---|---|
-| Item ranking by WPA | Coachless | missing |
-| Rune ranking by WPA | Coachless | missing |
-| Confidence intervals and sample sizes shown | none | partial: computed by WPA v1 reference, not yet published |
-| Flags for meta-locked or low-sample choices | none | partial: computed by WPA v1 reference, not yet published |
-| Per-slot item ranking | Coachless | missing |
+| Item ranking by WPA | Coachless | partial: estimated and published per slot; at 22,954 games no comparison survives FDR (ADR-036, ADR-039) |
+| Rune ranking by WPA | Coachless | partial: keystones estimated, published with their usual page |
+| Confidence intervals and sample sizes shown | none | partial: published in build files; the app shows WPA and flags, not yet intervals |
+| Flags for meta-locked or low-sample choices | none | done: published, shown by the app instead of numbers |
+| Per-slot item ranking | Coachless | partial: per slot in build files; ranking claims need FDR survivors |
 | Elo filters | Coachless, u.gg | missing |
 | Matchup-adjusted builds | u.gg, Blitz | missing |
 | Skill order | u.gg, Blitz | missing |
@@ -21,7 +21,7 @@ Status: **missing** · **partial** · **done**
 
 | Capability | Reference | Status |
 |---|---|---|
-| Detect champion and role | Blitz, Porofessor | missing |
+| Detect champion and role | Blitz, Porofessor | partial: `champselect.state` reads it from the client (tested against lcu-mock); polling, no websocket yet; the real client's root certificate is still to add |
 | Import rune page | Blitz, Porofessor | missing |
 | Write item set | Blitz, Porofessor | missing |
 | Set summoner spells | Blitz | missing |

@@ -2,7 +2,7 @@
 
 Build a thin version end to end first, then improve each part. Structure is set up correctly from the start; scope grows later. Use [gaps.md](gaps.md) to choose within a milestone.
 
-**Current focus: M1.** M0 done 2026-10-17.
+**Current focus: M3.** M0 done 2026-10-17, M1 and M2 done 2026-10-18.
 
 ## M0 · Foundation
 
@@ -35,11 +35,11 @@ Build a thin version end to end first, then improve each part. Structure is set 
 
 ## M3 · App v1
 
-- [ ] Tauri 2 + Svelte scaffold; Cargo workspace (`domain`, `service`, `lcu`, `data`, `cli`, `src-tauri`)
-- [ ] Command registry in `service`; `stronk-core` CLI; command fuzzing test
-- [ ] Typed IPC with tauri-specta; `Backend` port with `TauriBackend` and `MockBackend`; single serializable state
-- [ ] `data`: `DirectorySource`, `HttpSource`, cache, signature verification
-- [ ] `tools/lcu-mock` with one recorded champion-select session
+- [x] Tauri 2 + Svelte scaffold; Cargo workspace (`domain`, `service`, `lcu`, `data`, `cli`, `src-tauri`) (ADR-040, ADR-041)
+- [x] Command registry in `service`; `stronk-core` CLI; command fuzzing test
+- [ ] Typed IPC with tauri-specta; `Backend` port with `TauriBackend` and `MockBackend`; single serializable state (port, both backends and state done; tauri-specta bindings once the shell builds locally)
+- [ ] `data`: `DirectorySource`, `HttpSource`, cache, signature verification (`DirectorySource` with verification done)
+- [ ] `tools/lcu_mock` with one recorded champion-select session (mock done, tested against the real core; the session is hand-written until a real capture)
 - [ ] Champion-select detection with preloading; import runes, item set and spells
 - [ ] Playwright end-to-end tests; `just bench`; enforce the lock-in budget once met
 
