@@ -3,6 +3,9 @@
 Cargo already refuses undeclared dependencies; this checks the declared ones point inward:
 domain depends on no app crate, service only on domain (and the contracts), adapters on service
 and domain, and only entry points (cli, src-tauri) on adapters.
+
+It also keeps TLS exceptions in one place (ADR-042): rustls' `.dangerous()` and reqwest's
+`danger_accept_invalid_*` may appear only in the LCU verifier, `crates/lcu/src/tls.rs`.
 """
 
 from __future__ import annotations
@@ -44,6 +47,22 @@ def violations(packages: list[Package]) -> list[str]:
     return out
 
 
+TLS_EXCEPTION = ("dangerous()", "danger_accept_invalid")
+TLS_EXCEPTION_HOME = Path("crates/lcu/src/tls.rs")
+
+
+def tls_exceptions(core: Path) -> list[str]:
+    """Rust files outside the LCU verifier that loosen TLS verification."""
+    out: list[str] = []
+    for path in sorted(core.rglob("*.rs")):
+        relative = path.relative_to(core)
+        if relative.parts[0] == "target" or relative == TLS_EXCEPTION_HOME:
+            continue
+        text = path.read_text()
+        out += [f"{relative}: {m} outside {TLS_EXCEPTION_HOME}" for m in TLS_EXCEPTION if m in text]
+    return out
+
+
 def main() -> int:
     result = subprocess.run(
         ["cargo", "metadata", "--format-version", "1", "--no-deps",
@@ -51,6 +70,7 @@ def main() -> int:
         capture_output=True, text=True, check=True,
     )  # fmt: skip
     problems = violations(json.loads(result.stdout)["packages"])
+    problems += tls_exceptions(ROOT / "app/core")
     for p in problems:
         print(f"rust layers: {p}", file=sys.stderr)
     print("rust layers: " + ("broken" if problems else "kept"))

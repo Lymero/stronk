@@ -1,13 +1,15 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::error::Error as _;
+use std::sync::Mutex;
+use std::time::Duration;
 
-use base64::Engine;
-use rustls::ClientConfig;
+use reqwest::StatusCode;
+use reqwest::blocking::Client;
+use reqwest::header::{ACCEPT, AUTHORIZATION};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use stronk_service::ports::{ChampSelect, LeagueClient, PortError};
 
-use crate::http;
 use crate::lockfile::Lockfile;
 use crate::models::{ChampionSummary, Session};
 use crate::tls::{Trust, client_config};
@@ -15,10 +17,14 @@ use crate::tls::{Trust, client_config};
 pub const SESSION: &str = "/lol-champ-select/v1/session";
 pub const CHAMPION_SUMMARY: &str = "/lol-game-data/assets/v1/champion-summary.json";
 
-/// HTTPS to the local client, accepting its certificate per [`Trust`] only.
+const TIMEOUT: Duration = Duration::from_secs(3);
+
+/// HTTPS to the local client, accepting its certificate per [`Trust`] only. The address is
+/// always the `127.0.0.1` literal: the verifier skips the name check for that reason alone, so
+/// no constructor takes a host.
 pub struct LcuClient {
-    config: Arc<ClientConfig>,
-    port: u16,
+    http: Client,
+    base: String,
     auth: String,
     champions: Mutex<Option<HashMap<i64, String>>>,
 }
@@ -26,11 +32,20 @@ pub struct LcuClient {
 impl LcuClient {
     pub fn new(lock: &Lockfile, trust: &Trust) -> Result<Self, PortError> {
         let config = client_config(trust).map_err(PortError::Invalid)?;
-        let token =
-            base64::engine::general_purpose::STANDARD.encode(format!("riot:{}", lock.password));
+        // This client, and only this one, carries the LCU verifier (docs/security.md).
+        let http = Client::builder()
+            .tls_backend_preconfigured((*config).clone())
+            .timeout(TIMEOUT)
+            .no_proxy()
+            .build()
+            .map_err(|e| PortError::Invalid(format!("HTTP client: {}", chain(&e))))?;
+        let token = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            format!("riot:{}", lock.password),
+        );
         Ok(Self {
-            config,
-            port: lock.port,
+            http,
+            base: format!("https://127.0.0.1:{}", lock.port),
             auth: format!("Basic {token}"),
             champions: Mutex::new(None),
         })
@@ -42,21 +57,41 @@ impl LcuClient {
     }
 
     fn get<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, PortError> {
-        let (status, body) = http::get(&self.config, self.port, path, &self.auth)
-            .map_err(|e| PortError::Unavailable(format!("League client: {e}")))?;
-        match status {
-            404 => return Ok(None),
-            200..=299 => {}
-            code => {
+        let unavailable =
+            |e: reqwest::Error| PortError::Unavailable(format!("League client: {}", chain(&e)));
+        let response = self
+            .http
+            .get(format!("{}{path}", self.base))
+            .header(AUTHORIZATION, &self.auth)
+            .header(ACCEPT, "application/json")
+            .send()
+            .map_err(unavailable)?;
+        match response.status() {
+            StatusCode::NOT_FOUND => return Ok(None),
+            status if status.is_success() => {}
+            status => {
                 return Err(PortError::Unavailable(format!(
-                    "League client: HTTP {code} on {path}"
+                    "League client: HTTP {status} on {path}"
                 )));
             }
         }
+        let body = response.bytes().map_err(unavailable)?;
         serde_json::from_slice(&body)
             .map(Some)
             .map_err(|e| PortError::Invalid(format!("League client {path}: {e}")))
     }
+}
+
+/// An error with its causes: a rejected certificate's description sits a few levels down.
+fn chain(e: &reqwest::Error) -> String {
+    let mut text = e.to_string();
+    let mut source = e.source();
+    while let Some(cause) = source {
+        text.push_str(": ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    text
 }
 
 impl LeagueClient for LcuClient {

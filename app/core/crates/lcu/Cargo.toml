@@ -14,9 +14,14 @@ serde_json = "1"
 stronk-domain = { path = "../domain" }
 stronk-service = { path = "../service" }
 thiserror = "2"
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 sha2 = "0.10"
 x509-parser = { version = "0.18", features = ["verify"] }
+
+[dev-dependencies]
+rcgen = "0.14"
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "__rustls-tls"] }
 
 [lints]
 workspace = true

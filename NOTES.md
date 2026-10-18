@@ -51,3 +51,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: WebKitGTK locally to run `just app` and generate tauri-specta bindings; Riot's LCU root certificate (from a verifiable source) before a real client; a real champion-select recording; HttpSource and cache; imports (runes, item set, spells).
 - 2026-10-18: League client trust (ADR-042): Riot's CA embedded (v1, SHA-1, so an explicit verifier; pin fallback ready), own HTTPS GETs over rustls; `stronk-core record-champselect` with allowlist scrubbing and identifier checks; Windows CI job and docs/windows.md.
   Open: first Windows run against the real client: does Riot's CA validate it, and a real recording to replace the hand-written session.
+- 2026-10-18: LCU transport is reqwest with the verifier's rustls config (no hand-written HTTP); tokio-tungstenite takes the same config for the coming watcher; trust tests on a real TLS server, including that the name-check exception doesn't reach other clients; `.dangerous()` confined to `tls.rs` by `just arch`. Windows build needed `icon.ico`.
+  Open: the Windows CI job's first full pass; the real-client run.

@@ -146,3 +146,18 @@ def test_rust_layers_point_inward() -> None:
     assert rust_layers.violations(ok) == []
     bad = [package("stronk-domain", "stronk-service"), package("stronk-service")]
     assert rust_layers.violations(bad) == ["stronk-domain must not depend on stronk-service"]
+
+
+def test_tls_exceptions_live_in_the_lcu_verifier_only(tmp_path: Path) -> None:
+    import rust_layers
+
+    home = tmp_path / "crates/lcu/src/tls.rs"
+    home.parent.mkdir(parents=True)
+    home.write_text("builder.dangerous()")
+    assert rust_layers.tls_exceptions(tmp_path) == []
+    other = tmp_path / "crates/data/src/http.rs"
+    other.parent.mkdir(parents=True)
+    other.write_text("Client::builder().danger_accept_invalid_certs(true)")
+    assert rust_layers.tls_exceptions(tmp_path) == [
+        "crates/data/src/http.rs: danger_accept_invalid outside crates/lcu/src/tls.rs"
+    ]

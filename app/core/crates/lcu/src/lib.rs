@@ -7,7 +7,6 @@
 
 mod client;
 mod connect;
-mod http;
 mod lockfile;
 pub mod models;
 pub mod scrub;
