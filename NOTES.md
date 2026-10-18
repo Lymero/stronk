@@ -41,3 +41,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: overlap-weighted estimator for the attenuation (needs approval); CI corpus (~3,500 games stratified by region) plus a full 23k corpus entry with per-corpus floors, after the cross-evaluation is reviewed.
 - 2026-10-18: FDR family is now the eligible options (neither low_sample nor low_overlap), each against its point's most played (ADR-036): 125 contrasts on the 23k, none survive. `overlap-weighted` estimator (ADR-037) alongside v1: synthetic G kept 99% vs 54%, but confounded A bias 0.0096 and coverage 0.75 break floors, so v1 stays the default; on real data the two agree (r 0.977).
   Open: doubly robust v2 with skill features; corpora (CI ~3,500 stratified, full 23k weekly).
+- 2026-10-18: corpora (ADR-038): `crawl-ci-16.20` (3500 stratified by region, `just check`) and `crawl-all-16.20` (22,954, weekly `full-corpus` workflow), both uploaded and pinned; floors per corpus from their own baselines (CI log loss 0.5308, full 0.5215).
+  Open: first run of the `full-corpus` workflow (dispatch by hand once merged); fresh crawls need a new dev key.

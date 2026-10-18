@@ -238,7 +238,7 @@ Shape of one file (`/{patch}/{region}/{elo}/{champion}/{role}.json`):
 
 ### Quality floors (`metrics/floors.toml`)
 
-- Win probability model: calibration error and log loss.
+- Win probability model: calibration error and log loss, per corpus (`winprob.ci.*` in `just check`, `winprob.full.*` in the weekly full-corpus job; ADR-038).
 - Synthetic truth: recovery error of planted effects, with and without hidden confounders.
 - Patch backtests: share of item changes whose estimate moved in the right direction.
 - Coverage: champion and role pairs with enough data for a confident estimate.
@@ -266,8 +266,10 @@ A floor can be raised, never lowered without an entry in `docs/decisions.md`. CI
 ### Test corpus
 
 - Larger real-data samples live outside git (a GitHub release or an R2 bucket), listed in `corpus.lock` with URL and sha256.
-- `just corpus` fetches and verifies them into `corpus/` (gitignored).
-- Corpus tests are opt-in locally and always run in CI, with the download cached by hash.
+- `just corpus [name...]` fetches and verifies them into `corpus/` (gitignored).
+- Two entries (ADR-038): `crawl-ci-16.20`, 3500 games stratified by region, used by `just check` and every CI run; `crawl-all-16.20`, every crawled game (22,954), used by real runs and the weekly `full-corpus` workflow (`just floors-full`, also on demand).
+- A floor's `suite` says which run measures it; each corpus's floors come from its own baseline.
+- Corpus tests are opt-in locally and always run in CI on the CI corpus, with the download cached by hash.
 
 ### Static checks
 

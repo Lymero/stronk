@@ -13,7 +13,8 @@ from stronk_pipeline.domain.extract.tables import extract
 from stronk_pipeline.domain.result import Ok
 
 CORPUS = Path(__file__).resolve().parents[3] / "corpus"
-CRAWLS = sorted(p for p in CORPUS.glob("*") if (p / "matches").is_dir())
+# The CI corpus only: the full one (crawl-all-*) is extracted by the weekly job (ADR-038).
+CRAWLS = sorted(p for p in CORPUS.glob("crawl-ci-*") if (p / "matches").is_dir())
 
 pytestmark = [
     pytest.mark.corpus,

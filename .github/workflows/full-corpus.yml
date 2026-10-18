@@ -1,0 +1,45 @@
+name: full-corpus
+
+# Floors on the full corpus (crawl-all-16.20, ADR-038): too slow for every push, so weekly and
+# on demand. `just check` covers the CI corpus.
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-corpus
+  cancel-in-progress: false
+
+jobs:
+  floors:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.local/share/pnpm/store
+          key: deps-${{ hashFiles('uv.lock', 'pnpm-lock.yaml') }}
+      - uses: actions/cache@v4
+        with:
+          path: corpus
+          key: corpus-full-${{ hashFiles('corpus.lock') }}
+      - run: just setup
+      - run: just floors-full
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-corpus-metrics
+          path: |
+            metrics/out/winprob-full.json
+            metrics/out/extract-full.json
+            runs/floors-full/winprob/report.json

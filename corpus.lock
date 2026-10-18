@@ -6,7 +6,14 @@
 # url = "https://api.github.com/repos/<owner>/<repo>/releases/assets/<id>"  # needs GITHUB_TOKEN
 # sha256 = "…"
 
+# CI corpus: 3500 games stratified by region from crawl-all-16.20 (ADR-038). `just check`.
 [[file]]
-name = "crawl-euw1-16.20"
-url = "https://api.github.com/repos/Lymero/stronk/releases/assets/651699669"
-sha256 = "d7c769f75dd7e10fa073aa04fe4e7f75ec52ced10b8e34fff7e7e7feb075178e"
+name = "crawl-ci-16.20"
+url = "https://api.github.com/repos/Lymero/stronk/releases/assets/654369027"
+sha256 = "06ded5939b6aa10a4db89a0e97b41851d5dea8baa3a2e648dc03e0e7cf77805b"
+
+# Full corpus: 22954 games, EUW, KR and NA (ADR-038). Weekly CI job and real runs.
+[[file]]
+name = "crawl-all-16.20"
+url = "https://api.github.com/repos/Lymero/stronk/releases/assets/654369574"
+sha256 = "40a054746e6047d3d8257e9178286bac299872b46bad49c3619a08ef95e696c4"

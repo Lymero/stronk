@@ -1,4 +1,10 @@
-"""Check quality metrics against metrics/floors.toml. Exit 1 on a breach or a loosened floor."""
+"""Check quality metrics against metrics/floors.toml. Exit 1 on a breach or a loosened floor.
+
+check_floors.py [--suite NAME]
+
+A floor's `suite` (default `check`) says which run measures it: `just check` checks `check`,
+the weekly full-corpus job `full` (ADR-038). Loosening is checked across every suite.
+"""
 
 from __future__ import annotations
 
@@ -14,12 +20,14 @@ ROOT = Path(__file__).resolve().parents[2]
 LIMITS: dict[str, Direction] = {"max": "upper", "min": "lower"}
 
 
-def check(floors: list[dict[str, Any]], root: Path) -> tuple[list[str], list[str]]:
-    """(report lines, problems)."""
+def check(
+    floors: list[dict[str, Any]], root: Path, suite: str = "check"
+) -> tuple[list[str], list[str]]:
+    """(report lines, problems) for the floors of `suite`."""
     report: list[str] = []
     problems: list[str] = []
     cache: dict[Path, dict[str, Any] | None] = {}
-    for floor in floors:
+    for floor in (f for f in floors if f.get("suite", "check") == suite):
         metric = floor["metric"]
         source = root / floor["source"]
         if source not in cache:
@@ -44,10 +52,18 @@ def check(floors: list[dict[str, Any]], root: Path) -> tuple[list[str], list[str
     return report, problems
 
 
-def main() -> int:
+def main(argv: list[str]) -> int:
+    match argv:
+        case []:
+            suite = "check"
+        case ["--suite", suite]:
+            pass
+        case _:
+            print(__doc__, file=sys.stderr)
+            return 2
     path = ROOT / "metrics/floors.toml"
     floors = tomllib.loads(path.read_text()).get("floor", [])
-    report, problems = check(floors, ROOT)
+    report, problems = check(floors, ROOT, suite)
     old = committed(path, ROOT)
     if old is not None:
         names = loosened(
@@ -57,11 +73,11 @@ def main() -> int:
             f"{n}: floor loosened without an entry in docs/decisions.md"
             for n in unjustified(names, ROOT / "docs/decisions.md")
         ]
-    print("floors:\n" + "\n".join(report))
+    print(f"floors ({suite}):\n" + "\n".join(report))
     for p in problems:
         print(f"floors: {p}", file=sys.stderr)
     return 1 if problems else 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

@@ -26,7 +26,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just check` | Format, lint, typecheck, architecture rules, tests, codegen drift, floors, enforced budgets. Run before finishing. |
 | `just test` | All tests |
 | `just gen` | Regenerate types from `contracts/schemas/` |
-| `just corpus` | Fetch and verify the pinned test corpus |
+| `just corpus [name…]` | Fetch and verify the pinned corpora (`crawl-ci-16.20` for checks, `crawl-all-16.20` for real runs) |
 | `just pipeline` | Full pipeline on the committed fixture (crawl replay, extract, winprob, wpa, publish) into `runs/pipeline/`, signed with a throwaway key |
 | `just publish <estimates> <crawl,…> [key] [out]` | Signed build files into `dist/data/` |
 | `just pipeline-stage <name>` | One stage: `crawl`, `extract`, `winprob`, `wpa`, `publish` |
@@ -34,7 +34,9 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just extract [crawl,…] [out] [--retry-quarantine]` | Frames and decision points from one or more crawl directories (comma-separated) into one table; the flag first re-reads games the crawl quarantined |
 | `just keygen [out]` | Create the data signing key outside the repository (default `~/.config/stronk/signing.key`) |
 | `just winprob [frames] [out]` | Train the win probability model and write its calibration report |
+| `just corpus-merge <out> "<crawl> …" [games]` | One crawl from several: all games, or a sample stratified by crawl |
 | `just corpus-pack <crawl> <name>` | Archive a crawl for the corpus and print its `corpus.lock` entry |
+| `just floors-full` | Floors on the full corpus (weekly CI job) |
 | `just serve-data [root] [port]` | Serve `dist/data/` locally like the CDN: ETag and 304, CORS, localhost only |
 | `just app-mock` | UI in the browser against `MockBackend` |
 | `just lcu-mock <session>` | Fake League client replaying a recorded session |

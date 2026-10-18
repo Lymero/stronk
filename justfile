@@ -4,7 +4,8 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 contracts_rs := "--manifest-path contracts/generated/rust/Cargo.toml"
-corpus_crawl := "corpus/crawl-euw1-16.20"
+ci_corpus := "crawl-ci-16.20"
+full_corpus := "crawl-all-16.20"
 
 # List recipes
 default:
@@ -118,23 +119,37 @@ pipeline-stage name params="{}":
     esac
     uv run stronk-pipeline run "$id" --params '{{ params }}'
 
-# Fetch and verify the pinned test corpus (corpus.lock) into corpus/
-corpus:
-    GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}" uv run python tools/corpus/corpus.py fetch
+# Fetch and verify corpus.lock entries into corpus/: all, or the ones named
+corpus *names:
+    GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}" uv run python tools/corpus/corpus.py fetch {{ names }}
 
 # Archive a crawl directory for the corpus and print its corpus.lock entry
+# One crawl from several, all games or N stratified by crawl: just corpus-merge <out> "<crawl> <crawl>" [N]
+corpus-merge out crawls games="":
+    uv run python tools/corpus/corpus.py merge {{ out }} {{ crawls }} {{ if games == "" { "" } else { "--games " + games } }}
+
 corpus-pack crawl name:
     uv run python tools/corpus/corpus.py pack {{ crawl }} {{ name }}
 
 # Synthetic-truth metrics against metrics/floors.toml
-floors: corpus
+floors: (corpus ci_corpus)
     uv run stronk-synth eval --out metrics/out/synthetic.json > /dev/null
     just pipeline > /dev/null
     uv run python tools/checks/pipeline_metrics.py runs/pipeline/extract/report.json metrics/out/pipeline.json
-    just extract {{ corpus_crawl }} runs/floors/extract > /dev/null
-    just winprob runs/floors/extract/frames.parquet runs/floors/winprob > /dev/null
-    uv run python tools/checks/pipeline_metrics.py runs/floors/winprob/report.json metrics/out/winprob.json
+    just corpus-floors {{ ci_corpus }} ci
     uv run python tools/checks/check_floors.py
+
+# Floors on the full corpus (all regions): the weekly CI job, or by hand
+floors-full: (corpus full_corpus)
+    just corpus-floors {{ full_corpus }} full
+    uv run python tools/checks/check_floors.py --suite full
+
+# Extract and winprob on one corpus entry, metrics named after it: just corpus-floors <name> <tag>
+corpus-floors name tag:
+    just extract corpus/{{ name }} runs/floors-{{ tag }}/extract > /dev/null
+    just winprob runs/floors-{{ tag }}/extract/frames.parquet runs/floors-{{ tag }}/winprob > /dev/null
+    uv run python tools/checks/pipeline_metrics.py runs/floors-{{ tag }}/extract/report.json metrics/out/extract-{{ tag }}.json {{ tag }}
+    uv run python tools/checks/pipeline_metrics.py runs/floors-{{ tag }}/winprob/report.json metrics/out/winprob-{{ tag }}.json {{ tag }}
 
 # Benchmark results against perf/budgets.toml
 budgets:

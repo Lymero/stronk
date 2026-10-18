@@ -31,9 +31,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: corpus
-          key: corpus-${{ hashFiles('corpus.lock') }}
+          key: corpus-ci-${{ hashFiles('corpus.lock') }}
       - run: just setup
-      - run: just corpus
+      - run: just corpus crawl-ci-16.20
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - run: just check

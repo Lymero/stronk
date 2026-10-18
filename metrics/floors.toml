@@ -122,18 +122,46 @@ source = "metrics/out/synthetic.json"
 metric = "synthetic.overlap_weighted.confounded.mean_abs_error"
 source = "metrics/out/synthetic.json"
 
-# Win probability (`winprob.train` on the corpus, crawl-euw1-16.20: 495 test matches never seen
-# in training or model choice). Measured 2026-10-18 with the logistic model chosen: calibration
-# error 0.0136, log loss 0.5161. LightGBM on the same split: 0.0135 and 0.5203 (ADR-030).
-[[floor]]
-metric = "winprob.calibration_error"
-source = "metrics/out/winprob.json"
-max = 0.015
+# Win probability and extract on the corpora (ADR-038), each floor set from its own corpus's
+# baseline: test matches never seen in training or model choice, logistic model chosen.
+# crawl-ci-16.20 (3500 games stratified by region, 525 test matches), measured 2026-10-18 by
+# `just check`: log loss 0.5308, calibration error 0.0114, skip rate 0.
 
 [[floor]]
-metric = "winprob.log_loss"
-source = "metrics/out/winprob.json"
-max = 0.52
+metric = "winprob.ci.calibration_error"
+source = "metrics/out/winprob-ci.json"
+max = 0.013
+
+[[floor]]
+metric = "winprob.ci.log_loss"
+source = "metrics/out/winprob-ci.json"
+max = 0.535
+
+[[floor]]
+metric = "extract.ci.skip_rate"
+source = "metrics/out/extract-ci.json"
+max = 0.01
+
+# crawl-all-16.20 (22954 games, 3443 test matches), measured 2026-10-18 by the weekly job
+# (`just floors-full`): log loss 0.5215, calibration error 0.0082, skip rate 0.
+
+[[floor]]
+metric = "winprob.full.calibration_error"
+source = "metrics/out/winprob-full.json"
+suite = "full"
+max = 0.0095
+
+[[floor]]
+metric = "winprob.full.log_loss"
+source = "metrics/out/winprob-full.json"
+suite = "full"
+max = 0.525
+
+[[floor]]
+metric = "extract.full.skip_rate"
+source = "metrics/out/extract-full.json"
+suite = "full"
+max = 0.01
 
 # Set once the stage exists (M2: coverage; M5: backtests).
 
@@ -149,7 +177,7 @@ enforce = false
 
 # Pipeline on the committed live recording (`just pipeline`). Skip rate: games lost to a failure
 # (quarantined by the crawl, or dropped whole by extract) over games attempted. Measured
-# 2026-10-18: 0 on the fixture and on the 3305-game crawl; the first crawl, before the two
+# 2026-10-18: 0 on the fixture and on the corpora; the first crawl, before the two
 # live-payload fixes (ADR-028), would have been about 0.09.
 [[floor]]
 metric = "pipeline.skip_rate"

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from corpus import CorpusError, Entry, fetch, pack, read_lock
+from corpus import CorpusError, Entry, fetch, merge, pack, read_lock, select
 
 
 def crawl_dir(root: Path) -> Path:
@@ -111,3 +111,52 @@ def test_token_goes_to_the_api_but_not_to_the_redirect(
     assert signed.full_url == storage
     assert not signed.has_header("Authorization")
     assert (tmp_path / "corpus" / "c" / "matches" / "EUW1_1.json.gz").is_file()
+
+
+def region(root: Path, prefix: str, n: int) -> Path:
+    (root / "matches").mkdir(parents=True)
+    (root / "static").mkdir()
+    for i in range(n):
+        (root / "matches" / f"{prefix}_{i}.json.gz").write_bytes(f"{prefix}{i}".encode())
+    (root / "static" / "16.20.json.gz").write_bytes(b"static")
+    return root
+
+
+def games_in(crawl: Path) -> list[str]:
+    return sorted(p.name for p in (crawl / "matches").iterdir())
+
+
+def test_merge_takes_every_game_without_a_count(tmp_path: Path) -> None:
+    crawls = [region(tmp_path / "euw1", "EUW1", 3), region(tmp_path / "kr", "KR", 2)]
+    assert merge(crawls, tmp_path / "all") == {"euw1": 3, "kr": 2}
+    assert len(list((tmp_path / "all" / "matches").iterdir())) == 5
+    assert (tmp_path / "all" / "static" / "16.20.json.gz").read_bytes() == b"static"
+
+
+def test_merge_stratifies_by_crawl_reproducibly(tmp_path: Path) -> None:
+    crawls = [region(tmp_path / "euw1", "EUW1", 80), region(tmp_path / "kr", "KR", 70),
+              region(tmp_path / "na1", "NA1", 50)]  # fmt: skip
+    taken = merge(crawls, tmp_path / "a", games=21)
+    assert taken == {
+        "euw1": 9,
+        "kr": 7,
+        "na1": 5,
+    }  # 8.4, 7.35, 5.25: one more to the largest remainder
+    again = merge(list(reversed(crawls)), tmp_path / "b", games=21)
+    assert sorted(again.items()) == sorted(taken.items())
+    assert games_in(tmp_path / "a") == games_in(tmp_path / "b")
+
+
+def test_merge_refuses_disagreeing_static_data(tmp_path: Path) -> None:
+    a, b = region(tmp_path / "a", "EUW1", 1), region(tmp_path / "b", "KR", 1)
+    (b / "static" / "16.20.json.gz").write_bytes(b"other")
+    with pytest.raises(CorpusError, match="static data differs"):
+        merge([a, b], tmp_path / "out")
+
+
+def test_select_fetches_only_the_named_entries() -> None:
+    entries = [Entry("ci", "u1", "a"), Entry("full", "u2", "b")]
+    assert select(entries, []) == entries
+    assert select(entries, ["ci"]) == [entries[0]]
+    with pytest.raises(CorpusError, match=r"not in corpus\.lock"):
+        select(entries, ["nope"])

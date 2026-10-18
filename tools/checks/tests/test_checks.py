@@ -39,6 +39,16 @@ def test_enforced_floor_without_value_fails(tmp_path: Path) -> None:
     assert problems == ["m.error: no value in out.json"]
 
 
+def test_floors_are_checked_by_their_suite(tmp_path: Path) -> None:
+    full = {**FLOOR, "metric": "m.full", "suite": "full"}
+    root = write(tmp_path, {"m.error": 0.05})
+    assert check_floors.check([FLOOR, full], root) == (
+        check_floors.check([FLOOR], root)
+    )  # `full` isn't measured by `just check`
+    _, problems = check_floors.check([FLOOR, full], root, "full")
+    assert problems == ["m.full: no value in out.json"]
+
+
 def test_pending_floor_never_fails(tmp_path: Path) -> None:
     pending = {"metric": "m.later", "source": "out.json", "enforce": False}
     report, problems = check_floors.check([pending], tmp_path)
@@ -110,6 +120,12 @@ def test_pipeline_metrics_read_the_winprob_report() -> None:
         "winprob.calibration_error": 0.01,
         "winprob.log_loss": 0.5,
     }
+    assert pipeline_metrics.metrics(report, "ci") == {
+        "winprob.ci.calibration_error": 0.01,
+        "winprob.ci.log_loss": 0.5,
+    }
+    extract = {"stage": "extract", "result": {"skip_rate": 0.0}}
+    assert pipeline_metrics.metrics(extract, "full") == {"extract.full.skip_rate": 0.0}
 
 
 def test_bench_reports_median_and_max() -> None:

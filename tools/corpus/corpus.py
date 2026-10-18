@@ -1,7 +1,9 @@
 """The test corpus: larger real-data samples kept outside git, pinned in `corpus.lock` (ADR-015).
 
-    corpus.py fetch                   download, verify and unpack every entry into corpus/
-    corpus.py pack <crawl> <name>     archive a crawl directory for publishing; prints its entry
+    corpus.py fetch [name...]                download, verify and unpack entries into corpus/
+    corpus.py merge <out> <crawl...> [--games N]
+                                             one crawl from several; N games stratified by crawl
+    corpus.py pack <crawl> <name>            archive a crawl directory for publishing
 
 Only `fetch` uses the network. An entry already unpacked with the same sha256 is not fetched
 again. Archives hold the crawl's `matches/` and `static/`, never its `.salt`.
@@ -59,6 +61,56 @@ def read_lock(path: Path = LOCK) -> list[Entry]:
             raise CorpusError(f"{path}: unsafe corpus name {name!r}")
         result.append(Entry(name, url, sha256.lower()))
     return result
+
+
+def select(entries: list[Entry], names: list[str]) -> list[Entry]:
+    """The entries named, in lock order; all of them when no name is given."""
+    known = {e.name for e in entries}
+    unknown = [n for n in names if n not in known]
+    if unknown:
+        raise CorpusError(f"not in corpus.lock: {', '.join(unknown)}")
+    return [e for e in entries if not names or e.name in names]
+
+
+def merge(crawls: list[Path], out: Path, games: int | None = None) -> dict[str, int]:
+    """Copy several crawls' games and static data into one crawl directory at `out`.
+
+    With `games`, a sample stratified by crawl (one crawl per region): each crawl contributes
+    in proportion to its size, largest remainders first, and within a crawl the games with the
+    smallest sha256 of their file name, so the choice is reproducible and ignores file order.
+    Static data must agree where crawls share a patch. Returns games taken per crawl."""
+    found = {c: sorted(p for p in (c / "matches").glob("*.json.gz")) for c in crawls}
+    total = sum(len(f) for f in found.values())
+    if total == 0:
+        raise CorpusError("no games in " + ", ".join(map(str, crawls)))
+    if games is not None and not 0 < games <= total:
+        raise CorpusError(f"--games must be between 1 and {total}")
+    take = {c: len(f) for c, f in found.items()} if games is None else _allocate(found, games)
+    if (out / "matches").exists():
+        raise CorpusError(f"{out} already holds matches; merge into a new directory")
+    (out / "matches").mkdir(parents=True)
+    (out / "static").mkdir()
+    for crawl, files in found.items():
+        for path in sorted(files, key=lambda p: hashlib.sha256(p.name.encode()).digest())[
+            : take[crawl]
+        ]:
+            (out / "matches" / path.name).write_bytes(path.read_bytes())
+        for path in sorted((crawl / "static").glob("*")):
+            target = out / "static" / path.name
+            if target.exists() and target.read_bytes() != path.read_bytes():
+                raise CorpusError(f"{path.name}: static data differs between crawls")
+            target.write_bytes(path.read_bytes())
+    return {c.name: take[c] for c in crawls}
+
+
+def _allocate(found: dict[Path, list[Path]], games: int) -> dict[Path, int]:
+    total = sum(len(f) for f in found.values())
+    exact = {c: games * len(f) / total for c, f in found.items()}
+    take = {c: int(v) for c, v in exact.items()}
+    by_remainder = sorted(found, key=lambda c: (-(exact[c] - take[c]), str(c)))
+    for c in by_remainder[: games - sum(take.values())]:
+        take[c] += 1
+    return take
 
 
 def fetch(entries: list[Entry], corpus: Path = CORPUS) -> list[str]:
@@ -152,12 +204,18 @@ def _unpack(data: bytes, target: Path) -> None:
 def main(argv: list[str]) -> int:
     try:
         match argv:
-            case ["fetch"]:
-                entries = read_lock()
+            case ["fetch", *names]:
+                entries = select(read_lock(), names)
                 if not entries:
                     print("corpus: corpus.lock lists no files yet")
                 for line in fetch(entries):
                     print(f"corpus: {line}")
+            case ["merge", out, *crawls] if crawls:
+                games = None
+                if len(crawls) >= 2 and crawls[-2] == "--games":
+                    games, crawls = int(crawls[-1]), crawls[:-2]
+                taken = merge([Path(c) for c in crawls], Path(out), games)
+                print(f"merged into {out}: " + ", ".join(f"{k} {v}" for k, v in taken.items()))
             case ["pack", crawl, name]:
                 out = ROOT / "dist" / "corpus" / f"{name}.tar.gz"
                 digest = pack(Path(crawl), out)
@@ -166,7 +224,7 @@ def main(argv: list[str]) -> int:
             case _:
                 print(__doc__)
                 return 2
-    except (CorpusError, OSError, tarfile.TarError, tomllib.TOMLDecodeError) as e:
+    except (CorpusError, OSError, ValueError, tarfile.TarError, tomllib.TOMLDecodeError) as e:
         print(f"corpus: {e}", file=sys.stderr)
         return 1
     return 0
