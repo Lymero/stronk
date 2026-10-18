@@ -33,3 +33,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: skill features in the WP model; next M2 item, `wpa` v1 scores with propensity overlap, shrinkage and bootstrap on real data.
 - 2026-10-18: WPA fixes from the first real-data run (ADR-031): no number under 30 overlap decisions; shrunk intervals keep the prior's uncertainty (they collapsed to a point). Corpus: 24 of 12,503 estimates get a number, narrowest interval ±0.11.
   Open: data volume. Item WPA needs roughly ten times more games per champion (pool regions and patches, or a production key) before the rest of M2 means anything.
+- 2026-10-18: signing (ADR-032; Python signatures verified by Rust minisign-verify) and `publish` (ADR-033): signed, contract-valid build files, whole-patch replacement; `just pipeline` now runs crawl → extract → winprob → wpa → publish on the fixture. Extract takes several crawls. KR, NA and EUW crawls running toward about 24k games on 16.20.
+  Open: `just serve-data`; the real signing key (`just keygen`) and its public key for the app; the fast WPA implementation, if the reference is too slow at 24k games.

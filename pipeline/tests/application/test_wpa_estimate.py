@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
+from stronk_pipeline.adapters.json_estimates import JsonEstimateStore
 from stronk_pipeline.adapters.winprob_store import JsonWinProbStore
 from stronk_pipeline.application.registry import CommandError
 from stronk_pipeline.application.wpa_estimate import (
@@ -35,7 +36,7 @@ class FakeStore:
 
 def run(store: FakeStore, **params: object) -> Result[WpaEstimateResult, CommandError]:
     estimators = {"v1-reference": ReferenceEstimatorV1()}
-    command = wpa_estimate_command(store, estimators, JsonWinProbStore())
+    command = wpa_estimate_command(store, estimators, JsonWinProbStore(), JsonEstimateStore())
     return command.run(WpaEstimateParams.model_validate({"bootstrap_samples": 20, **params}))
 
 
@@ -101,3 +102,21 @@ def test_missing_model_is_not_found(table_factory: TableFactory, tmp_path: Path)
     result = run(store, decisions="d.parquet", winprob=str(tmp_path / "nope.json"))
     assert isinstance(result, Err)
     assert result.error.code == "not_found"
+
+
+def test_writes_estimates_that_read_back(table_factory: TableFactory, tmp_path: Path) -> None:
+    rng = np.random.default_rng(0)
+    n = 200
+    table = table_factory(
+        np.where(rng.random(n) < 0.5, "A", "B").tolist(),
+        (rng.random(n) < 0.5).astype(int).tolist(),
+        features=rng.normal(size=(n, 1)),
+    )
+    out = tmp_path / "estimates.json"
+    result = run(FakeStore({"d.parquet": table}), decisions="d.parquet", out=str(out))
+    assert isinstance(result, Ok)
+    read = JsonEstimateStore().read_estimates(out)
+    assert isinstance(read, Ok)
+    assert [(e.option, e.wpa, e.n) for e in read.value] == [
+        (e.option, e.wpa, e.n) for e in result.value.estimates
+    ]

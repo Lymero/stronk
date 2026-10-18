@@ -19,13 +19,15 @@ from stronk_pipeline.domain.winprob import (
     symmetric,
 )
 from stronk_pipeline.domain.wpa.types import WpaSettings
-from stronk_pipeline.ports import DecisionStore, Estimator, WinProbStore
+from stronk_pipeline.ports import DecisionStore, EstimateStore, Estimator, WinProbStore
 
 
 class WpaEstimateParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     decisions: Annotated[str, Field(min_length=1, description="Decision table (Parquet)")]
+    out: str | None = None
+    """Also write the estimates to this file, for `publish`."""
     winprob: str | None = None
     """Model from `winprob.train`. Without one, a logistic baseline is fitted on the decisions
     themselves (synthetic games have no frames to train on)."""
@@ -52,7 +54,10 @@ class WpaEstimateResult(BaseModel):
 
 
 def wpa_estimate_command(
-    store: DecisionStore, estimators: Mapping[str, Estimator], models: WinProbStore
+    store: DecisionStore,
+    estimators: Mapping[str, Estimator],
+    models: WinProbStore,
+    estimates_out: EstimateStore,
 ) -> Command[WpaEstimateParams, WpaEstimateResult]:
     def win_probability(
         table: DecisionTable, model_path: str | None
@@ -91,6 +96,13 @@ def wpa_estimate_command(
             case Ok(value=wp):
                 pass
         settings = WpaSettings(bootstrap_samples=params.bootstrap_samples, seed=params.seed)
+        estimates = estimator.estimate(table, wp, settings)
+        if params.out is not None:
+            match estimates_out.write_estimates(estimator.id, estimates, Path(params.out)):
+                case Err(error=e):
+                    return Err(CommandError(code="invalid_input", message=e.message))
+                case Ok():
+                    pass
         rows = [
             OptionEstimateRow(
                 champion=e.champion,
@@ -102,7 +114,7 @@ def wpa_estimate_command(
                 n=e.n,
                 flags=sorted(e.flags),
             )
-            for e in estimator.estimate(table, wp, settings)
+            for e in estimates
         ]
         return Ok(WpaEstimateResult(estimator=estimator.id, decisions=len(table), estimates=rows))
 

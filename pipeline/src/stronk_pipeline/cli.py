@@ -10,8 +10,10 @@ from typing import Annotated
 import httpx
 import typer
 
+from stronk_pipeline.adapters.json_estimates import JsonEstimateStore
 from stronk_pipeline.adapters.json_report import JsonReportWriter
 from stronk_pipeline.adapters.lightgbm_winprob import LightGbmLearner
+from stronk_pipeline.adapters.local_publisher import LocalPublisher
 from stronk_pipeline.adapters.match_store import FileMatchStore
 from stronk_pipeline.adapters.minisign import MinisignKeys
 from stronk_pipeline.adapters.parquet_store import ParquetDecisionStore, ParquetFrameStore
@@ -22,6 +24,7 @@ from stronk_pipeline.adapters.riot.rate_limit import RateLimiter
 from stronk_pipeline.adapters.winprob_store import JsonWinProbStore
 from stronk_pipeline.application.crawl import CrawlParams, SourceFactory, crawl_command
 from stronk_pipeline.application.extract import extract_command
+from stronk_pipeline.application.publish import publish_command
 from stronk_pipeline.application.registry import CommandError, CommandRegistry
 from stronk_pipeline.application.signing_keygen import signing_keygen_command
 from stronk_pipeline.application.winprob_train import winprob_train_command
@@ -47,8 +50,9 @@ def build_registry(settings: Settings | None = None) -> CommandRegistry:
             crawl_command(riot_sources(settings), FileMatchStore),
             extract_command(FileMatchStore, parse_quarantined, decisions, frames, reports),
             winprob_train_command(frames, learners, models, reports),
-            wpa_estimate_command(decisions, estimators, models),
+            wpa_estimate_command(decisions, estimators, models, JsonEstimateStore()),
             signing_keygen_command(MinisignKeys()),
+            publish_command(JsonEstimateStore(), FileMatchStore, MinisignKeys(), LocalPublisher),
         ]
     )
 

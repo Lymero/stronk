@@ -5,7 +5,7 @@ Publish writes through Signer and Publisher.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
@@ -254,3 +254,18 @@ class SigningKeys(Protocol):
         ...
 
     def load(self, path: Path) -> Result[Signer, StoreError]: ...
+
+
+class EstimateStore(Protocol):
+    def write_estimates(
+        self, estimator: str, estimates: Sequence[OptionEstimate], path: Path
+    ) -> Result[Path, StoreError]: ...
+
+    def read_estimates(self, path: Path) -> Result[list[OptionEstimate], StoreError]: ...
+
+
+class Publisher(Protocol):
+    def publish(self, patch: str, files: Mapping[str, bytes]) -> Result[list[str], StoreError]:
+        """Replace the patch's published files with exactly `files` (paths relative to the
+        patch), as a whole: readers never see a mix of two runs."""
+        ...

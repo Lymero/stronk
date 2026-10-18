@@ -56,17 +56,27 @@ gen:
 gen-check:
     uv run python contracts/codegen.py --check
 
-# Full pipeline offline on the committed recording (fixtures/riot/euw1), into runs/pipeline/
+# Full pipeline offline on the committed recording (fixtures/riot/euw1), into runs/pipeline/,
+# published under runs/pipeline/dist with a throwaway key (never dist/data)
 pipeline out="runs/pipeline":
     rm -rf {{ out }}
     uv run stronk-pipeline run crawl.run --params '{"platform": "euw1", "max_matches": 10, "replay": "fixtures/riot/euw1", "out": "{{ out }}/crawl"}'
     uv run stronk-pipeline run extract.run --params '{"crawl": "{{ out }}/crawl", "out": "{{ out }}/extract"}'
     uv run stronk-pipeline run winprob.train --params '{"frames": "{{ out }}/extract/frames.parquet", "out": "{{ out }}/winprob"}' > /dev/null
-    uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}/extract/decisions.parquet", "winprob": "{{ out }}/winprob/model.json"}' > {{ out }}/wpa.json
+    uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}/extract/decisions.parquet", "winprob": "{{ out }}/winprob/model.json", "out": "{{ out }}/estimates.json"}' > {{ out }}/wpa.json
+    uv run stronk-pipeline run signing.keygen --params '{"out": "{{ out }}/throwaway.key"}' > /dev/null
+    uv run stronk-pipeline run publish --params '{"estimates": "{{ out }}/estimates.json", "crawl": "{{ out }}/crawl", "key": "{{ out }}/throwaway.key", "out": "{{ out }}/dist"}'
 
 # Create the data signing key, outside the repository; prints the public key for the app
 keygen out="~/.config/stronk/signing.key":
     uv run stronk-pipeline run signing.keygen --params '{"out": "'"$(eval echo {{ out }})"'"}'
+
+# Signed build files into dist/data/ from estimates and their crawls (comma-separated)
+publish estimates crawl key="~/.config/stronk/signing.key" out="dist/data":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    crawls=$(printf '%s' "{{ crawl }}" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().split(",")))')
+    uv run stronk-pipeline run publish --params '{"estimates": "{{ estimates }}", "crawl": '"$crawls"', "key": "'"$(eval echo {{ key }})"'", "out": "{{ out }}"}'
 
 # Win probability model on frames: just winprob runs/extract/euw1/frames.parquet runs/winprob/euw1
 winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
