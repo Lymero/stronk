@@ -64,6 +64,10 @@ pipeline out="runs/pipeline":
     uv run stronk-pipeline run winprob.train --params '{"frames": "{{ out }}/extract/frames.parquet", "out": "{{ out }}/winprob"}' > /dev/null
     uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}/extract/decisions.parquet", "winprob": "{{ out }}/winprob/model.json"}' > {{ out }}/wpa.json
 
+# Create the data signing key, outside the repository; prints the public key for the app
+keygen out="~/.config/stronk/signing.key":
+    uv run stronk-pipeline run signing.keygen --params '{"out": "'"$(eval echo {{ out }})"'"}'
+
 # Win probability model on frames: just winprob runs/extract/euw1/frames.parquet runs/winprob/euw1
 winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
     uv run stronk-pipeline run winprob.train --params '{"frames": "{{ frames }}", "out": "{{ out }}"}'

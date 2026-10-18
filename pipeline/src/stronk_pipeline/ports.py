@@ -1,6 +1,6 @@
 """Interfaces the application layer works through. Adapters implement them.
 
-More ports arrive with their stages: Publisher and Signer (publish, M2).
+Publish writes through Signer and Publisher.
 """
 
 from __future__ import annotations
@@ -228,3 +228,29 @@ class Estimator(Protocol):
     def estimate(
         self, table: DecisionTable, wp: Floats, settings: WpaSettings
     ) -> list[OptionEstimate]: ...
+
+
+class Signer(Protocol):
+    """Signs published manifests (minisign format, contracts/README.md)."""
+
+    @property
+    def key_id(self) -> str:
+        """16 upper-case hex digits, as `manifest.keyId`."""
+        ...
+
+    def public_key(self) -> str:
+        """The public key file the app needs to verify."""
+        ...
+
+    def sign(self, message: bytes, trusted_comment: str) -> bytes:
+        """The `.minisig` file for `message`."""
+        ...
+
+
+class SigningKeys(Protocol):
+    def generate(self, path: Path) -> Result[Signer, StoreError]:
+        """A new key at `path` (owner-only), its public key next to it as `<path>.pub`.
+        Never overwrites."""
+        ...
+
+    def load(self, path: Path) -> Result[Signer, StoreError]: ...
