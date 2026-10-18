@@ -30,7 +30,7 @@ class WpaSettings:
     bootstrap_samples: int = 200
     confidence: float = 0.95
     fdr: float = 0.05
-    """False discovery rate for calling an estimate clear (Benjamini-Hochberg, ADR-036)."""
+    """False discovery rate for calling a contrast clear (Benjamini-Hochberg, ADR-036)."""
     min_shrinkage_group: int = 3
     """Champions needed in a (class, role, slot, option) group before shrinking toward it."""
     seed: int = 0
@@ -50,4 +50,7 @@ class OptionEstimate:
     """Decisions choosing this option inside the overlap population (all of them if none are)."""
     flags: frozenset[Flag] = field(default_factory=frozenset[Flag])
     q: float | None = None
-    """Benjamini-Hochberg adjusted p-value of "no effect", across the run; None without a number."""
+    """Benjamini-Hochberg adjusted p-value of no difference with `versus` (ADR-036); None for
+    the most played option and for options not eligible to be claimed."""
+    versus: str | None = None
+    """The point's most played eligible option, which `q` compares this one with."""

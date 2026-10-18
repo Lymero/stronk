@@ -178,16 +178,48 @@ def test_a_rare_option_does_not_remove_the_others_numbers(table_factory: TableFa
 
 
 def test_clear_needs_to_survive_false_discovery_control(table_factory: TableFactory) -> None:
-    """Among many champions with no effect, some intervals exclude zero by chance; after
+    """Among many champions with no effect, some contrasts look significant on their own; after
     Benjamini-Hochberg across the run, none of them is called clear."""
     rng = np.random.default_rng(8)
-    champions = [f"C{i}" for i in range(60) for _ in range(400)]
-    options = np.where(rng.random(len(champions)) < 0.5, "A", "B").tolist()
+    champions = [f"C{i}" for i in range(60) for _ in range(1500)]
+    options = rng.choice(["A", "B", "C"], size=len(champions), p=[0.4, 0.33, 0.27]).tolist()
     outcomes = (rng.random(len(champions)) < 0.5).astype(int).tolist()
     table = table_factory(options, outcomes, champions=champions,
                           match_ids=[f"M{i}" for i in range(len(champions))])  # fmt: skip
     estimates = estimate(table, np.full(len(table), 0.5), WpaSettings(min_shrinkage_group=999))
-    by_chance = [e for e in estimates if e.ci is not None and (e.ci[0] > 0 or e.ci[1] < 0)]
-    assert by_chance  # the unadjusted rule would call these clear...
-    assert all(Flag.NO_CLEAR_DIFFERENCE in e.flags for e in estimates)  # ...BH doesn't
-    assert all(e.q is not None and e.q > 0.05 for e in estimates)
+    contrasts = [e for e in estimates if e.q is not None]
+    assert len(contrasts) == 120  # B and C against A, the most played, for every champion
+    assert {e.versus for e in contrasts} == {"A"}
+    assert all(e.q is not None and e.q > 0.05 for e in contrasts)
+    assert all(Flag.NO_CLEAR_DIFFERENCE in e.flags for e in contrasts)
+    assert all(Flag.NO_CLEAR_DIFFERENCE in e.flags for e in estimates)
+
+
+def test_a_real_difference_is_claimed_against_the_most_played(
+    table_factory: TableFactory,
+) -> None:
+    rng = np.random.default_rng(9)
+    options = rng.choice(["A", "B", "C"], size=6000, p=[0.5, 0.3, 0.2])
+    win_rate = np.where(options == "C", 0.62, 0.5)
+    outcomes = (rng.random(6000) < win_rate).astype(int).tolist()
+    estimates = by_option(estimate(table_factory(options.tolist(), outcomes),
+                                   np.full(6000, 0.5), WpaSettings()))  # fmt: skip
+    assert estimates["A"].q is None  # the reference
+    assert estimates["C"].versus == "A"
+    assert estimates["C"].q is not None
+    assert estimates["C"].q <= 0.05
+    assert Flag.NO_CLEAR_DIFFERENCE not in estimates["C"].flags
+    assert Flag.NO_CLEAR_DIFFERENCE not in estimates["A"].flags  # something differs from it
+    assert Flag.NO_CLEAR_DIFFERENCE in estimates["B"].flags
+
+
+def test_low_sample_options_are_not_in_the_family(table_factory: TableFactory) -> None:
+    rng = np.random.default_rng(10)
+    options = ["A"] * 2000 + ["B"] * 1500 + ["C"] * 250
+    outcomes = (rng.random(len(options)) < 0.5).astype(int).tolist()
+    estimates = by_option(estimate(table_factory(options, outcomes),
+                                   np.full(len(options), 0.5), WpaSettings()))  # fmt: skip
+    assert Flag.LOW_SAMPLE in estimates["C"].flags
+    assert estimates["C"].q is None
+    assert Flag.NO_CLEAR_DIFFERENCE not in estimates["C"].flags
+    assert estimates["B"].q is not None

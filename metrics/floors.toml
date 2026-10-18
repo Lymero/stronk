@@ -48,7 +48,8 @@ min = 1.0
 
 # Many-option slot with a rare tail (slot 4, ADR-035) and false discovery control (ADR-036).
 # Measured 2026-10-18: common options estimated 1.0, tail flagged 1.0 in both scenarios; the
-# planted effects (A, G) are called clear in 15 of 16 seed-scenario pairs.
+# planted effects (A, G) are called clear in 13 of 16 seed-scenario pairs against the most
+# played option (ADR-036).
 
 [[floor]]
 metric = "synthetic.clean.common_options_estimated"
@@ -63,7 +64,7 @@ min = 1.0
 [[floor]]
 metric = "synthetic.clean.planted_clear"
 source = "metrics/out/synthetic.json"
-min = 0.875
+min = 0.75
 
 [[floor]]
 metric = "synthetic.confounded.common_options_estimated"
@@ -78,7 +79,7 @@ min = 1.0
 [[floor]]
 metric = "synthetic.confounded.planted_clear"
 source = "metrics/out/synthetic.json"
-min = 0.875
+min = 0.75
 
 # Win probability (`winprob.train` on the corpus, crawl-euw1-16.20: 495 test matches never seen
 # in training or model choice). Measured 2026-10-18 with the logistic model chosen: calibration

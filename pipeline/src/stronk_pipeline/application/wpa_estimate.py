@@ -46,7 +46,8 @@ class OptionEstimateRow(BaseModel):
     n: int
     flags: list[str]
     q: float | None
-    """False-discovery-adjusted p-value of "no effect" (ADR-036)."""
+    """False-discovery-adjusted p-value of no difference with `versus` (ADR-036)."""
+    versus: str | None
 
 
 class WpaEstimateResult(BaseModel):
@@ -116,6 +117,7 @@ def wpa_estimate_command(
                 n=e.n,
                 flags=sorted(e.flags),
                 q=e.q,
+                versus=e.versus,
             )
             for e in estimates
         ]

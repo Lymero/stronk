@@ -8,18 +8,23 @@ For each decision point (champion, role, slot):
 2. propensity of each option given the situation: P(A | situation), option A against the rest;
 3. overlap population of A = decisions where epsilon <= P(A) <= 1 - epsilon, so both A and an
    alternative are realistically chosen (ADR-035);
-4. effect of option A = mean score of A - mean score of the alternatives, inside A's overlap;
+4. effect of option A against the alternatives, inside A's overlap: an `Effect`. v1 takes the
+   difference of mean scores; `overlap_weighted` weighs choosers by 1 - P(A), others by P(A);
 5. interval: percentile bootstrap, resampling matches;
 6. shrinkage toward the (class, role, slot, option) mean across champions;
-7. flags: low_overlap (no number), low_sample (no number under `min_estimate_decisions`),
-   no_clear_difference (not distinguishable from zero after false discovery rate control
-   across every estimate of the run, ADR-036).
+7. flags: low_overlap (no number), low_sample (no number under `min_estimate_decisions`);
+8. claims (ADR-036): options eligible to be claimed (a number, neither low_sample nor
+   low_overlap) are compared head to head with the point's most played eligible option, the
+   same `Effect` on the rows of the two. Benjamini-Hochberg across every such contrast of the
+   run; one with q above `settings.fdr`, and a most played option with no clear contrast, get
+   no_clear_difference.
 """
 
 from __future__ import annotations
 
 import zlib
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -32,6 +37,23 @@ from stronk_pipeline.domain.wpa.shrinkage import shrink
 from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate, WpaSettings
 
 type Bools = NDArray[np.bool_]
+type Weights = NDArray[np.float64]
+type Effect = Callable[[Floats, Bools, Floats, Weights], tuple[float, Floats]]
+"""(scores, chose the option, P(option), bootstrap weights (samples, rows)) -> (effect,
+bootstrap effects), all over the rows of one comparison inside its overlap."""
+
+
+def difference_of_means(
+    scores: Floats, mine: Bools, propensity: Floats, weights: Weights
+) -> tuple[float, Floats]:
+    """v1: mean score of the option - mean score of the others. Targets
+    E[e(1-e)D] / (E[e] E[1-e]), so effects of choices the situation predicts shrink (ADR-036)."""
+    del propensity
+    point = float(scores[mine].mean() - scores[~mine].mean())
+    boot = weighted_means(weights[:, mine], scores[mine]) - weighted_means(
+        weights[:, ~mine], scores[~mine]
+    )
+    return point, boot
 
 
 class ReferenceEstimatorV1:
@@ -47,10 +69,20 @@ class ReferenceEstimatorV1:
 class _Raw:
     estimate: OptionEstimate
     std_error: float | None
+    chosen: int = 0
+    """Decisions choosing the option at its point, inside the overlap or not."""
+    eligible: bool = False
+    """Can be claimed: a number, neither low_sample nor low_overlap. Depends on counts only."""
+    contrast_p: float | None = None
+    """p-value of no difference with `versus`; None for the most played or an ineligible option."""
+    versus: str | None = None
 
 
 def estimate(
-    table: DecisionTable, wp: Floats, settings: WpaSettings | None = None
+    table: DecisionTable,
+    wp: Floats,
+    settings: WpaSettings | None = None,
+    effect: Effect = difference_of_means,
 ) -> list[OptionEstimate]:
     """Estimate every option at every decision point. `wp` is P(win) for each row of `table`."""
     settings = settings or WpaSettings()
@@ -61,7 +93,7 @@ def estimate(
     score = event_scores(table, wp)
     raw: list[_Raw] = []
     for key, rows in table.decision_points():
-        raw.extend(_estimate_point(table, rows, score, key, settings))
+        raw.extend(_estimate_point(table, rows, score, key, settings, effect=effect))
     return _flag_unclear(_shrink_across_champions(raw, settings), settings)
 
 
@@ -76,6 +108,8 @@ def _estimate_point(
     score: Floats,
     key: DecisionKey,
     settings: WpaSettings,
+    *,
+    effect: Effect,
 ) -> list[_Raw]:
     champion, role, slot = key
     champion_class = str(table.champion_class[rows[0]])
@@ -95,14 +129,40 @@ def _estimate_point(
         estimate = OptionEstimate(
             champion, champion_class, role, slot, option, wpa, ci, n, frozenset(flags)
         )
-        return _Raw(estimate, std_error)
+        count = int((chosen == option).sum())
+        eligible = wpa is not None and not flags & {Flag.LOW_SAMPLE, Flag.LOW_OVERLAP}
+        return _Raw(estimate, std_error, count, eligible)
 
     if len(options) < 2:
         return [result(options[0], len(rows), {Flag.LOW_OVERLAP})]
 
     features = table.features[rows]
     weights = _bootstrap_weights(table.match_id[rows], key, settings)
+    alpha = 1.0 - settings.confidence
+
+    def compare(
+        subset: Bools, mine: Bools, propensity: Floats | None = None
+    ) -> tuple[float, Floats, Bools] | None:
+        """`effect` of `mine` against the rest of `subset`, inside its overlap; None when
+        either side has fewer than `min_estimate_decisions` there. `propensity`, if given, is
+        P(mine) already fitted on `subset`."""
+        if propensity is None:
+            model = fit_logistic(features[subset], mine[subset].astype(np.float64))
+            propensity = model.predict(features[subset])
+        eps = settings.overlap_epsilon
+        inside = np.zeros(len(rows), dtype=np.bool_)
+        inside[subset] = (propensity >= eps) & (propensity <= 1.0 - eps)
+        if min(int((mine & inside).sum()), int((~mine & inside).sum())) < (
+            settings.min_estimate_decisions
+        ):
+            return None
+        point, boot = effect(
+            scores[inside], mine[inside], propensity[inside[subset]], weights[:, inside]
+        )
+        return point, boot, inside
+
     out: list[_Raw] = []
+    everyone = np.ones(len(rows), dtype=np.bool_)
     for option in options:
         mine: Bools = chosen == option
         propensity = fit_logistic(features, mine.astype(np.float64)).predict(features)
@@ -114,20 +174,47 @@ def _estimate_point(
         if n_in == 0 or n_alt == 0 or n_in / n_total < settings.min_overlap_share:
             out.append(result(option, n_total, {Flag.LOW_OVERLAP}))
             continue
-        if min(n_in, n_alt) < settings.min_estimate_decisions:
+        compared = compare(everyone, mine, propensity)
+        if compared is None:
             out.append(result(option, n_in, {Flag.LOW_SAMPLE}))
             continue
-        point = float(scores[mine & overlap].mean() - scores[~mine & overlap].mean())
-        boot = _weighted_means(weights[:, mine & overlap], scores[mine & overlap]) - (
-            _weighted_means(weights[:, ~mine & overlap], scores[~mine & overlap])
-        )
-        alpha = 1.0 - settings.confidence
+        point, boot, _ = compared
         low, high = np.nanpercentile(boot, [100 * alpha / 2, 100 * (1 - alpha / 2)])
         flags = {Flag.LOW_SAMPLE} if n_in < settings.min_decisions else set[Flag]()
         std_error = float(np.nanstd(boot, ddof=1))
         ci = (float(low), float(high))
         out.append(result(option, n_in, flags, wpa=point, ci=ci, std_error=std_error))
-    return out
+    return _contrast_with_most_played(out, chosen, compare)
+
+
+def _contrast_with_most_played(
+    out: list[_Raw],
+    chosen: NDArray[np.str_],
+    compare: Callable[[Bools, Bools], tuple[float, Floats, Bools] | None],
+) -> list[_Raw]:
+    """Head-to-head p-values of eligible options against the most played eligible one.
+
+    Which options are compared depends on counts only, never on results, so the family of
+    hypotheses is fixed before any is tested. A contrast that can't be measured (too few
+    decisions in the pair's overlap) stays in the family with p = 1."""
+    eligible = [r for r in out if r.eligible]
+    if not eligible:
+        return out
+    most_played = min(eligible, key=lambda r: (-r.chosen, r.estimate.option)).estimate.option
+    contrasted: list[_Raw] = []
+    for r in out:
+        option = r.estimate.option
+        if not r.eligible or option == most_played:
+            contrasted.append(r)
+            continue
+        pair = (chosen == option) | (chosen == most_played)
+        compared = compare(pair, chosen == option)
+        p = 1.0
+        if compared is not None:
+            point, boot, _ = compared
+            p = two_sided_p(point, float(np.nanstd(boot, ddof=1)))
+        contrasted.append(replace(r, contrast_p=p, versus=most_played))
+    return contrasted
 
 
 def _bootstrap_weights(
@@ -145,7 +232,7 @@ def _bootstrap_weights(
     return draws[:, match_of_row].astype(np.float64)
 
 
-def _weighted_means(weights: NDArray[np.float64], values: Floats) -> Floats:
+def weighted_means(weights: NDArray[np.float64], values: Floats) -> Floats:
     totals = weights.sum(axis=1)
     with np.errstate(invalid="ignore", divide="ignore"):
         return np.where(totals > 0, (weights @ values) / totals, np.nan)
@@ -173,17 +260,34 @@ def _shrink_across_champions(raw: list[_Raw], settings: WpaSettings) -> list[_Ra
             wpa, scale = float(shrunk.estimates[j]), float(shrunk.std_errors[j]) / std_error
             low, high = wpa - (e.wpa - e.ci[0]) * scale, wpa + (e.ci[1] - e.wpa) * scale
             shrunk_error = float(shrunk.std_errors[j])
-            out[i] = _Raw(replace(e, wpa=wpa, ci=(low, high)), shrunk_error)
+            out[i] = replace(raw[i], estimate=replace(e, wpa=wpa, ci=(low, high)),
+                             std_error=shrunk_error)  # fmt: skip
     return out
 
 
 def _flag_unclear(raw: list[_Raw], settings: WpaSettings) -> list[OptionEstimate]:
-    """Benjamini-Hochberg across every estimate with a number: `q` is the adjusted p-value of
-    "no effect"; above `settings.fdr`, the estimate gets `no_clear_difference`."""
-    tested = [i for i, r in enumerate(raw) if r.estimate.wpa is not None]
-    p = np.array([two_sided_p(raw[i].estimate.wpa or 0.0, raw[i].std_error or 0.0) for i in tested])
-    out = [r.estimate for r in raw]
-    for i, q in zip(tested, benjamini_hochberg(p).tolist(), strict=True):
-        flags = out[i].flags | {Flag.NO_CLEAR_DIFFERENCE} if q > settings.fdr else out[i].flags
-        out[i] = replace(out[i], q=q, flags=flags)
+    """Benjamini-Hochberg across every contrast of the run (ADR-036). A contrast with q above
+    `settings.fdr` is no clear difference; so is a most played option none of whose
+    alternatives differs clearly from it."""
+    tested = [i for i, r in enumerate(raw) if r.contrast_p is not None]
+    q = benjamini_hochberg(np.array([raw[i].contrast_p for i in tested], dtype=np.float64))
+    q_of = dict(zip(tested, q.tolist(), strict=True))
+    clear_points = {_point(raw[i].estimate) for i, value in q_of.items() if value <= settings.fdr}
+    out: list[OptionEstimate] = []
+    for i, r in enumerate(raw):
+        e = r.estimate
+        if not r.eligible:
+            out.append(e)
+        elif i in q_of:
+            unclear = q_of[i] > settings.fdr
+            flags = e.flags | {Flag.NO_CLEAR_DIFFERENCE} if unclear else e.flags
+            out.append(replace(e, q=q_of[i], versus=r.versus, flags=flags))
+        elif _point(e) in clear_points:
+            out.append(e)  # the most played, and something differs clearly from it
+        else:
+            out.append(replace(e, flags=e.flags | {Flag.NO_CLEAR_DIFFERENCE}))
     return out
+
+
+def _point(e: OptionEstimate) -> DecisionKey:
+    return (e.champion, e.role, e.slot)

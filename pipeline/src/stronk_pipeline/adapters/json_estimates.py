@@ -26,6 +26,7 @@ class _Row(BaseModel):
     n: int
     flags: list[Flag]
     q: float | None = None
+    versus: str | None = None
 
 
 class _File(BaseModel):
@@ -51,6 +52,7 @@ class JsonEstimateStore:
                 n=e.n,
                 flags=sorted(e.flags),
                 q=e.q,
+                versus=e.versus,
             )
             for e in estimates
         ]
@@ -81,6 +83,7 @@ class JsonEstimateStore:
                     r.n,
                     frozenset(r.flags),
                     r.q,
+                    r.versus,
                 )
                 for r in data.estimates
             ]
