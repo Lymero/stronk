@@ -1,0 +1,48 @@
+/* Design tokens (docs/architecture.md, section 5): every color, size and font comes from here. */
+:root {
+  --color-bg: #f6f6f4;
+  --color-surface: #ffffff;
+  --color-text: #1d1d1b;
+  --color-muted: #6a6a64;
+  --color-border: #deded8;
+  --color-accent: #2e5bd8;
+  --color-positive: #1f7a46;
+  --color-negative: #b3261e;
+  --color-warning: #8a5a00;
+  --color-warning-bg: #fff4dc;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+
+  --radius: 6px;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Menlo, monospace;
+  --text-sm: 13px;
+  --text-md: 15px;
+  --text-lg: 20px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #151514;
+    --color-surface: #1f1f1d;
+    --color-text: #ecece6;
+    --color-muted: #a3a39b;
+    --color-border: #34342f;
+    --color-accent: #7c9cff;
+    --color-positive: #5cc98a;
+    --color-negative: #ff8a80;
+    --color-warning: #f2c46d;
+    --color-warning-bg: #3a2e14;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: var(--text-md) / 1.4 var(--font-body);
+}

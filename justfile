@@ -44,6 +44,7 @@ lint:
 typecheck:
     pnpm exec pyright
     pnpm exec tsc -p contracts/generated/ts
+    pnpm --filter @stronk/ui check
 
 # Dependency rules between layers (import-linter; Cargo crate graph)
 arch:
@@ -55,6 +56,7 @@ test:
     uv run pytest
     cargo test {{ contracts_rs }} --locked --quiet
     cargo test {{ core_rs }} --locked --quiet
+    pnpm --filter @stronk/ui test
 
 # Regenerate types from contracts/schemas/
 gen:
@@ -194,3 +196,7 @@ core-e2e:
 # Fake League client replaying a session: just lcu-mock tools/lcu_mock/sessions/<file>.json
 lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":
     uv run python tools/lcu_mock/lcu_mock.py {{ session }}
+
+# UI in the browser against MockBackend: http://127.0.0.1:5173/?scenario=ranked-jungle|no-client|bad-data
+app-mock:
+    pnpm --filter @stronk/ui dev
