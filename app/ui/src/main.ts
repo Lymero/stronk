@@ -4,12 +4,15 @@
 
 import { mount } from "svelte";
 import App from "./App.svelte";
+import type { Backend } from "./lib/backend/backend.ts";
 import { MockBackend, type ScenarioName, scenarios } from "./lib/backend/mock.ts";
 import { inTauri, TauriBackend } from "./lib/backend/tauri.ts";
 import { createApp } from "./lib/state/app.svelte.ts";
 import "./lib/ui/tokens.css";
 
+/** Without push notices the app polls; with them, a slow poll is only a safety net. */
 const POLL_MS = 1000;
+const SAFETY_POLL_MS = 5000;
 
 function mock(): MockBackend {
   const requested = new URLSearchParams(location.search).get("scenario") ?? "ranked-jungle";
@@ -17,19 +20,15 @@ function mock(): MockBackend {
   return new MockBackend(scenarios[name]);
 }
 
-const backend = inTauri() ? new TauriBackend() : mock();
+const mocked = inTauri() ? null : mock();
+const backend: Backend = mocked ?? new TauriBackend();
 const app = createApp(backend);
 const target = document.getElementById("app");
 
 if (target) {
-  const onstep =
-    backend instanceof MockBackend
-      ? () => {
-          backend.step();
-          void app.refresh();
-        }
-      : undefined;
+  const onstep = mocked ? () => mocked.step() : undefined;
   mount(App, { target, props: { app, onstep } });
   void app.refresh();
-  setInterval(() => void app.refresh(), POLL_MS);
+  backend.subscribe?.(() => void app.refresh());
+  setInterval(() => void app.refresh(), backend.subscribe ? SAFETY_POLL_MS : POLL_MS);
 }

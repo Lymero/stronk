@@ -40,7 +40,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [ ] Typed IPC with tauri-specta; `Backend` port with `TauriBackend` and `MockBackend`; single serializable state (port, both backends and state done; tauri-specta bindings once the shell builds locally)
 - [ ] `data`: `DirectorySource`, `HttpSource`, cache, signature verification (`DirectorySource` with verification done)
 - [x] `tools/lcu_mock` with one recorded champion-select session (`custom-2026-10-19.json`, recorded on Windows, scrubbed; ADR-042)
-- [ ] Champion-select detection with preloading; import runes, item set and spells (imports done against lcu-mock, ADR-043; the websocket watcher and a real-client check remain)
+- [ ] Champion-select detection with preloading; import runes, item set and spells (imports and the websocket watcher done against lcu-mock, ADR-043, ADR-044; a real-client check remains)
 - [ ] Playwright end-to-end tests; `just bench`; enforce the lock-in budget once met
 
 **Milestone: usable in your own lobbies, with data served from your machine.**

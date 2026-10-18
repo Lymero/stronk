@@ -194,11 +194,3 @@ fn the_lcu_exception_does_not_reach_other_connections() {
     assert!(standard_client(&[]).get(&url).send().is_err());
     assert!(lcu_client.get_json("/x").is_ok()); // and the LCU client is unaffected
 }
-
-/// The champion-select watcher will use tokio-tungstenite: the same verifier plugs into it.
-#[test]
-fn the_verifier_plugs_into_the_websocket_connector() {
-    let config: Arc<ClientConfig> = stronk_lcu::tls::client_config(&Trust::riot()).unwrap();
-    let connector = tokio_tungstenite::Connector::Rustls(config);
-    assert!(matches!(connector, tokio_tungstenite::Connector::Rustls(_)));
-}

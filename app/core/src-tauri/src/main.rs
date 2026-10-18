@@ -1,5 +1,6 @@
-//! The Tauri shell (docs/architecture.md, section 5): a window and one IPC command, `run`,
-//! which dispatches through the same registry as `stronk-core`. Nothing else lives here.
+//! The Tauri shell (docs/architecture.md, section 5): a window, one IPC command, `run`, which
+//! dispatches through the same registry as `stronk-core`, and the champion-select watcher's
+//! `champselect-changed` event. Nothing else lives here.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -10,6 +11,7 @@ use std::sync::Arc;
 use serde_json::Value;
 use stronk_data::{DirectorySource, TrustedKey};
 use stronk_service::{CommandError, Context, ErrorCode, Registry, registry};
+use tauri::Emitter;
 
 struct Core {
     registry: Arc<Registry>,
@@ -45,12 +47,32 @@ fn context() -> Result<Context, CommandError> {
     })?;
     Ok(Context {
         builds: Arc::new(DirectorySource::new(data, TrustedKey::decode(&key_text)?)),
-        client: stronk_lcu::connect_or_absent(&stronk_lcu::ConnectOptions {
-            lockfile: var("STRONK_LCU_LOCKFILE"),
-            root: var("STRONK_LCU_CERT"),
-            pin: std::env::var("STRONK_LCU_PIN").ok(),
-        }),
+        client: stronk_lcu::connect_or_absent(&lcu_options()),
     })
+}
+
+fn lcu_options() -> stronk_lcu::ConnectOptions {
+    let var = |name: &str| std::env::var_os(name).map(PathBuf::from);
+    stronk_lcu::ConnectOptions {
+        lockfile: var("STRONK_LCU_LOCKFILE"),
+        root: var("STRONK_LCU_CERT"),
+        pin: std::env::var("STRONK_LCU_PIN").ok(),
+    }
+}
+
+/// Follows champion select over the client's websocket and tells the UI when it changed (with
+/// the reason when disconnected); the UI reads the state through `run` (ADR-044).
+fn watch_champ_select(app: &tauri::App) {
+    let handle = app.handle().clone();
+    tauri::async_runtime::spawn(stronk_lcu::watch(lcu_options(), move |notice| {
+        let reason = match notice {
+            stronk_lcu::Notice::Disconnected(reason) => Some(reason),
+            stronk_lcu::Notice::Connected | stronk_lcu::Notice::Changed => None,
+        };
+        // The UI keeps polling slowly as a safety net, so a failed emit is not fatal.
+        let _ = handle.emit("champselect-changed", reason);
+        true
+    }));
 }
 
 fn main() -> ExitCode {
@@ -60,6 +82,10 @@ fn main() -> ExitCode {
     };
     let app = tauri::Builder::default()
         .manage(core)
+        .setup(|app| {
+            watch_champ_select(app);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![run])
         .run(tauri::generate_context!());
     match app {

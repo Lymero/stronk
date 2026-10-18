@@ -98,6 +98,9 @@ export type CommandId = keyof Commands;
 
 export interface Backend {
   run<K extends CommandId>(id: K, params: Commands[K]["params"]): Promise<Result<Commands[K]["result"]>>;
+  /** Calls `onChange` when champion select may have changed (the core's websocket watcher,
+   * ADR-044); returns the unsubscribe function. Backends without it are polled. */
+  subscribe?(onChange: () => void): () => void;
 }
 
 export const ok = <T>(value: T): Result<T> => ({ ok: true, value });

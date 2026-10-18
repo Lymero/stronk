@@ -11,8 +11,10 @@ mod lockfile;
 pub mod models;
 pub mod scrub;
 pub mod tls;
+pub mod watch;
 
 pub use client::{CHAMPION_SUMMARY, LcuClient, SESSION};
 pub use connect::{ConnectOptions, connect, connect_or_absent};
 pub use lockfile::{Lockfile, LockfileError, discover};
 pub use tls::Trust;
+pub use watch::{Notice, watch};

@@ -2,6 +2,7 @@
 // shell's single `run` IPC command into the core's registry (app/core/src-tauri).
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { Backend, CommandError, CommandId, Commands, Result } from "./backend.ts";
 
 const isCommandError = (e: unknown): e is CommandError =>
@@ -16,6 +17,11 @@ export class TauriBackend implements Backend {
       const error: CommandError = isCommandError(e) ? e : { code: "internal", message: String(e) };
       return { ok: false, error };
     }
+  }
+
+  subscribe(onChange: () => void): () => void {
+    const unlisten = listen("champselect-changed", () => onChange());
+    return () => void unlisten.then((stop) => stop());
   }
 }
 

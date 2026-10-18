@@ -99,3 +99,15 @@ describe("App with MockBackend", () => {
     expect(screen.queryByLabelText("Build")).not.toBeInTheDocument();
   });
 });
+
+describe("champion-select notices", () => {
+  it("refresh the app without polling", async () => {
+    const backend = new MockBackend(scenarios["ranked-jungle"]);
+    const app = createApp(backend, memory());
+    render(App, { app });
+    await app.refresh();
+    backend.subscribe(() => void app.refresh());
+    backend.step(); // the watcher's notice, nothing else
+    expect(await screen.findByRole("heading", { name: "Graves" })).toBeInTheDocument();
+  });
+});

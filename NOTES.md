@@ -57,3 +57,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the champion-select watcher (websocket), imports, HttpSource and cache.
 - 2026-10-19: imports (ADR-043): `build.plan` and `build.import`, most played whole combination unless clearly better; Stronk's own rune page and item set only; Flash stays on its key; auto-import toggle; UI labels Popular / Clearly better. build.v1 gains optional popularity and comparison fields; publish writes spell pairs.
   Open: check imports on the real client (custom game, Windows); the websocket watcher; the production key draft.
+- 2026-10-19: champion-select websocket watcher (ADR-044): reconnecting with backoff, a trigger for `champselect.state`; the REST client reconnects too (Stronk can start before the client); `watch-champselect` CLI; the UI refreshes on `champselect-changed`; lcu-mock speaks websocket; e2e covers a whole champion select and a client started late.
+  Open: real-client check of imports and the watcher (Windows, custom game); lock-in timing in `just bench`; production key draft.

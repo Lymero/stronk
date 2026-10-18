@@ -13,6 +13,10 @@ The account side the imports touch is kept in memory, with made-up defaults, nev
 files: rune pages (two of the player's, room for one more), the page inventory, the current
 summoner, item sets (one of the player's), and the spell selection, which is laid over the
 local player in the session.
+
+The client's websocket is there too: a `[5, "<topic>"]` message subscribes, and every step the
+replay moves to sends the subscribers of the champion-select session topic
+`[8, "<topic>", {"data", "eventType", "uri"}]`, as the client does.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from __future__ import annotations
 import argparse
 import base64
 import datetime as dt
+import hashlib
 import ipaddress
 import json
 import os
@@ -32,7 +37,7 @@ from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, override
+from typing import Any, cast, override
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -46,6 +51,50 @@ INVENTORY = "/lol-perks/v1/inventory"
 SUMMONER = "/lol-summoner/v1/current-summoner"
 SELECTION = "/lol-champ-select/v1/session/my-selection"
 SUMMONER_ID = 1
+SESSION_EVENT = "OnJsonApiEvent_lol-champ-select_v1_session"
+WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+
+class Subscriber:
+    """One websocket connection and the topics it subscribed to; writes are serialised."""
+
+    def __init__(self, wfile: Any) -> None:
+        self.wfile = wfile
+        self.topics: set[str] = set()
+        self.lock = threading.Lock()
+
+    def send(self, payload: object, opcode: int = 0x1) -> None:
+        data = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
+        header = bytes([0x80 | opcode])
+        if len(data) < 126:
+            header += bytes([len(data)])
+        elif len(data) < 1 << 16:
+            header += bytes([126]) + len(data).to_bytes(2, "big")
+        else:
+            header += bytes([127]) + len(data).to_bytes(8, "big")
+        with self.lock:
+            try:
+                self.wfile.write(header + data)
+                self.wfile.flush()
+            except OSError:
+                pass  # the app went away; its reader ends the connection
+
+
+def read_frame(rfile: Any) -> tuple[int, bytes] | None:
+    """(opcode, payload) of the next client frame, unmasked; `None` at end of stream."""
+    head = rfile.read(2)
+    if len(head) < 2:
+        return None
+    opcode, length = head[0] & 0x0F, head[1] & 0x7F
+    if length == 126:
+        length = int.from_bytes(rfile.read(2), "big")
+    elif length == 127:
+        length = int.from_bytes(rfile.read(8), "big")
+    mask = rfile.read(4) if head[1] & 0x80 else b"\0\0\0\0"
+    payload = rfile.read(length)
+    return opcode, bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+
+
 ITEM_SETS = f"/lol-item-sets/v1/item-sets/{SUMMONER_ID}/sets"
 
 
@@ -75,6 +124,7 @@ class Replay:
     item_sets: dict[str, Any] = field(default_factory=default_item_sets)
     spells: tuple[int, int] | None = None
     """The spell selection, D then F, laid over the local player; `None` keeps the session's."""
+    subscribers: list[Subscriber] = field(default_factory=list[Subscriber])
 
     @classmethod
     def load(cls, path: Path) -> Replay:
@@ -104,9 +154,23 @@ class Replay:
             return {**session, "myTeam": team}
 
     def advance(self) -> dict[str, Any]:
+        return self.set_step(self.step + 1)
+
+    def set_step(self, step: int) -> dict[str, Any]:
+        """Moves to `step` (kept in range) and tells websocket subscribers, like the client."""
         with self.lock:
-            self.step = min(self.step + 1, len(self.steps) - 1)
-            return {"step": self.step, "name": self.steps[self.step].get("name")}
+            self.step = max(0, min(step, len(self.steps) - 1))
+            moved = {"step": self.step, "name": self.steps[self.step].get("name")}
+            subscribers = [s for s in self.subscribers if SESSION_EVENT in s.topics]
+        session = self.session()
+        event = {
+            "data": session,
+            "eventType": "Delete" if session is None else "Update",
+            "uri": SESSION,
+        }
+        for subscriber in subscribers:
+            subscriber.send([8, SESSION_EVENT, event])
+        return moved
 
 
 def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTPRequestHandler]:
@@ -142,34 +206,66 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
         def do_GET(self) -> None:
             if not self._authorised():
                 return
+            if self.headers.get("Upgrade", "").lower() == "websocket":
+                self._websocket()
+                return
             time.sleep(latency)
-            match self.path:
-                case "/mock/state":
-                    step = replay.current()
-                    self._send(HTTPStatus.OK, {"step": replay.step, "name": step.get("name")})
-                case "/mock/recorded":
-                    with replay.lock:
-                        self._send(HTTPStatus.OK, list(replay.recorded))
-                case path if path == SESSION:
-                    session = replay.session()
-                    if session is None:  # what the client answers outside champion select
-                        self._send(HTTPStatus.NOT_FOUND, {"message": "No active delegate"})
-                    else:
-                        self._send(HTTPStatus.OK, session)
-                case path if path == CHAMPIONS:
-                    self._send(HTTPStatus.OK, replay.champions)
-                case path if path == PAGES:
-                    with replay.lock:
-                        self._send(HTTPStatus.OK, list(replay.pages))
-                case path if path == INVENTORY:
-                    self._send(HTTPStatus.OK, {"ownedPageCount": replay.page_capacity})
-                case path if path == SUMMONER:
-                    self._send(HTTPStatus.OK, {"summonerId": SUMMONER_ID})
-                case path if path == ITEM_SETS:
-                    with replay.lock:
-                        self._send(HTTPStatus.OK, replay.item_sets)
-                case _:
-                    self._send(HTTPStatus.NOT_FOUND, {"message": f"not mocked: {self.path}"})
+            self._send(*self._read())
+
+        def _read(self) -> tuple[HTTPStatus, object]:
+            """The client's answer to a GET of `self.path`."""
+            with replay.lock:
+                step = replay.steps[replay.step]
+                answers: dict[str, object] = {
+                    "/mock/state": {"step": replay.step, "name": step.get("name")},
+                    "/mock/recorded": list(replay.recorded),
+                    CHAMPIONS: replay.champions,
+                    PAGES: list(replay.pages),
+                    INVENTORY: {"ownedPageCount": replay.page_capacity},
+                    SUMMONER: {"summonerId": SUMMONER_ID},
+                    ITEM_SETS: replay.item_sets,
+                }
+            if self.path == SESSION:
+                session = replay.session()
+                if session is None:  # what the client answers outside champion select
+                    return HTTPStatus.NOT_FOUND, {"message": "No active delegate"}
+                return HTTPStatus.OK, session
+            if self.path in answers:
+                return HTTPStatus.OK, answers[self.path]
+            return HTTPStatus.NOT_FOUND, {"message": f"not mocked: {self.path}"}
+
+        def _websocket(self) -> None:
+            """Upgrades to a websocket and serves subscriptions until the app closes it."""
+            key = self.headers.get("Sec-WebSocket-Key", "")
+            accept = base64.b64encode(hashlib.sha1((key + WEBSOCKET_GUID).encode()).digest())  # noqa: S324 (RFC 6455)
+            self.wfile.write(
+                b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                b"Sec-WebSocket-Accept: " + accept + b"\r\n\r\n"
+            )
+            self.wfile.flush()
+            self.close_connection = True
+            subscriber = Subscriber(self.wfile)
+            with replay.lock:
+                replay.subscribers.append(subscriber)
+            try:
+                while (frame := read_frame(self.rfile)) is not None:
+                    opcode, payload = frame
+                    if opcode == 0x8:  # close
+                        subscriber.send(payload, opcode=0x8)
+                        break
+                    if opcode == 0x9:  # ping
+                        subscriber.send(payload, opcode=0xA)
+                    elif opcode == 0x1:
+                        message: Any = json.loads(payload)
+                        if isinstance(message, list):
+                            parts = cast("list[Any]", message)
+                            if len(parts) > 1 and parts[0] == 5:
+                                subscriber.topics.add(str(parts[1]))
+            except (OSError, ValueError):
+                pass
+            finally:
+                with replay.lock:
+                    replay.subscribers.remove(subscriber)
 
         def _write(self) -> None:
             if not self._authorised():

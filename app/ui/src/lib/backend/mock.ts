@@ -78,6 +78,7 @@ const result = <T extends object>(v: T | CommandError): Result<T> =>
 
 export class MockBackend implements Backend {
   #step = 0;
+  #listeners = new Set<() => void>();
   readonly calls: { id: CommandId; params: unknown }[] = [];
 
   constructor(readonly scenario: Scenario) {}
@@ -85,6 +86,13 @@ export class MockBackend implements Backend {
   /** Moves to the next champion-select step; stays on the last one. */
   step(): void {
     this.#step = Math.min(this.#step + 1, this.scenario.steps.length - 1);
+    for (const listener of this.#listeners) listener();
+  }
+
+  /** Like the core's watcher: tells subscribers when the champion-select step changed. */
+  subscribe(onChange: () => void): () => void {
+    this.#listeners.add(onChange);
+    return () => this.#listeners.delete(onChange);
   }
 
   async run<K extends CommandId>(id: K, params: Commands[K]["params"]): Promise<Result<Commands[K]["result"]>> {

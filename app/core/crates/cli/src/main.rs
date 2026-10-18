@@ -3,6 +3,7 @@
 //!     stronk-core commands
 //!     stronk-core run build.get --params '{"champion": "LeeSin", "role": "JUNGLE"}'
 //!     stronk-core record-champselect --out tools/lcu_mock/sessions/custom.json
+//!     stronk-core watch-champselect --events 4
 //!
 //! `run` prints the result as JSON on stdout, or the error as JSON on stderr with exit code 1.
 
@@ -53,6 +54,12 @@ enum Action {
         #[arg(long, default_value = "{}")]
         params: String,
     },
+    /// Follow champion select over the client's websocket: one JSON line per new state.
+    WatchChampselect {
+        /// Stop after this many states (default: run until interrupted).
+        #[arg(long)]
+        events: Option<usize>,
+    },
     /// Record one champion select from the running client, scrubbed, in lcu-mock's format.
     RecordChampselect {
         #[arg(long)]
@@ -72,6 +79,13 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        Action::WatchChampselect { events } => match watch(&cli, events) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{}", json!({"code": e.code, "message": e.message}));
+                ExitCode::FAILURE
+            }
+        },
         Action::RecordChampselect {
             ref out,
             timeout_minutes,
@@ -131,6 +145,43 @@ fn context(cli: &Cli) -> Result<Context, CommandError> {
         builds: Arc::new(DirectorySource::new(expand(&cli.data), key)),
         client: stronk_lcu::connect_or_absent(&lcu_options(cli)),
     })
+}
+
+/// The watcher runs on its own runtime thread; this thread reads the state through the usual
+/// command (blocking HTTP must stay out of the async runtime) and prints each new one.
+fn watch(cli: &Cli, events: Option<usize>) -> Result<(), CommandError> {
+    let ctx = context(cli)?;
+    let options = lcu_options(cli);
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        match tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        {
+            Ok(runtime) => {
+                runtime.block_on(stronk_lcu::watch(options, |notice| tx.send(notice).is_ok()))
+            }
+            Err(e) => eprintln!("watch: no async runtime: {e}"),
+        }
+    });
+    let mut last: Option<Value> = None;
+    let mut printed = 0;
+    for notice in rx {
+        if let stronk_lcu::Notice::Disconnected(reason) = notice {
+            eprintln!("watch: {reason}; retrying");
+            continue;
+        }
+        let state = registry().run(&ctx, "champselect.state", json!({}))?;
+        if last.as_ref() != Some(&state) {
+            println!("{state}");
+            last = Some(state);
+            printed += 1;
+            if events.is_some_and(|n| printed >= n) {
+                break;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn lcu_options(cli: &Cli) -> stronk_lcu::ConnectOptions {

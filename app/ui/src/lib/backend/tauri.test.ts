@@ -27,3 +27,18 @@ describe("TauriBackend", () => {
     expect(result).toEqual({ ok: false, error: { code: "unavailable", message: "no lockfile" } });
   });
 });
+
+describe("TauriBackend notices", () => {
+  it("listen to the watcher's champselect-changed event", async () => {
+    const { emit } = await import("@tauri-apps/api/event");
+    mockIPC(() => undefined, { shouldMockEvents: true });
+    let notices = 0;
+    const stop = new TauriBackend().subscribe(() => notices++);
+    await new Promise((r) => setTimeout(r, 0));
+    await emit("champselect-changed", null);
+    expect(notices).toBe(1);
+    stop();
+    await new Promise((r) => setTimeout(r, 0)); // unlistening goes through the IPC mock too
+    delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+  });
+});
