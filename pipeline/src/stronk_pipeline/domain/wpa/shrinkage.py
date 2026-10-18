@@ -14,6 +14,9 @@ class Shrunk:
     weights: NDArray[np.float64]
     """Weight on each raw estimate; 1 means no shrinkage."""
     prior: float
+    std_errors: NDArray[np.float64]
+    """Of each shrunk estimate: sqrt(w se^2 + (1 - w)^2 Var(prior)). The prior is itself
+    estimated from the group, so a fully shrunk estimate keeps the prior's uncertainty."""
 
 
 def shrink(estimates: NDArray[np.float64], std_errors: NDArray[np.float64]) -> Shrunk:
@@ -30,4 +33,8 @@ def shrink(estimates: NDArray[np.float64], std_errors: NDArray[np.float64]) -> S
     random_weights = 1.0 / (variances + tau2)
     prior = float(np.sum(random_weights * estimates) / np.sum(random_weights))
     weights = tau2 / (tau2 + variances)
-    return Shrunk(weights * estimates + (1.0 - weights) * prior, weights, prior)
+    prior_variance = 1.0 / float(np.sum(random_weights))
+    shrunk_variances = weights * variances + (1.0 - weights) ** 2 * prior_variance
+    return Shrunk(
+        weights * estimates + (1.0 - weights) * prior, weights, prior, np.sqrt(shrunk_variances)
+    )

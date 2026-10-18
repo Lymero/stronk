@@ -10,7 +10,8 @@ For each decision point (champion, role, slot):
 4. effect of option A = mean score of A - mean score of the alternatives, inside the overlap;
 5. interval: percentile bootstrap, resampling matches;
 6. shrinkage toward the (class, role, slot, option) mean across champions;
-7. flags: low_overlap (no number), low_sample, no_clear_difference.
+7. flags: low_overlap (no number), low_sample (no number under `min_estimate_decisions`),
+   no_clear_difference.
 """
 
 from __future__ import annotations
@@ -110,6 +111,9 @@ def _estimate_point(
         if n_in == 0 or n_alt == 0 or n_in / n_total < settings.min_overlap_share:
             out.append(result(option, n_total, {Flag.LOW_OVERLAP}))
             continue
+        if min(n_in, n_alt) < settings.min_estimate_decisions:
+            out.append(result(option, n_in, {Flag.LOW_SAMPLE}))
+            continue
         point = float(scores[mine & overlap].mean() - scores[~mine & overlap].mean())
         in_mine = mine[overlap]
         boot = _weighted_means(weights[:, in_mine], in_scores[in_mine]) - _weighted_means(
@@ -166,12 +170,14 @@ def _shrink_across_champions(raw: list[_Raw], settings: WpaSettings) -> list[Opt
         estimates = np.array([raw[i].estimate.wpa for i in members], dtype=np.float64)
         std_errors = np.array([raw[i].std_error for i in members], dtype=np.float64)
         shrunk = shrink(estimates, std_errors)
-        for i, w in zip(members, shrunk.weights, strict=True):
-            e = raw[i].estimate
-            if e.wpa is None or e.ci is None:
+        for j, i in enumerate(members):
+            e, std_error = raw[i].estimate, raw[i].std_error
+            if e.wpa is None or e.ci is None or not std_error:
                 continue
-            wpa, low, high = w * np.array([e.wpa, *e.ci]) + (1.0 - w) * shrunk.prior
-            out[i] = replace(e, wpa=float(wpa), ci=(float(low), float(high)))
+            # Keep the bootstrap interval's shape, rescaled to the shrunk standard error.
+            wpa, scale = float(shrunk.estimates[j]), float(shrunk.std_errors[j]) / std_error
+            low, high = wpa - (e.wpa - e.ci[0]) * scale, wpa + (e.ci[1] - e.wpa) * scale
+            out[i] = replace(e, wpa=wpa, ci=(low, high))
     return out
 
 

@@ -74,7 +74,8 @@ def test_duplicated_matches_do_not_change_results(table_factory: TableFactory) -
 def test_effect_is_difference_of_mean_scores(table_factory: TableFactory) -> None:
     # A wins 3 of 4, B wins 1 of 4, WP 0.5 everywhere: effect of A = 0.25 - (-0.25) = 0.5.
     table = table_factory(["A"] * 4 + ["B"] * 4, [1, 1, 1, 0, 1, 0, 0, 0])
-    estimates = by_option(estimate(table, np.full(8, 0.5), WpaSettings(bootstrap_samples=20)))
+    settings = WpaSettings(bootstrap_samples=20, min_estimate_decisions=1)
+    estimates = by_option(estimate(table, np.full(8, 0.5), settings))
     assert estimates["A"].wpa == pytest.approx(0.5)
     assert estimates["B"].wpa == pytest.approx(-0.5)
 
@@ -90,6 +91,15 @@ def test_small_samples_are_flagged(table_factory: TableFactory) -> None:
     table = table_factory(["A", "B"] * 10, [1, 0] * 10)
     estimates = estimate(table, np.full(20, 0.5), WpaSettings(bootstrap_samples=20))
     assert all(Flag.LOW_SAMPLE in e.flags for e in estimates)
+
+
+def test_a_handful_of_decisions_gets_no_number(table_factory: TableFactory) -> None:
+    """Regression: one decision against one gave WPA 1.0 with the interval [1.0, 1.0]."""
+    table = table_factory(["A", "B"], [1, 0], match_ids=["M1", "M2"])
+    for e in estimate(table, np.full(2, 0.5), WpaSettings(bootstrap_samples=20)):
+        assert e.wpa is None
+        assert e.ci is None
+        assert e.flags == {Flag.LOW_SAMPLE}
 
 
 def test_overlapping_intervals_are_flagged_unclear(table_factory: TableFactory) -> None:
@@ -109,7 +119,7 @@ def test_estimates_shrink_toward_the_class_mean(table_factory: TableFactory) -> 
     champions: list[str] = []
     options: list[str] = []
     outcomes: list[int] = []
-    for champion, n in (("Aatrox", 4000), ("Darius", 4000), ("Garen", 4000), ("Sett", 60)):
+    for champion, n in (("Aatrox", 4000), ("Darius", 4000), ("Garen", 4000), ("Sett", 150)):
         champions += [champion] * n
         options += np.where(rng.random(n) < 0.5, "A", "B").tolist()
         outcomes += (rng.random(n) < 0.5).astype(int).tolist()
@@ -125,6 +135,26 @@ def test_estimates_shrink_toward_the_class_mean(table_factory: TableFactory) -> 
         return e.wpa
 
     assert abs(sett_a(shrunk)) < abs(sett_a(raw))
+
+
+def test_fully_shrunk_estimates_keep_an_interval(table_factory: TableFactory) -> None:
+    """Regression: shrinking interval ends like the estimate collapsed them to a point when the
+    champions' effects were indistinguishable (seen on the corpus: Yone mid, Fleet Footwork)."""
+    rng = np.random.default_rng(12)
+    champions: list[str] = []
+    options: list[str] = []
+    outcomes: list[int] = []
+    for champion in ("Aatrox", "Darius", "Garen"):
+        champions += [champion] * 600
+        options += np.where(rng.random(600) < 0.5, "A", "B").tolist()
+        outcomes += (rng.random(600) < 0.5).astype(int).tolist()
+    match_ids = [f"M{i}" for i in range(len(options))]
+    table = table_factory(options, outcomes, champions=champions, match_ids=match_ids)
+    for e in estimate(table, np.full(len(table), 0.5), WpaSettings()):
+        assert e.wpa is not None
+        assert e.ci is not None
+        assert e.ci[0] < e.wpa < e.ci[1]
+        assert e.ci[1] - e.ci[0] > 0.02  # about 2 x 1.96 x the prior's standard error
 
 
 def test_rejects_wp_outside_unit_interval(table_factory: TableFactory) -> None:

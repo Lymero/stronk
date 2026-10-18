@@ -23,6 +23,10 @@ class WpaSettings:
     """An option with fewer of its decisions inside the overlap population gets `low_overlap`."""
     min_decisions: int = 300
     """Fewer overlap decisions than this gets `low_sample`."""
+    min_estimate_decisions: int = 30
+    """Fewer overlap decisions than this, for the option or for its alternatives: no number at
+    all, only `low_sample`. A bootstrap over a handful of matches can't measure its own
+    uncertainty (one decision against one gives a zero-width interval)."""
     bootstrap_samples: int = 200
     confidence: float = 0.95
     min_shrinkage_group: int = 3

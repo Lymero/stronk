@@ -31,3 +31,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: lock-in, data-fetch and app-start scenarios with the app (M3). Next: M2 `winprob`.
 - 2026-10-18: `winprob.train` (ADR-030): logistic and LightGBM fitted on training matches, best on validation kept (logistic today: test log loss 0.516, calibration error 0.014 on 495 corpus matches; LightGBM 0.520); `wpa.estimate` uses the model; winprob floors enforced on the corpus.
   Open: skill features in the WP model; next M2 item, `wpa` v1 scores with propensity overlap, shrinkage and bootstrap on real data.
+- 2026-10-18: WPA fixes from the first real-data run (ADR-031): no number under 30 overlap decisions; shrunk intervals keep the prior's uncertainty (they collapsed to a point). Corpus: 24 of 12,503 estimates get a number, narrowest interval ±0.11.
+  Open: data volume. Item WPA needs roughly ten times more games per champion (pool regions and patches, or a production key) before the rest of M2 means anything.

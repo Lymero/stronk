@@ -79,7 +79,7 @@ Methods are introduced in versions. Each version keeps the previous one availabl
 5. **Shrinkage.** Empirical Bayes shrinkage toward the champion-class average, so small samples don't produce extreme values.
 6. **Intervals.** Bootstrap by match.
 
-**Reference defaults** (`WpaSettings`): overlap where every option's propensity ≥ 0.05; `low_overlap` when under half of an option's decisions are in the overlap; `low_sample` under 300 overlap decisions; 200 bootstrap resamples by match with the models held fixed; shrinkage only when at least 3 champions of the class have an estimate. `wpa.estimate` takes the model from `winprob.train`; without one (synthetic games have no frames) it fits the logistic form on the decisions themselves (ADR-024).
+**Reference defaults** (`WpaSettings`): overlap where every option's propensity ≥ 0.05; `low_overlap` when under half of an option's decisions are in the overlap; `low_sample` under 300 overlap decisions, and no number at all under 30 for the option or its alternatives; 200 bootstrap resamples by match with the models held fixed; shrinkage only when at least 3 champions of the class have an estimate. `wpa.estimate` takes the model from `winprob.train`; without one (synthetic games have no frames) it fits the logistic form on the decisions themselves (ADR-024).
 
 ### v2 · Doubly robust (after v1 is validated)
 
