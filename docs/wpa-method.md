@@ -79,7 +79,7 @@ Methods are introduced in versions. Each version keeps the previous one availabl
 5. **Shrinkage.** Empirical Bayes shrinkage toward the champion-class average, so small samples don't produce extreme values.
 6. **Intervals.** Bootstrap by match.
 
-**Reference defaults** (`WpaSettings`): overlap where every option's propensity ≥ 0.05; `low_overlap` when under half of an option's decisions are in the overlap; `low_sample` under 300 overlap decisions, and no number at all under 30 for the option or its alternatives; 200 bootstrap resamples by match with the models held fixed; shrinkage only when at least 3 champions of the class have an estimate. `wpa.estimate` takes the model from `winprob.train`; without one (synthetic games have no frames) it fits the logistic form on the decisions themselves (ADR-024).
+**Reference defaults** (`WpaSettings`): an option's overlap is where its propensity against the rest lies in [0.05, 0.95] (ADR-035); `low_overlap` when under half of an option's decisions are in the overlap; `low_sample` under 300 overlap decisions, and no number at all under 30 for the option or its alternatives; 200 bootstrap resamples by match with the models held fixed; shrinkage only when at least 3 champions of the class have an estimate. `wpa.estimate` takes the model from `winprob.train`; without one (synthetic games have no frames) it fits the logistic form on the decisions themselves (ADR-024).
 
 ### v2 · Doubly robust (after v1 is validated)
 
@@ -144,6 +144,6 @@ The UI always shows the flag instead of hiding uncertainty.
 ## 9. Open questions
 
 - Best Δ for the windowed outcome (choose by backtest).
-- Defining the option set per decision point (pick-rate threshold vs propensity threshold).
+- Defining the option set per decision point (pick-rate threshold vs propensity threshold). Today every option seen is estimated, and overlap is decided per option (ADR-035).
 - Components vs completed items; boots tiers. v1 scores completed items only and leaves boots out (ADR-026).
 - How long a pooling window across patches can be before item changes make it misleading.

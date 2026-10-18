@@ -26,9 +26,9 @@ Build a thin version end to end first, then improve each part. Structure is set 
 ## M2 · Statistics v1
 
 - [x] `winprob`: model, calibration report, first floors set
-- [ ] `wpa` v1: decision-point scores, propensity overlap, shrinkage, bootstrap intervals, flags
+- [x] `wpa` v1: decision-point scores, propensity overlap, shrinkage, bootstrap intervals, flags
 - [ ] `wpa` fast implementation and oracle-agreement test (deferred until a budget needs it, ADR-034)
-- [ ] Item WPA per slot for about 10 champions
+- [x] Item WPA per slot for about 10 champions (132 picks on 22,954 games, ADR-035)
 - [x] `publish` with `LocalPublisher`: signed JSON in `dist/data/`
 - [x] `just serve-data`: local static server with ETag
 

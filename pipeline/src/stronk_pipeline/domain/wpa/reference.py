@@ -5,9 +5,10 @@ Plain and obviously correct rather than fast; the `fast` implementation (M2) mus
 For each decision point (champion, role, slot):
 
 1. event score = outcome - WP(situation at the decision);
-2. propensity of each option given the situation (one-vs-rest logistic, normalised);
-3. overlap population = decisions where every option has propensity >= epsilon;
-4. effect of option A = mean score of A - mean score of the alternatives, inside the overlap;
+2. propensity of each option given the situation: P(A | situation), option A against the rest;
+3. overlap population of A = decisions where epsilon <= P(A) <= 1 - epsilon, so both A and an
+   alternative are realistically chosen (ADR-035);
+4. effect of option A = mean score of A - mean score of the alternatives, inside A's overlap;
 5. interval: percentile bootstrap, resampling matches;
 6. shrinkage toward the (class, role, slot, option) mean across champions;
 7. flags: low_overlap (no number), low_sample (no number under `min_estimate_decisions`),
@@ -97,14 +98,14 @@ def _estimate_point(
     if len(options) < 2:
         return [result(options[0], len(rows), {Flag.LOW_OVERLAP})]
 
-    propensity = _propensity(table.features[rows], chosen, options)
-    overlap = propensity.min(axis=1) >= settings.overlap_epsilon
-    weights = _bootstrap_weights(table.match_id[rows][overlap], key, settings)
-    in_scores = scores[overlap]
-
+    features = table.features[rows]
+    weights = _bootstrap_weights(table.match_id[rows], key, settings)
     out: list[_Raw] = []
     for option in options:
         mine: Bools = chosen == option
+        propensity = fit_logistic(features, mine.astype(np.float64)).predict(features)
+        eps = settings.overlap_epsilon
+        overlap: Bools = (propensity >= eps) & (propensity <= 1.0 - eps)
         n_total = int(mine.sum())
         n_in = int((mine & overlap).sum())
         n_alt = int((~mine & overlap).sum())
@@ -115,9 +116,8 @@ def _estimate_point(
             out.append(result(option, n_in, {Flag.LOW_SAMPLE}))
             continue
         point = float(scores[mine & overlap].mean() - scores[~mine & overlap].mean())
-        in_mine = mine[overlap]
-        boot = _weighted_means(weights[:, in_mine], in_scores[in_mine]) - _weighted_means(
-            weights[:, ~in_mine], in_scores[~in_mine]
+        boot = _weighted_means(weights[:, mine & overlap], scores[mine & overlap]) - (
+            _weighted_means(weights[:, ~mine & overlap], scores[~mine & overlap])
         )
         alpha = 1.0 - settings.confidence
         low, high = np.nanpercentile(boot, [100 * alpha / 2, 100 * (1 - alpha / 2)])
@@ -126,13 +126,6 @@ def _estimate_point(
         ci = (float(low), float(high))
         out.append(result(option, n_in, flags, wpa=point, ci=ci, std_error=std_error))
     return out
-
-
-def _propensity(features: Floats, chosen: NDArray[np.str_], options: list[str]) -> Floats:
-    """P(option | situation) for each row and option: one-vs-rest fits, rows normalised to 1."""
-    columns = [fit_logistic(features, (chosen == o).astype(np.float64)) for o in options]
-    raw = np.column_stack([model.predict(features) for model in columns])
-    return raw / raw.sum(axis=1, keepdims=True)
 
 
 def _bootstrap_weights(

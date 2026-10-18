@@ -161,3 +161,17 @@ def test_rejects_wp_outside_unit_interval(table_factory: TableFactory) -> None:
     table = table_factory(["A", "B"], [1, 0])
     with pytest.raises(ValueError, match=r"\[0, 1\]"):
         estimate(table, np.array([0.5, 1.5]))
+
+
+def test_a_rare_option_does_not_remove_the_others_numbers(table_factory: TableFactory) -> None:
+    """Regression: overlap required every option's propensity >= epsilon, so one option seen a
+    handful of times emptied the overlap population, and more games gave fewer numbers."""
+    rng = np.random.default_rng(5)
+    options = np.where(rng.random(1000) < 0.5, "A", "B").tolist() + ["C"] * 3
+    outcomes = (rng.random(len(options)) < 0.5).astype(int).tolist()
+    table = table_factory(options, outcomes, features=rng.normal(size=(len(options), 1)))
+    estimates = by_option(estimate(table, np.full(len(table), 0.5), FAST))
+    assert estimates["A"].wpa is not None
+    assert estimates["B"].wpa is not None
+    assert estimates["C"].wpa is None
+    assert Flag.LOW_OVERLAP in estimates["C"].flags

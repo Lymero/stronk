@@ -18,7 +18,7 @@ class Flag(StrEnum):
 @dataclass(frozen=True)
 class WpaSettings:
     overlap_epsilon: float = 0.05
-    """Decisions where any option's propensity is below this are outside the overlap population."""
+    """Option A's overlap population: decisions where P(A) lies in [epsilon, 1 - epsilon]."""
     min_overlap_share: float = 0.5
     """An option with fewer of its decisions inside the overlap population gets `low_overlap`."""
     min_decisions: int = 300
