@@ -20,6 +20,7 @@ ignore = [
 "**/cli.py" = ["T20"]
 "tools/checks/*.py" = ["T20", "S603", "S607"]
 "tools/corpus/*.py" = ["T20"]
+"tools/serve_data/*.py" = ["T20"]
 "contracts/codegen.py" = ["T20", "S603"]
 
 [lint.isort]

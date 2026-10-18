@@ -71,6 +71,10 @@ pipeline out="runs/pipeline":
 keygen out="~/.config/stronk/signing.key":
     uv run stronk-pipeline run signing.keygen --params '{"out": "'"$(eval echo {{ out }})"'"}'
 
+# Serve dist/data/ locally like the CDN (ETag, CORS): just serve-data [root] [port]
+serve-data root="dist/data" port="8787":
+    uv run python tools/serve_data/serve_data.py --root {{ root }} --port {{ port }}
+
 # Signed build files into dist/data/ from estimates and their crawls (comma-separated)
 publish estimates crawl key="~/.config/stronk/signing.key" out="dist/data":
     #!/usr/bin/env bash

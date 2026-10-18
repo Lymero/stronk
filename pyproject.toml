@@ -37,10 +37,11 @@ testpaths = [
     "tools/synth/tests",
     "tools/checks/tests",
     "tools/corpus/tests",
+    "tools/serve_data/tests",
     "contracts/tests",
 ]
 addopts = ["--import-mode=importlib", "--strict-markers", "-ra"]
-pythonpath = ["tools/checks", "tools/corpus", "pipeline/tests"]
+pythonpath = ["tools/checks", "tools/corpus", "tools/serve_data", "pipeline/tests"]
 markers = [
     "slow: statistical tests that take more than a few seconds",
     "corpus: needs the real-data corpus (`just corpus`); skipped when it is absent",

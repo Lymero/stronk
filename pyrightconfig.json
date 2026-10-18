@@ -1,7 +1,7 @@
 {
   "include": ["pipeline", "tools", "contracts"],
   "exclude": ["**/node_modules", "**/.venv", "**/__pycache__", "contracts/generated/rust", "contracts/generated/ts"],
-  "extraPaths": ["tools/checks", "tools/corpus", "pipeline/tests"],
+  "extraPaths": ["tools/checks", "tools/corpus", "tools/serve_data", "pipeline/tests"],
   "pythonVersion": "3.13",
   "venvPath": ".",
   "venv": ".venv",

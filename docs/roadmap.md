@@ -30,7 +30,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [ ] `wpa` fast implementation and oracle-agreement test
 - [ ] Item WPA per slot for about 10 champions
 - [x] `publish` with `LocalPublisher`: signed JSON in `dist/data/`
-- [ ] `just serve-data`: local static server with ETag
+- [x] `just serve-data`: local static server with ETag
 
 ## M3 · App v1
 
