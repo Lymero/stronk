@@ -12,7 +12,8 @@ For each decision point (champion, role, slot):
 5. interval: percentile bootstrap, resampling matches;
 6. shrinkage toward the (class, role, slot, option) mean across champions;
 7. flags: low_overlap (no number), low_sample (no number under `min_estimate_decisions`),
-   no_clear_difference.
+   no_clear_difference (not distinguishable from zero after false discovery rate control
+   across every estimate of the run, ADR-036).
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from numpy.typing import NDArray
 
 from stronk_pipeline.domain.decisions import DecisionKey, DecisionTable
 from stronk_pipeline.domain.logistic import Floats, fit_logistic
+from stronk_pipeline.domain.wpa.fdr import benjamini_hochberg, two_sided_p
 from stronk_pipeline.domain.wpa.shrinkage import shrink
 from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate, WpaSettings
 
@@ -60,7 +62,7 @@ def estimate(
     raw: list[_Raw] = []
     for key, rows in table.decision_points():
         raw.extend(_estimate_point(table, rows, score, key, settings))
-    return _flag_unclear(_shrink_across_champions(raw, settings))
+    return _flag_unclear(_shrink_across_champions(raw, settings), settings)
 
 
 def event_scores(table: DecisionTable, wp: Floats) -> Floats:
@@ -149,14 +151,14 @@ def _weighted_means(weights: NDArray[np.float64], values: Floats) -> Floats:
         return np.where(totals > 0, (weights @ values) / totals, np.nan)
 
 
-def _shrink_across_champions(raw: list[_Raw], settings: WpaSettings) -> list[OptionEstimate]:
+def _shrink_across_champions(raw: list[_Raw], settings: WpaSettings) -> list[_Raw]:
     groups: defaultdict[tuple[str, str, int, str], list[int]] = defaultdict(list)
     for i, r in enumerate(raw):
         e = r.estimate
         if e.wpa is not None and r.std_error is not None:
             groups[(e.champion_class, e.role, e.slot, e.option)].append(i)
 
-    out = [r.estimate for r in raw]
+    out = list(raw)
     for members in groups.values():
         if len(members) < settings.min_shrinkage_group:
             continue
@@ -170,22 +172,18 @@ def _shrink_across_champions(raw: list[_Raw], settings: WpaSettings) -> list[Opt
             # Keep the bootstrap interval's shape, rescaled to the shrunk standard error.
             wpa, scale = float(shrunk.estimates[j]), float(shrunk.std_errors[j]) / std_error
             low, high = wpa - (e.wpa - e.ci[0]) * scale, wpa + (e.ci[1] - e.wpa) * scale
-            out[i] = replace(e, wpa=wpa, ci=(low, high))
+            shrunk_error = float(shrunk.std_errors[j])
+            out[i] = _Raw(replace(e, wpa=wpa, ci=(low, high)), shrunk_error)
     return out
 
 
-def _flag_unclear(estimates: list[OptionEstimate]) -> list[OptionEstimate]:
-    """Flag options whose interval overlaps the best option's; then the best has no clear lead."""
-    by_point: defaultdict[tuple[str, str, int], list[int]] = defaultdict(list)
-    for i, e in enumerate(estimates):
-        if e.wpa is not None and e.ci is not None:
-            by_point[(e.champion, e.role, e.slot)].append(i)
-
-    out = list(estimates)
-    for members in by_point.values():
-        intervals = {i: ci for i in members if (ci := estimates[i].ci) is not None}
-        best = max(intervals, key=lambda i: (estimates[i].wpa or 0.0, estimates[i].option))
-        unclear = [i for i, ci in intervals.items() if i != best and ci[1] >= intervals[best][0]]
-        for i in [*unclear, best] if unclear else []:
-            out[i] = replace(out[i], flags=out[i].flags | {Flag.NO_CLEAR_DIFFERENCE})
+def _flag_unclear(raw: list[_Raw], settings: WpaSettings) -> list[OptionEstimate]:
+    """Benjamini-Hochberg across every estimate with a number: `q` is the adjusted p-value of
+    "no effect"; above `settings.fdr`, the estimate gets `no_clear_difference`."""
+    tested = [i for i, r in enumerate(raw) if r.estimate.wpa is not None]
+    p = np.array([two_sided_p(raw[i].estimate.wpa or 0.0, raw[i].std_error or 0.0) for i in tested])
+    out = [r.estimate for r in raw]
+    for i, q in zip(tested, benjamini_hochberg(p).tolist(), strict=True):
+        flags = out[i].flags | {Flag.NO_CLEAR_DIFFERENCE} if q > settings.fdr else out[i].flags
+        out[i] = replace(out[i], q=q, flags=flags)
     return out

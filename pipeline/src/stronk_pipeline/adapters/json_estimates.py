@@ -25,6 +25,7 @@ class _Row(BaseModel):
     ci: tuple[float, float] | None
     n: int
     flags: list[Flag]
+    q: float | None = None
 
 
 class _File(BaseModel):
@@ -49,6 +50,7 @@ class JsonEstimateStore:
                 ci=e.ci,
                 n=e.n,
                 flags=sorted(e.flags),
+                q=e.q,
             )
             for e in estimates
         ]
@@ -78,6 +80,7 @@ class JsonEstimateStore:
                     r.ci,
                     r.n,
                     frozenset(r.flags),
+                    r.q,
                 )
                 for r in data.estimates
             ]

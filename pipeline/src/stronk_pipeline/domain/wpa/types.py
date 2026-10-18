@@ -29,6 +29,8 @@ class WpaSettings:
     uncertainty (one decision against one gives a zero-width interval)."""
     bootstrap_samples: int = 200
     confidence: float = 0.95
+    fdr: float = 0.05
+    """False discovery rate for calling an estimate clear (Benjamini-Hochberg, ADR-036)."""
     min_shrinkage_group: int = 3
     """Champions needed in a (class, role, slot, option) group before shrinking toward it."""
     seed: int = 0
@@ -47,3 +49,5 @@ class OptionEstimate:
     n: int
     """Decisions choosing this option inside the overlap population (all of them if none are)."""
     flags: frozenset[Flag] = field(default_factory=frozenset[Flag])
+    q: float | None = None
+    """Benjamini-Hochberg adjusted p-value of "no effect", across the run; None without a number."""

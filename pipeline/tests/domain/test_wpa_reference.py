@@ -175,3 +175,19 @@ def test_a_rare_option_does_not_remove_the_others_numbers(table_factory: TableFa
     assert estimates["B"].wpa is not None
     assert estimates["C"].wpa is None
     assert Flag.LOW_OVERLAP in estimates["C"].flags
+
+
+def test_clear_needs_to_survive_false_discovery_control(table_factory: TableFactory) -> None:
+    """Among many champions with no effect, some intervals exclude zero by chance; after
+    Benjamini-Hochberg across the run, none of them is called clear."""
+    rng = np.random.default_rng(8)
+    champions = [f"C{i}" for i in range(60) for _ in range(400)]
+    options = np.where(rng.random(len(champions)) < 0.5, "A", "B").tolist()
+    outcomes = (rng.random(len(champions)) < 0.5).astype(int).tolist()
+    table = table_factory(options, outcomes, champions=champions,
+                          match_ids=[f"M{i}" for i in range(len(champions))])  # fmt: skip
+    estimates = estimate(table, np.full(len(table), 0.5), WpaSettings(min_shrinkage_group=999))
+    by_chance = [e for e in estimates if e.ci is not None and (e.ci[0] > 0 or e.ci[1] < 0)]
+    assert by_chance  # the unadjusted rule would call these clear...
+    assert all(Flag.NO_CLEAR_DIFFERENCE in e.flags for e in estimates)  # ...BH doesn't
+    assert all(e.q is not None and e.q > 0.05 for e in estimates)

@@ -45,6 +45,8 @@ class OptionEstimateRow(BaseModel):
     ci: tuple[float, float] | None
     n: int
     flags: list[str]
+    q: float | None
+    """False-discovery-adjusted p-value of "no effect" (ADR-036)."""
 
 
 class WpaEstimateResult(BaseModel):
@@ -113,6 +115,7 @@ def wpa_estimate_command(
                 ci=e.ci,
                 n=e.n,
                 flags=sorted(e.flags),
+                q=e.q,
             )
             for e in estimates
         ]
