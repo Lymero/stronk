@@ -15,6 +15,7 @@ Working guide for AI agents and contributors. Read this first.
 | [docs/roadmap.md](docs/roadmap.md) | Current focus and next tasks |
 | [docs/gaps.md](docs/gaps.md) | What's missing compared with other tools |
 | [docs/windows.md](docs/windows.md) | Building and running on Windows, real-client testing |
+| [docs/production-key.md](docs/production-key.md) | Draft of the Riot production API key application |
 | [NOTES.md](NOTES.md) | What the last session did and left open |
 
 ## Commands
