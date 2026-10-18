@@ -32,6 +32,7 @@ from stronk_pipeline.application.wpa_estimate import wpa_estimate_command
 from stronk_pipeline.config import Settings
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.winprob import LogisticLearner
+from stronk_pipeline.domain.wpa.overlap_weighted import OverlapWeightedEstimator
 from stronk_pipeline.domain.wpa.reference import ReferenceEstimatorV1
 from stronk_pipeline.ports import MatchSource
 
@@ -44,7 +45,7 @@ def build_registry(settings: Settings | None = None) -> CommandRegistry:
     settings = settings if settings is not None else Settings()
     decisions, frames, reports = ParquetDecisionStore(), ParquetFrameStore(), JsonReportWriter()
     learners, models = (LogisticLearner(), LightGbmLearner()), JsonWinProbStore()
-    estimators = {e.id: e for e in (ReferenceEstimatorV1(),)}
+    estimators = {e.id: e for e in (ReferenceEstimatorV1(), OverlapWeightedEstimator())}
     return CommandRegistry(
         [
             crawl_command(riot_sources(settings), FileMatchStore),

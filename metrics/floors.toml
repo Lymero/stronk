@@ -81,6 +81,47 @@ metric = "synthetic.confounded.planted_clear"
 source = "metrics/out/synthetic.json"
 min = 0.75
 
+# Overlap-weighted estimator (ADR-037), reported but not enforced: it becomes the default only
+# when G keeps about +3%, the other planted effects stay right and every floor above holds for
+# it. Measured 2026-10-18: G keeps 99% (v1 54%), but confounded planted bias 0.0096 and
+# coverage 0.75 (v1 0.0036 and 1.0).
+
+[[floor]]
+metric = "synthetic.confounded.g_share_kept"
+source = "metrics/out/synthetic.json"
+
+[[floor]]
+metric = "synthetic.overlap_weighted.clean.g_share_kept"
+source = "metrics/out/synthetic.json"
+
+[[floor]]
+metric = "synthetic.overlap_weighted.clean.planted_bias"
+source = "metrics/out/synthetic.json"
+
+[[floor]]
+metric = "synthetic.overlap_weighted.clean.coverage"
+source = "metrics/out/synthetic.json"
+
+[[floor]]
+metric = "synthetic.overlap_weighted.clean.mean_abs_error"
+source = "metrics/out/synthetic.json"
+
+[[floor]]
+metric = "synthetic.overlap_weighted.confounded.g_share_kept"
+source = "metrics/out/synthetic.json"
+
+[[floor]]
+metric = "synthetic.overlap_weighted.confounded.planted_bias"
+source = "metrics/out/synthetic.json"
+
+[[floor]]
+metric = "synthetic.overlap_weighted.confounded.coverage"
+source = "metrics/out/synthetic.json"
+
+[[floor]]
+metric = "synthetic.overlap_weighted.confounded.mean_abs_error"
+source = "metrics/out/synthetic.json"
+
 # Win probability (`winprob.train` on the corpus, crawl-euw1-16.20: 495 test matches never seen
 # in training or model choice). Measured 2026-10-18 with the logistic model chosen: calibration
 # error 0.0136, log loss 0.5161. LightGBM on the same split: 0.0135 and 0.5203 (ADR-030).
