@@ -12,8 +12,6 @@ use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
 use stronk_data::{DirectorySource, TrustedKey};
-use stronk_lcu::{LcuClient, Lockfile};
-use stronk_service::ports::{ChampSelect, LeagueClient, PortError};
 use stronk_service::{CommandError, Context, ErrorCode, registry};
 
 #[derive(Parser)]
@@ -90,41 +88,8 @@ fn context(cli: &Cli) -> Result<Context, CommandError> {
     let key = TrustedKey::decode(&key_text)?;
     Ok(Context {
         builds: Arc::new(DirectorySource::new(expand(&cli.data), key)),
-        client: client(cli),
+        client: stronk_lcu::connect_or_absent(cli.lockfile.as_deref(), cli.lcu_cert.as_deref()),
     })
-}
-
-/// The real client when its lockfile and certificate are there; otherwise a client that says
-/// why it is unavailable, so commands that don't need it still run.
-fn client(cli: &Cli) -> Arc<dyn LeagueClient> {
-    let connect = || -> Result<LcuClient, PortError> {
-        let path = match &cli.lockfile {
-            Some(path) => path.clone(),
-            None => stronk_lcu::discover().map_err(|e| PortError::Unavailable(e.to_string()))?,
-        };
-        let lock = Lockfile::read(&path).map_err(|e| PortError::Unavailable(e.to_string()))?;
-        let cert_path = cli.lcu_cert.as_ref().ok_or_else(|| {
-            PortError::Unavailable("no root certificate for the League client (--lcu-cert)".into())
-        })?;
-        let pem = std::fs::read(cert_path)
-            .map_err(|e| PortError::Unavailable(format!("{}: {e}", cert_path.display())))?;
-        LcuClient::new(&lock, &pem)
-    };
-    match connect() {
-        Ok(client) => Arc::new(client),
-        Err(e) => Arc::new(Absent(e)),
-    }
-}
-
-struct Absent(PortError);
-
-impl LeagueClient for Absent {
-    fn champ_select(&self) -> Result<Option<ChampSelect>, PortError> {
-        Err(self.0.clone())
-    }
-    fn champion_key(&self, _: i64) -> Result<String, PortError> {
-        Err(self.0.clone())
-    }
 }
 
 fn expand(path: &std::path::Path) -> PathBuf {

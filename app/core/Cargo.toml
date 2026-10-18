@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/domain", "crates/service", "crates/data", "crates/lcu", "crates/cli"]
+members = ["crates/domain", "crates/service", "crates/data", "crates/lcu", "crates/cli", "src-tauri"]
 # The Tauri shell needs WebKitGTK to build on Linux; `just check` builds everything else, CI
 # builds the shell too (`just app-build`).
 default-members = ["crates/domain", "crates/service", "crates/data", "crates/lcu", "crates/cli"]

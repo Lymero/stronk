@@ -200,3 +200,15 @@ lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":
 # UI in the browser against MockBackend: http://127.0.0.1:5173/?scenario=ranked-jungle|no-client|bad-data
 app-mock:
     pnpm --filter @stronk/ui dev
+
+# Desktop app on the fixture data, talking to `just lcu-mock` (needs WebKitGTK on Linux)
+app:
+    STRONK_DATA_DIR="$PWD/fixtures/data" STRONK_DATA_KEY="$PWD/fixtures/data.pub" \
+    STRONK_LCU_LOCKFILE="$PWD/runs/lcu-mock/lockfile" STRONK_LCU_CERT="$PWD/runs/lcu-mock/root.pem" \
+    pnpm --filter @stronk/ui exec tauri dev --config ../core/src-tauri/tauri.conf.json
+
+# Build and lint the Tauri shell (needs WebKitGTK on Linux; CI's app-shell job)
+app-build:
+    pnpm --filter @stronk/ui build
+    cargo clippy {{ core_rs }} -p stronk-app --all-targets --locked --quiet -- -D warnings
+    cargo build {{ core_rs }} -p stronk-app --locked --quiet

@@ -1,0 +1,21 @@
+[package]
+name = "stronk-app"
+description = "Tauri shell: one window, every app command through the registry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+serde_json = "1"
+stronk-data = { path = "../crates/data" }
+stronk-lcu = { path = "../crates/lcu" }
+stronk-service = { path = "../crates/service" }
+tauri = { version = "2.12", features = [] }
+
+[lints]
+workspace = true

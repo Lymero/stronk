@@ -5,8 +5,10 @@
 //! certificate, given by the caller: `tools/lcu-mock` writes its own next to its lockfile.
 
 mod client;
+mod connect;
 mod lockfile;
 pub mod models;
 
 pub use client::LcuClient;
+pub use connect::connect_or_absent;
 pub use lockfile::{Lockfile, LockfileError, discover};
