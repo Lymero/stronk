@@ -21,12 +21,13 @@ def test_lists_commands() -> None:
 
 def test_runs_a_command(tmp_path: Path) -> None:
     path = tmp_path / "d.parquet"
-    ParquetDecisionStore().write_decisions(generate(SynthConfig(games=2000)).decisions, path)
+    decisions = generate(SynthConfig(games=2000)).decisions
+    ParquetDecisionStore().write_decisions(decisions, path)
     params = json.dumps({"decisions": str(path), "bootstrap_samples": 20})
     result = runner.invoke(app, ["run", "wpa.estimate", "--params", params])
     assert result.exit_code == 0
     estimates = json.loads(result.stdout)["estimates"]
-    assert {e["option"] for e in estimates} == set("ABCDEF")
+    assert {e["option"] for e in estimates} == set(decisions.option.tolist())
     assert all(e["wpa"] is None or np.isfinite(e["wpa"]) for e in estimates)
 
 

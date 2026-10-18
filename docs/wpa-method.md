@@ -78,6 +78,9 @@ Methods are introduced in versions. Each version keeps the previous one availabl
 4. **Overlap check.** A propensity model (LightGBM, multiclass) estimates how likely each option is given the situation. Decisions where an option is almost never chosen are excluded; options with too little overlap get the `low_overlap` flag instead of a number.
 5. **Shrinkage.** Empirical Bayes shrinkage toward the champion-class average, so small samples don't produce extreme values.
 6. **Intervals.** Bootstrap by match.
+7. **Multiple comparisons.** Each estimate's p-value of "no effect" comes from its (shrunk) estimate and standard error, normal approximation; Benjamini-Hochberg across every estimate of the run gives `q`. Only q ≤ 0.05 is called clear (ADR-036).
+
+**Known bias of v1 (ADR-036).** Comparing mean scores of choosers and non-choosers estimates E[π(1−π)Δ] / (E[π]·E[1−π]), with π the option's choice probability in the situation and Δ its effect there: when the situation predicts the choice, the effect shrinks toward zero (in synthetic games, an item bought when ahead keeps 73% of its effect). Overlap weights (choosers weighted 1 − π, others π) remove it; that is the next estimator change, validated against synthetic truth before it ships.
 
 **Reference defaults** (`WpaSettings`): an option's overlap is where its propensity against the rest lies in [0.05, 0.95] (ADR-035); `low_overlap` when under half of an option's decisions are in the overlap; `low_sample` under 300 overlap decisions, and no number at all under 30 for the option or its alternatives; 200 bootstrap resamples by match with the models held fixed; shrinkage only when at least 3 champions of the class have an estimate. `wpa.estimate` takes the model from `winprob.train`; without one (synthetic games have no frames) it fits the logistic form on the decisions themselves (ADR-024).
 
@@ -125,7 +128,7 @@ A new method, feature or model ships **only if it measurably improves** syntheti
 |---|---|
 | `low_sample` | Too few decisions for a useful interval |
 | `low_overlap` | The option is rarely chosen in comparable situations; no reliable comparison exists |
-| `no_clear_difference` | The interval overlaps the best option's interval |
+| `no_clear_difference` | Not distinguishable from zero once false discoveries are controlled: Benjamini-Hochberg across every estimate of the patch, q > 0.05 (ADR-036) |
 | `fragile` | A modest hidden confounder could overturn the result |
 
 The UI always shows the flag instead of hiding uncertainty.
@@ -135,7 +138,9 @@ The UI always shows the flag instead of hiding uncertainty.
 1. **Synthetic truth:** games where item A truly adds +2% win probability, item B adds nothing but is bought mostly when ahead, and a hidden skill variable affects both builds and wins.
    - A's interval contains +2%;
    - B's estimate is about 0;
-   - a 97% pick-rate choice gets `low_overlap`, not a confident number.
+   - a 97% pick-rate choice gets `low_overlap`, not a confident number;
+   - at a slot with four common options and a long tail of rare ones, the common options keep their numbers, the rare ones get `low_overlap`, and the planted +3% is positive and clear (ADR-035);
+   - planted effects survive false discovery control; null ones don't (ADR-036).
 2. **Oracle agreement:** `reference` and `fast` agree on fixtures within tolerance.
 3. **Calibration:** calibration error on fixtures stays within its limit in `metrics/floors.toml`.
 4. **Decision anchoring:** a cheaper item with the same per-minute power as a pricier one scores higher in synthetic games, because it completes earlier.

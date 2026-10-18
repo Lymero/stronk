@@ -46,6 +46,40 @@ metric = "synthetic.confounded.meta_lock_flagged"
 source = "metrics/out/synthetic.json"
 min = 1.0
 
+# Many-option slot with a rare tail (slot 4, ADR-035) and false discovery control (ADR-036).
+# Measured 2026-10-18: common options estimated 1.0, tail flagged 1.0 in both scenarios; the
+# planted effects (A, G) are called clear in 15 of 16 seed-scenario pairs.
+
+[[floor]]
+metric = "synthetic.clean.common_options_estimated"
+source = "metrics/out/synthetic.json"
+min = 1.0
+
+[[floor]]
+metric = "synthetic.clean.long_tail_flagged"
+source = "metrics/out/synthetic.json"
+min = 1.0
+
+[[floor]]
+metric = "synthetic.clean.planted_clear"
+source = "metrics/out/synthetic.json"
+min = 0.875
+
+[[floor]]
+metric = "synthetic.confounded.common_options_estimated"
+source = "metrics/out/synthetic.json"
+min = 1.0
+
+[[floor]]
+metric = "synthetic.confounded.long_tail_flagged"
+source = "metrics/out/synthetic.json"
+min = 1.0
+
+[[floor]]
+metric = "synthetic.confounded.planted_clear"
+source = "metrics/out/synthetic.json"
+min = 0.875
+
 # Win probability (`winprob.train` on the corpus, crawl-euw1-16.20: 495 test matches never seen
 # in training or model choice). Measured 2026-10-18 with the logistic model chosen: calibration
 # error 0.0136, log loss 0.5161. LightGBM on the same split: 0.0135 and 0.5203 (ADR-030).
