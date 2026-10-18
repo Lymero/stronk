@@ -1,0 +1,528 @@
+{
+  "champions": [
+    {
+      "alias": "Kayle",
+      "id": 10,
+      "name": "Kayle"
+    },
+    {
+      "alias": "Leona",
+      "id": 89,
+      "name": "Leona"
+    },
+    {
+      "alias": "Lux",
+      "id": 99,
+      "name": "Lux"
+    },
+    {
+      "alias": "Diana",
+      "id": 131,
+      "name": "Diana"
+    },
+    {
+      "alias": "Jhin",
+      "id": 202,
+      "name": "Jhin"
+    }
+  ],
+  "source": "Recorded from the League client by `stronk-core record-champselect` on 2026-10-18; kept fields are an allowlist (app/core/crates/lcu/src/scrub.rs).",
+  "steps": [
+    {
+      "name": "lobby",
+      "session": null
+    },
+    {
+      "name": "BAN_PICK 1",
+      "session": {
+        "actions": [
+          [
+            {
+              "actorCellId": 0,
+              "championId": 0,
+              "completed": false,
+              "id": 0,
+              "isAllyAction": true,
+              "isInProgress": true,
+              "pickTurn": 0,
+              "type": "pick"
+            }
+          ]
+        ],
+        "bans": {
+          "myTeamBans": [],
+          "theirTeamBans": []
+        },
+        "benchEnabled": false,
+        "isCustomGame": true,
+        "localPlayerCellId": 0,
+        "myTeam": [
+          {
+            "assignedPosition": "bottom",
+            "cellId": 0,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 6,
+            "spell2Id": 7,
+            "team": 1
+          },
+          {
+            "assignedPosition": "bottom",
+            "cellId": 1,
+            "championId": 202,
+            "championPickIntent": 0,
+            "spell1Id": 21,
+            "spell2Id": 4,
+            "team": 1
+          },
+          {
+            "assignedPosition": "utility",
+            "cellId": 2,
+            "championId": 89,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 14,
+            "team": 1
+          },
+          {
+            "assignedPosition": "middle",
+            "cellId": 3,
+            "championId": 99,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 12,
+            "team": 1
+          },
+          {
+            "assignedPosition": "top",
+            "cellId": 4,
+            "championId": 10,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 12,
+            "team": 1
+          }
+        ],
+        "theirTeam": [
+          {
+            "assignedPosition": "",
+            "cellId": 5,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 6,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 7,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 8,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 9,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          }
+        ],
+        "timer": {
+          "phase": "BAN_PICK"
+        }
+      }
+    },
+    {
+      "name": "BAN_PICK 2",
+      "session": {
+        "actions": [
+          [
+            {
+              "actorCellId": 0,
+              "championId": 131,
+              "completed": false,
+              "id": 0,
+              "isAllyAction": true,
+              "isInProgress": true,
+              "pickTurn": 0,
+              "type": "pick"
+            }
+          ]
+        ],
+        "bans": {
+          "myTeamBans": [],
+          "theirTeamBans": []
+        },
+        "benchEnabled": false,
+        "isCustomGame": true,
+        "localPlayerCellId": 0,
+        "myTeam": [
+          {
+            "assignedPosition": "bottom",
+            "cellId": 0,
+            "championId": 0,
+            "championPickIntent": 131,
+            "spell1Id": 6,
+            "spell2Id": 7,
+            "team": 1
+          },
+          {
+            "assignedPosition": "bottom",
+            "cellId": 1,
+            "championId": 202,
+            "championPickIntent": 0,
+            "spell1Id": 21,
+            "spell2Id": 4,
+            "team": 1
+          },
+          {
+            "assignedPosition": "utility",
+            "cellId": 2,
+            "championId": 89,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 14,
+            "team": 1
+          },
+          {
+            "assignedPosition": "middle",
+            "cellId": 3,
+            "championId": 99,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 12,
+            "team": 1
+          },
+          {
+            "assignedPosition": "top",
+            "cellId": 4,
+            "championId": 10,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 12,
+            "team": 1
+          }
+        ],
+        "theirTeam": [
+          {
+            "assignedPosition": "",
+            "cellId": 5,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 6,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 7,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 8,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 9,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          }
+        ],
+        "timer": {
+          "phase": "BAN_PICK"
+        }
+      }
+    },
+    {
+      "name": "FINALIZATION 3",
+      "session": {
+        "actions": [
+          [
+            {
+              "actorCellId": 0,
+              "championId": 131,
+              "completed": true,
+              "id": 0,
+              "isAllyAction": true,
+              "isInProgress": false,
+              "pickTurn": 0,
+              "type": "pick"
+            }
+          ]
+        ],
+        "bans": {
+          "myTeamBans": [],
+          "theirTeamBans": []
+        },
+        "benchEnabled": false,
+        "isCustomGame": true,
+        "localPlayerCellId": 0,
+        "myTeam": [
+          {
+            "assignedPosition": "bottom",
+            "cellId": 0,
+            "championId": 131,
+            "championPickIntent": 0,
+            "spell1Id": 6,
+            "spell2Id": 7,
+            "team": 1
+          },
+          {
+            "assignedPosition": "bottom",
+            "cellId": 1,
+            "championId": 202,
+            "championPickIntent": 0,
+            "spell1Id": 21,
+            "spell2Id": 4,
+            "team": 1
+          },
+          {
+            "assignedPosition": "utility",
+            "cellId": 2,
+            "championId": 89,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 14,
+            "team": 1
+          },
+          {
+            "assignedPosition": "middle",
+            "cellId": 3,
+            "championId": 99,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 12,
+            "team": 1
+          },
+          {
+            "assignedPosition": "top",
+            "cellId": 4,
+            "championId": 10,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 12,
+            "team": 1
+          }
+        ],
+        "theirTeam": [
+          {
+            "assignedPosition": "",
+            "cellId": 5,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 6,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 7,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 8,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 9,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          }
+        ],
+        "timer": {
+          "phase": "FINALIZATION"
+        }
+      }
+    },
+    {
+      "name": "GAME_STARTING 4",
+      "session": {
+        "actions": [
+          [
+            {
+              "actorCellId": 0,
+              "championId": 131,
+              "completed": true,
+              "id": 0,
+              "isAllyAction": true,
+              "isInProgress": false,
+              "pickTurn": 0,
+              "type": "pick"
+            }
+          ]
+        ],
+        "bans": {
+          "myTeamBans": [],
+          "theirTeamBans": []
+        },
+        "benchEnabled": false,
+        "isCustomGame": true,
+        "localPlayerCellId": 0,
+        "myTeam": [
+          {
+            "assignedPosition": "bottom",
+            "cellId": 0,
+            "championId": 131,
+            "championPickIntent": 0,
+            "spell1Id": 6,
+            "spell2Id": 7,
+            "team": 1
+          },
+          {
+            "assignedPosition": "bottom",
+            "cellId": 1,
+            "championId": 202,
+            "championPickIntent": 0,
+            "spell1Id": 21,
+            "spell2Id": 4,
+            "team": 1
+          },
+          {
+            "assignedPosition": "utility",
+            "cellId": 2,
+            "championId": 89,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 14,
+            "team": 1
+          },
+          {
+            "assignedPosition": "middle",
+            "cellId": 3,
+            "championId": 99,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 12,
+            "team": 1
+          },
+          {
+            "assignedPosition": "top",
+            "cellId": 4,
+            "championId": 10,
+            "championPickIntent": 0,
+            "spell1Id": 4,
+            "spell2Id": 12,
+            "team": 1
+          }
+        ],
+        "theirTeam": [
+          {
+            "assignedPosition": "",
+            "cellId": 5,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 6,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 7,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 8,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          },
+          {
+            "assignedPosition": "",
+            "cellId": 9,
+            "championId": 0,
+            "championPickIntent": 0,
+            "spell1Id": 0,
+            "spell2Id": 0,
+            "team": 2
+          }
+        ],
+        "timer": {
+          "phase": "GAME_STARTING"
+        }
+      }
+    }
+  ]
+}

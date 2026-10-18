@@ -77,3 +77,29 @@ def test_a_wrong_password_is_an_error_not_a_crash(mock: Mock) -> None:
     status, error = core(mock, "champselect.state")
     assert status == 1
     assert error["code"] == "unavailable"
+
+
+RECORDED = ROOT / "tools/lcu_mock/sessions/custom-2026-10-19.json"
+
+
+def test_follows_a_recorded_champion_select(tmp_path: Path) -> None:
+    """A real client's champion select (custom game, recorded on Windows, scrubbed): the core
+    sees the hover, then the lock-in, with the role the client assigned."""
+    mock = start(RECORDED, tmp_path)
+    try:
+        seen: list[tuple[Any, Any, Any]] = []
+        for _ in mock.replay.steps:
+            status, state = core(mock, "champselect.state")
+            assert status == 0, state
+            session = state["session"]
+            seen.append((state["champion"], state["role"], session and session["locked"]))
+            mock.replay.advance()
+    finally:
+        mock.server.shutdown()
+    assert seen == [
+        (None, None, None),
+        (None, "BOTTOM", False),
+        ("Diana", "BOTTOM", False),
+        ("Diana", "BOTTOM", True),
+        ("Diana", "BOTTOM", True),
+    ]

@@ -53,3 +53,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: first Windows run against the real client: does Riot's CA validate it, and a real recording to replace the hand-written session.
 - 2026-10-18: LCU transport is reqwest with the verifier's rustls config (no hand-written HTTP); tokio-tungstenite takes the same config for the coming watcher; trust tests on a real TLS server, including that the name-check exception doesn't reach other clients; `.dangerous()` confined to `tls.rs` by `just arch`. Windows build needed `icon.ico`.
   Open: the Windows CI job's first full pass; the real-client run.
+- 2026-10-19: first real recording (`tools/lcu_mock/sessions/custom-2026-10-19.json`, custom game on Windows): Riot's CA validated the client, scrub check clean, the core replays it (Diana, BOTTOM, hover then lock-in) in `just core-e2e`.
+  Open: the champion-select watcher (websocket), imports, HttpSource and cache.

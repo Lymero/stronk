@@ -39,7 +39,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] Command registry in `service`; `stronk-core` CLI; command fuzzing test
 - [ ] Typed IPC with tauri-specta; `Backend` port with `TauriBackend` and `MockBackend`; single serializable state (port, both backends and state done; tauri-specta bindings once the shell builds locally)
 - [ ] `data`: `DirectorySource`, `HttpSource`, cache, signature verification (`DirectorySource` with verification done)
-- [ ] `tools/lcu_mock` with one recorded champion-select session (mock done, tested against the real core; the session is hand-written until a real capture)
+- [x] `tools/lcu_mock` with one recorded champion-select session (`custom-2026-10-19.json`, recorded on Windows, scrubbed; ADR-042)
 - [ ] Champion-select detection with preloading; import runes, item set and spells
 - [ ] Playwright end-to-end tests; `just bench`; enforce the lock-in budget once met
 
