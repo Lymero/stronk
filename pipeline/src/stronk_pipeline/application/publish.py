@@ -165,6 +165,10 @@ def _games(
     return Ok((list(matches.values()), statics))
 
 
+SPELL_PAIRS = 5
+"""Spell pairs published per champion and role, most played first."""
+
+
 def _builds(
     rows: Sequence[OptionEstimate], seen: Played, patch: str, params: PublishParams
 ) -> dict[str, bytes]:
@@ -181,14 +185,20 @@ def _builds(
                     "subStyle": page.sub_style,
                     "perks": list(page.perks),
                 },
+                "games": games,
                 **_numbers(e),
             }
             for e in _ranked(o for o in options if o.slot == 0)
-            if (page := seen.pages.get((champion, role, int(e.option)))) is not None
+            if (found := seen.pages.get((champion, role, int(e.option)))) is not None
+            for page, games in [found]
         ]
         items = [
-            {"slot": e.slot, "item": int(e.option), **_numbers(e)}
+            {"slot": e.slot, "item": int(e.option), "picks": e.chosen, **_numbers(e)}
             for e in _ranked(o for o in options if 1 <= o.slot <= 6)
+        ]
+        spells = [
+            {"spells": list(pair), "games": n, "wpa": None, "ci": None, "n": n, "flags": []}
+            for pair, n in seen.spells.get((champion, role), [])[:SPELL_PAIRS]
         ]
         build = Build.model_validate(
             {
@@ -201,10 +211,13 @@ def _builds(
                 "games": seen.games[(champion, role)],
                 "runes": runes,
                 "items": items,
-                "spells": [],
+                "spells": spells,
             }
         )
         data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order"})
+        for option in (*data["runes"], *data["items"]):
+            if option.get("comparison") is None:  # optional: absent, not null
+                option.pop("comparison", None)
         files[f"{params.region}/{params.elo}/{champion}/{role}.json"] = _canonical(data)
     return files
 
@@ -215,12 +228,19 @@ def _ranked(options: Iterable[OptionEstimate]) -> list[OptionEstimate]:
 
 
 def _numbers(e: OptionEstimate) -> dict[str, object]:
-    return {
+    numbers: dict[str, object] = {
         "wpa": None if e.wpa is None else round(e.wpa, 5),
         "ci": None if e.ci is None else [round(e.ci[0], 5), round(e.ci[1], 5)],
         "n": e.n,
         "flags": sorted(e.flags),
     }
+    if e.versus is not None and e.contrast is not None and e.q is not None:
+        numbers["comparison"] = {
+            "versus": int(e.versus),
+            "wpa": round(e.contrast, 5),
+            "q": round(e.q, 5),
+        }
+    return numbers
 
 
 def _canonical(data: object) -> bytes:

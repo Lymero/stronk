@@ -53,6 +53,28 @@ class RunePage(BaseModel):
     """
 
 
+class Comparison(BaseModel):
+    """
+    The option head to head with the most played option at its decision point (docs/wpa-method.md, section 5; ADR-036).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    versus: Annotated[int, Field(ge=0)]
+    """
+    The most played option compared with: keystone id for runes, item id for items.
+    """
+    wpa: float
+    """
+    Win probability added by this option against `versus`.
+    """
+    q: Annotated[float, Field(ge=0.0, le=1.0)]
+    """
+    False-discovery-adjusted p-value of no difference, across the patch.
+    """
+
+
 class RuneOption(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -68,6 +90,11 @@ class RuneOption(BaseModel):
     Decisions behind the estimate.
     """
     flags: list[Flag]
+    games: Annotated[int | None, Field(ge=0)] = None
+    """
+    Games played with exactly this full page.
+    """
+    comparison: Comparison | None = None
 
 
 class ItemOption(BaseModel):
@@ -83,6 +110,11 @@ class ItemOption(BaseModel):
     ci: Interval | None
     n: Annotated[int, Field(ge=0)]
     flags: list[Flag]
+    picks: Annotated[int | None, Field(ge=0)] = None
+    """
+    Times this item was chosen at this slot.
+    """
+    comparison: Comparison | None = None
 
 
 class Spell(RootModel[int]):
@@ -101,6 +133,10 @@ class SpellOption(BaseModel):
     ci: Interval | None
     n: Annotated[int, Field(ge=0)]
     flags: list[Flag]
+    games: Annotated[int | None, Field(ge=0)] = None
+    """
+    Games played with this pair, whichever key each spell was on.
+    """
 
 
 class SkillOrderOption(BaseModel):

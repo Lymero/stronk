@@ -79,6 +79,7 @@ class _Raw:
     eligible: bool = False
     """Can be claimed: a number, neither low_sample nor low_overlap. Depends on counts only."""
     contrast_p: float | None = None
+    contrast: float | None = None
     """p-value of no difference with `versus`; None for the most played or an ineligible option."""
     versus: str | None = None
 
@@ -157,7 +158,7 @@ def _estimate_point(
         )
         count = int((chosen == option).sum())
         eligible = wpa is not None and not flags & {Flag.LOW_SAMPLE, Flag.LOW_OVERLAP}
-        return _Raw(estimate, std_error, count, eligible)
+        return _Raw(replace(estimate, chosen=count), std_error, count, eligible)
 
     if len(options) < 2:
         return [result(options[0], len(rows), {Flag.LOW_OVERLAP})]
@@ -238,11 +239,11 @@ def _contrast_with_most_played(
             continue
         pair = (chosen == option) | (chosen == most_played)
         compared = compare(pair, chosen == option)
-        p = 1.0
+        p, effect = 1.0, None
         if compared is not None:
             point, boot, _ = compared
-            p = two_sided_p(point, float(np.nanstd(boot, ddof=1)))
-        contrasted.append(replace(r, contrast_p=p, versus=most_played))
+            p, effect = two_sided_p(point, float(np.nanstd(boot, ddof=1))), point
+        contrasted.append(replace(r, contrast_p=p, contrast=effect, versus=most_played))
     return contrasted
 
 
@@ -310,7 +311,7 @@ def _flag_unclear(raw: list[_Raw], settings: WpaSettings) -> list[OptionEstimate
         elif i in q_of:
             unclear = q_of[i] > settings.fdr
             flags = e.flags | {Flag.NO_CLEAR_DIFFERENCE} if unclear else e.flags
-            out.append(replace(e, q=q_of[i], versus=r.versus, flags=flags))
+            out.append(replace(e, q=q_of[i], versus=r.versus, contrast=r.contrast, flags=flags))
         elif _point(e) in clear_points:
             out.append(e)  # the most played, and something differs clearly from it
         else:

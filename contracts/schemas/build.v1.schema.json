@@ -44,6 +44,17 @@
         "perks": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 9, "maxItems": 9, "description": "Four primary, two secondary, three shards." }
       }
     },
+    "Comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["versus", "wpa", "q"],
+      "description": "The option head to head with the most played option at its decision point (docs/wpa-method.md, section 5; ADR-036).",
+      "properties": {
+        "versus": { "type": "integer", "minimum": 0, "description": "The most played option compared with: keystone id for runes, item id for items." },
+        "wpa": { "type": "number", "description": "Win probability added by this option against `versus`." },
+        "q": { "type": "number", "minimum": 0, "maximum": 1, "description": "False-discovery-adjusted p-value of no difference, across the patch." }
+      }
+    },
     "RuneOption": {
       "type": "object",
       "additionalProperties": false,
@@ -53,7 +64,9 @@
         "wpa": { "type": ["number", "null"], "description": "Win probability added; null when flagged low_overlap." },
         "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
         "n": { "type": "integer", "minimum": 0, "description": "Decisions behind the estimate." },
-        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true }
+        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
+        "games": { "type": "integer", "minimum": 0, "description": "Games played with exactly this full page." },
+        "comparison": { "$ref": "#/$defs/Comparison" }
       }
     },
     "ItemOption": {
@@ -66,7 +79,9 @@
         "wpa": { "type": ["number", "null"] },
         "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
         "n": { "type": "integer", "minimum": 0 },
-        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true }
+        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
+        "picks": { "type": "integer", "minimum": 0, "description": "Times this item was chosen at this slot." },
+        "comparison": { "$ref": "#/$defs/Comparison" }
       }
     },
     "SpellOption": {
@@ -78,7 +93,8 @@
         "wpa": { "type": ["number", "null"] },
         "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
         "n": { "type": "integer", "minimum": 0 },
-        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true }
+        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
+        "games": { "type": "integer", "minimum": 0, "description": "Games played with this pair, whichever key each spell was on." }
       }
     },
     "SkillOrderOption": {

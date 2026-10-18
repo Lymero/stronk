@@ -220,6 +220,17 @@ impl<'de> ::serde::Deserialize<'de> for BuildSchemaVersion {
             .map_err(|e| <D::Error as ::serde::de::Error>::custom(e.to_string()))
     }
 }
+#[doc = "The option head to head with the most played option at its decision point (docs/wpa-method.md, section 5; ADR-036)."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Comparison {
+    #[doc = "False-discovery-adjusted p-value of no difference, across the patch."]
+    pub q: f64,
+    #[doc = "The most played option compared with: keystone id for runes, item id for items."]
+    pub versus: u64,
+    #[doc = "Win probability added by this option against `versus`."]
+    pub wpa: f64,
+}
 #[doc = "Why an estimate should not be trusted at face value. See docs/wpa-method.md, section 7."]
 #[derive(
     :: serde :: Deserialize,
@@ -305,10 +316,15 @@ impl ::std::convert::From<[f64; 2usize]> for Interval {
 pub struct ItemOption {
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub ci: ::std::option::Option<Interval>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub comparison: ::std::option::Option<Comparison>,
     pub flags: ::std::vec::Vec<Flag>,
     #[doc = "Data Dragon item id."]
     pub item: ::std::num::NonZeroU64,
     pub n: u64,
+    #[doc = "Times this item was chosen at this slot."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub picks: ::std::option::Option<u64>,
     pub slot: ::std::num::NonZeroU64,
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub wpa: ::std::option::Option<f64>,
@@ -436,7 +452,12 @@ impl ::std::convert::TryFrom<::std::string::String> for Role {
 pub struct RuneOption {
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub ci: ::std::option::Option<Interval>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub comparison: ::std::option::Option<Comparison>,
     pub flags: ::std::vec::Vec<Flag>,
+    #[doc = "Games played with exactly this full page."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub games: ::std::option::Option<u64>,
     #[doc = "Decisions behind the estimate."]
     pub n: u64,
     pub page: RunePage,
@@ -524,6 +545,9 @@ pub struct SpellOption {
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub ci: ::std::option::Option<Interval>,
     pub flags: ::std::vec::Vec<Flag>,
+    #[doc = "Games played with this pair, whichever key each spell was on."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub games: ::std::option::Option<u64>,
     pub n: u64,
     #[doc = "Summoner spell ids, D then F."]
     pub spells: [::std::num::NonZeroU64; 2usize],

@@ -54,3 +54,7 @@ class OptionEstimate:
     the most played option and for options not eligible to be claimed."""
     versus: str | None = None
     """The point's most played eligible option, which `q` compares this one with."""
+    contrast: float | None = None
+    """Effect of this option against `versus` (head to head, the estimator's effect)."""
+    chosen: int = 0
+    """Decisions choosing this option at its point, inside the overlap or not (popularity)."""

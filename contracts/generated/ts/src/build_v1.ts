@@ -60,6 +60,11 @@ export interface RuneOption {
    */
   n: number;
   flags: Flag[];
+  /**
+   * Games played with exactly this full page.
+   */
+  games?: number;
+  comparison?: Comparison;
 }
 export interface RunePage {
   primaryStyle: number;
@@ -72,6 +77,23 @@ export interface RunePage {
    */
   perks: [number, number, number, number, number, number, number, number, number];
 }
+/**
+ * The option head to head with the most played option at its decision point (docs/wpa-method.md, section 5; ADR-036).
+ */
+export interface Comparison {
+  /**
+   * The most played option compared with: keystone id for runes, item id for items.
+   */
+  versus: number;
+  /**
+   * Win probability added by this option against `versus`.
+   */
+  wpa: number;
+  /**
+   * False-discovery-adjusted p-value of no difference, across the patch.
+   */
+  q: number;
+}
 export interface ItemOption {
   slot: number;
   /**
@@ -82,6 +104,11 @@ export interface ItemOption {
   ci: Interval | null;
   n: number;
   flags: Flag[];
+  /**
+   * Times this item was chosen at this slot.
+   */
+  picks?: number;
+  comparison?: Comparison;
 }
 export interface SpellOption {
   /**
@@ -95,6 +122,10 @@ export interface SpellOption {
   ci: Interval | null;
   n: number;
   flags: Flag[];
+  /**
+   * Games played with this pair, whichever key each spell was on.
+   */
+  games?: number;
 }
 export interface SkillOrderOption {
   /**

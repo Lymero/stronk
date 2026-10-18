@@ -20,7 +20,12 @@ fn with(mut value: Value, pointer: &str, replacement: Value) -> Value {
 #[test]
 fn build_example_parses() {
     let build: Build = serde_json::from_value(example("build.v1.json")).unwrap();
-    assert_eq!(build.items.len(), 2);
+    assert_eq!(build.items.len(), 3);
+    let comparison = build.items[1].comparison.as_ref().unwrap();
+    assert_eq!(
+        (comparison.versus, build.items[1].picks),
+        (6672, Some(2300))
+    );
 }
 
 #[test]
@@ -37,7 +42,7 @@ fn build_rejects_invalid_values() {
         ("/patch", json!("26")),
         ("/role", json!("SUPPORT")),
         ("/region", json!("EUW1")),
-        ("/items/1/flags/0", json!("unknown_flag")),
+        ("/items/2/flags/0", json!("unknown_flag")),
         ("/items/0/ci", json!([0.1])),
         ("/runes/0/page/perks", json!([1, 2, 3])),
     ];

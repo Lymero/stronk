@@ -22,7 +22,7 @@ INVALID: dict[str, list[tuple[tuple[str | int, ...], Any]]] = {
         (("role",), "SUPPORT"),
         (("region",), "EUW1"),
         (("items", 0, "slot"), 7),
-        (("items", 1, "flags", 0), "unknown_flag"),
+        (("items", 2, "flags", 0), "unknown_flag"),
         (("items", 0, "ci"), [0.1]),
         (("runes", 0, "page", "perks"), [1, 2, 3]),
         (("extra",), True),
@@ -84,3 +84,12 @@ def test_invalid_values_rejected_by_schema_and_model(
     assert not validator(name).is_valid(value)  # pyright: ignore[reportUnknownMemberType]
     with pytest.raises(ValidationError):
         model.model_validate(value)
+
+
+def test_published_fixture_builds_validate() -> None:
+    """`publish`'s real output (fixtures/data) follows the schema, optional fields included."""
+    files = sorted((CONTRACTS.parent / "fixtures/data").glob("*/*/*/*/*.json"))
+    assert len(files) > 10
+    check = validator("build.v1")
+    for path in files:
+        check.validate(json.loads(path.read_text()))  # pyright: ignore[reportUnknownMemberType]
