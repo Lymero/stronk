@@ -23,11 +23,11 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] Commit a small fixture sample; publish the larger one and pin it in `corpus.lock`; `just corpus`
 - [x] `extract`: frames with situation features, decision points, crawl-derived skill
 
-## M2 · Statistics v1
+## M2 · Statistics v1 (done 2026-10-18)
 
 - [x] `winprob`: model, calibration report, first floors set
 - [x] `wpa` v1: decision-point scores, propensity overlap, shrinkage, bootstrap intervals, flags
-- [ ] `wpa` fast implementation and oracle-agreement test (deferred until a budget needs it, ADR-034)
+- [ ] `wpa` fast implementation and oracle-agreement test (deferred until a budget needs it, ADR-034; not part of M2)
 - [x] Item WPA per slot for about 10 champions (132 picks on 22,954 games, ADR-035)
 - [x] Corpora: `crawl-ci-16.20` (3500, stratified by region) for checks, `crawl-all-16.20` (22,954) weekly; floors per corpus (ADR-038)
 - [x] `publish` with `LocalPublisher`: signed JSON in `dist/data/`

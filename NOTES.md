@@ -43,3 +43,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: doubly robust v2 with skill features; corpora (CI ~3,500 stratified, full 23k weekly).
 - 2026-10-18: corpora (ADR-038): `crawl-ci-16.20` (3500 stratified by region, `just check`) and `crawl-all-16.20` (22,954, weekly `full-corpus` workflow), both uploaded and pinned; floors per corpus from their own baselines (CI log loss 0.5308, full 0.5215).
   Open: first run of the `full-corpus` workflow (dispatch by hand once merged); fresh crawls need a new dev key.
+- 2026-10-18: M2 complete. Finding: at 22,954 games (16.20, three regions) no comparison survives FDR (125 contrasts of claimable options against the most played, smallest q 0.085), and 284 of 390 decision points have a single claimable option, so there is nothing to compare there. More data per champion is the bottleneck, and the production key (unlocked by the M3 prototype) is the main path to it.
+  Open: before M3, outcome check (final result vs WP at t+5 and t+8) and class-level item estimates.
