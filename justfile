@@ -72,10 +72,12 @@ winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
 crawl platform="euw1" games="100" out=("runs/crawl/" + platform):
     uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}"}'
 
-# Frames and decision points from a crawl directory; --retry-quarantine re-reads quarantined games first
+# Frames and decision points from crawl directories (comma-separated for several);
+# --retry-quarantine re-reads quarantined games first
 extract crawl="runs/crawl/euw1" out="runs/extract/euw1" *flags:
     #!/usr/bin/env bash
     set -euo pipefail
+    crawls=$(printf '%s' "{{ crawl }}" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().split(",")))')
     retry=false
     for flag in {{ flags }}; do
         case "$flag" in
@@ -83,7 +85,7 @@ extract crawl="runs/crawl/euw1" out="runs/extract/euw1" *flags:
             *) echo "unknown flag $flag; known: --retry-quarantine" >&2; exit 2 ;;
         esac
     done
-    uv run stronk-pipeline run extract.run --params '{"crawl": "{{ crawl }}", "out": "{{ out }}", "retry_quarantine": '"$retry"'}'
+    uv run stronk-pipeline run extract.run --params '{"crawl": '"$crawls"', "out": "{{ out }}", "retry_quarantine": '"$retry"'}'
 
 # One pipeline stage by name (crawl, extract, wpa) with JSON parameters
 pipeline-stage name params="{}":

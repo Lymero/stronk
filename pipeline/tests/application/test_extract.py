@@ -22,7 +22,7 @@ MIN = 60_000
 
 
 def run(
-    crawl: Path,
+    crawl: Path | list[Path],
     out: Path,
     *,
     parse: PayloadParser = parse_quarantined,
@@ -31,7 +31,10 @@ def run(
     command = extract_command(
         FileMatchStore, parse, ParquetDecisionStore(), ParquetFrameStore(), JsonReportWriter()
     )
-    params = ExtractParams(crawl=str(crawl), out=str(out), retry_quarantine=retry)
+    crawls = [str(c) for c in crawl] if isinstance(crawl, list) else str(crawl)
+    params = ExtractParams.model_validate(
+        {"crawl": crawls, "out": str(out), "retry_quarantine": retry}
+    )
     return command.run(params)
 
 
@@ -171,3 +174,26 @@ def test_report_counts_skips_by_reason(tmp_path: Path) -> None:
     assert isinstance(result, Ok)
     assert result.value.skipped == {"older_patch": 2, "remake": 1}
     assert result.value.skip_rate == 0  # passed over on purpose, not lost
+
+
+def test_several_crawls_make_one_table(tmp_path: Path) -> None:
+    first = crawled(tmp_path / "euw1")
+    second = tmp_path / "kr"
+    store = FileMatchStore(second)
+    store.put_static("16.20", domain_static())
+    store.put(domain_match("KR_1", minutes=21))
+    store.put(domain_match("EUW1_1", minutes=20))  # also in the first crawl: counts once
+    store.skip("KR_2", "remake")
+    result = run([first, second], tmp_path / "out")
+    assert isinstance(result, Ok)
+    assert result.value.matches == 3
+    assert result.value.frames == 2 * (20 + 22 + 21)
+    assert result.value.skipped == {"remake": 1}
+    report = json.loads((tmp_path / "out" / "report.json").read_text())
+    assert report["params"]["crawl"] == [str(first), str(second)]
+
+
+def test_one_missing_crawl_fails_the_run(tmp_path: Path) -> None:
+    result = run([crawled(tmp_path / "euw1"), tmp_path / "nope"], tmp_path / "out")
+    assert isinstance(result, Err)
+    assert result.error.code == "not_found"

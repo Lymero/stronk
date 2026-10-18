@@ -1,4 +1,7 @@
-"""`extract.run`: a crawl directory -> `frames.parquet`, `decisions.parquet`, `report.json`.
+"""`extract.run`: crawl directories -> `frames.parquet`, `decisions.parquet`, `report.json`.
+
+Several crawls (one per region, say) are read into one table: match ids carry their platform,
+and a game found in two crawls counts once.
 
 With `retry_quarantine`, games the crawl quarantined are first read again with today's parser:
 those that now pass are stored and leave quarantine, those whose match now reads but whose
@@ -14,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from stronk_pipeline.application.registry import Command, CommandError
 from stronk_pipeline.domain.extract.tables import extract
@@ -38,7 +41,11 @@ GAME_DROPS = frozenset({"unreadable_file", "no_static_data", "unknown_champion"}
 class ExtractParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    crawl: Annotated[str, Field(min_length=1, description="Crawl directory")]
+    crawl: Annotated[
+        list[Annotated[str, Field(min_length=1)]],
+        BeforeValidator(lambda v: [v] if isinstance(v, str) else v),
+        Field(min_length=1, description="Crawl directory, or a list of them"),
+    ]
     out: Annotated[str, Field(min_length=1, description="Output directory")]
     retry_quarantine: bool = False
     """Read quarantined games again first, and clear the ones that now pass."""
@@ -78,14 +85,18 @@ def extract_command(
     reports: ReportWriter,
 ) -> Command[ExtractParams, ExtractResult]:
     def run(params: ExtractParams) -> Result[ExtractResult, CommandError]:
-        match _read(stores(Path(params.crawl)), parse, retry=params.retry_quarantine):
-            case Err(error=e):
-                return Err(_error(e))
-            case Ok(value=crawl):
-                pass
+        contents: list[_CrawlContents] = []
+        for directory in params.crawl:
+            match _read(stores(Path(directory)), parse, retry=params.retry_quarantine):
+                case Err(error=e):
+                    return Err(_error(e))
+                case Ok(value=one):
+                    contents.append(one)
+        crawl = _merge(contents)
         matches, unreadable, statics = crawl.matches, crawl.unreadable, crawl.statics
         if not matches:
-            return Err(CommandError(code="invalid_input", message=f"no games in {params.crawl}"))
+            where = ", ".join(params.crawl)
+            return Err(CommandError(code="invalid_input", message=f"no games in {where}"))
         extracted = extract(matches, statics)
         stats = extracted.stats
         if unreadable:
@@ -182,6 +193,32 @@ def _read(
         case Ok(value=held):
             quarantined = Counter(q.reason for q in held)
     return Ok(_CrawlContents(matches, unreadable, statics, skipped, quarantined, retried))
+
+
+def _merge(contents: list[_CrawlContents]) -> _CrawlContents:
+    """One crawl's worth of contents from several; the first copy of a game or a patch wins."""
+    matches: dict[str, Match] = {}
+    statics: dict[str, StaticData] = {}
+    skipped: Counter[str] = Counter()
+    quarantined: Counter[str] = Counter()
+    retried: Counter[str] = Counter()
+    for c in contents:
+        for m in c.matches:
+            matches.setdefault(m.match_id, m)
+        for patch, static in c.statics.items():
+            statics.setdefault(patch, static)
+        skipped.update(c.skipped)
+        quarantined.update(c.quarantined)
+        if c.retried is not None:
+            retried.update(c.retried.model_dump())
+    return _CrawlContents(
+        matches=list(matches.values()),
+        unreadable=sum(c.unreadable for c in contents),
+        statics=statics,
+        skipped=dict(sorted(skipped.items())),
+        quarantined=quarantined,
+        retried=QuarantineRetry(**retried) if any(c.retried for c in contents) else None,
+    )
 
 
 def _retry(store: MatchStore, parse: PayloadParser) -> Result[QuarantineRetry, StoreError]:
