@@ -11,18 +11,22 @@ import httpx
 import typer
 
 from stronk_pipeline.adapters.json_report import JsonReportWriter
+from stronk_pipeline.adapters.lightgbm_winprob import LightGbmLearner
 from stronk_pipeline.adapters.match_store import FileMatchStore
 from stronk_pipeline.adapters.parquet_store import ParquetDecisionStore, ParquetFrameStore
 from stronk_pipeline.adapters.recording import PlaybackTransport, RecordingTransport, Scrubber
 from stronk_pipeline.adapters.riot.client import RiotApiSource
 from stronk_pipeline.adapters.riot.payloads import parse_quarantined
 from stronk_pipeline.adapters.riot.rate_limit import RateLimiter
+from stronk_pipeline.adapters.winprob_store import JsonWinProbStore
 from stronk_pipeline.application.crawl import CrawlParams, SourceFactory, crawl_command
 from stronk_pipeline.application.extract import extract_command
 from stronk_pipeline.application.registry import CommandError, CommandRegistry
+from stronk_pipeline.application.winprob_train import winprob_train_command
 from stronk_pipeline.application.wpa_estimate import wpa_estimate_command
 from stronk_pipeline.config import Settings
 from stronk_pipeline.domain.result import Err, Ok, Result
+from stronk_pipeline.domain.winprob import LogisticLearner
 from stronk_pipeline.domain.wpa.reference import ReferenceEstimatorV1
 from stronk_pipeline.ports import MatchSource
 
@@ -33,19 +37,15 @@ HTTP_TIMEOUT_SECONDS = 15.0
 
 def build_registry(settings: Settings | None = None) -> CommandRegistry:
     settings = settings if settings is not None else Settings()
-    decisions = ParquetDecisionStore()
+    decisions, frames, reports = ParquetDecisionStore(), ParquetFrameStore(), JsonReportWriter()
+    learners, models = (LogisticLearner(), LightGbmLearner()), JsonWinProbStore()
     estimators = {e.id: e for e in (ReferenceEstimatorV1(),)}
     return CommandRegistry(
         [
             crawl_command(riot_sources(settings), FileMatchStore),
-            extract_command(
-                FileMatchStore,
-                parse_quarantined,
-                decisions,
-                ParquetFrameStore(),
-                JsonReportWriter(),
-            ),
-            wpa_estimate_command(decisions, estimators),
+            extract_command(FileMatchStore, parse_quarantined, decisions, frames, reports),
+            winprob_train_command(frames, learners, models, reports),
+            wpa_estimate_command(decisions, estimators, models),
         ]
     )
 

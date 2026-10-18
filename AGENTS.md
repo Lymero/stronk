@@ -31,6 +31,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just pipeline-stage <name>` | One stage: `crawl`, `extract`, `winprob`, `wpa`, `publish` |
 | `just crawl <platform> <games>` | Crawl ranked games from the Riot API (needs `RIOT_API_KEY`); rerun to resume |
 | `just extract [crawl] [out] [--retry-quarantine]` | Frames and decision points from a crawl directory; the flag first re-reads games the crawl quarantined |
+| `just winprob [frames] [out]` | Train the win probability model and write its calibration report |
 | `just corpus-pack <crawl> <name>` | Archive a crawl for the corpus and print its `corpus.lock` entry |
 | `just serve-data` | Serve `dist/data/` locally, like the CDN |
 | `just app-mock` | UI in the browser against `MockBackend` |

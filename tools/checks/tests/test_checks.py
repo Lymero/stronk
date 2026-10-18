@@ -104,6 +104,14 @@ def test_pipeline_metrics_read_the_extract_report() -> None:
     assert pipeline_metrics.metrics(report) == {"pipeline.skip_rate": 0.25}
 
 
+def test_pipeline_metrics_read_the_winprob_report() -> None:
+    report = {"stage": "winprob", "result": {"test": {"calibration_error": 0.01, "log_loss": 0.5}}}
+    assert pipeline_metrics.metrics(report) == {
+        "winprob.calibration_error": 0.01,
+        "winprob.log_loss": 0.5,
+    }
+
+
 def test_bench_reports_median_and_max() -> None:
     ticks = iter([0.0, 1.0, 1.0, 4.0, 4.0, 6.0])  # runs of 1, 3 and 2 s
     runs: list[None] = []

@@ -25,7 +25,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 
 ## M2 · Statistics v1
 
-- [ ] `winprob`: model, calibration report, first floors set
+- [x] `winprob`: model, calibration report, first floors set
 - [ ] `wpa` v1: decision-point scores, propensity overlap, shrinkage, bootstrap intervals, flags
 - [ ] `wpa` fast implementation and oracle-agreement test
 - [ ] Item WPA per slot for about 10 champions

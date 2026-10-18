@@ -5,6 +5,7 @@ description = "Stronk pipeline: crawl, extract, winprob, wpa, publish."
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "httpx>=0.28",
+    "lightgbm>=4.7",
     "numpy>=2.2",
     "polars>=1.30",
     "pydantic>=2.11",

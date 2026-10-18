@@ -4,8 +4,9 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 import pytest
+from winprob_builders import frames
 
-from stronk_pipeline.adapters.parquet_store import ParquetDecisionStore
+from stronk_pipeline.adapters.parquet_store import ParquetDecisionStore, ParquetFrameStore
 from stronk_pipeline.domain.decisions import DecisionTable
 from stronk_pipeline.domain.result import Err, Ok
 
@@ -65,3 +66,21 @@ def test_non_parquet_file_is_invalid(tmp_path: Path) -> None:
     result = ParquetDecisionStore().read_decisions(path)
     assert isinstance(result, Err)
     assert result.error.kind == "invalid"
+
+
+def test_frames_round_trip(tmp_path: Path) -> None:
+    table = frames(3, minutes=4)
+    store = ParquetFrameStore()
+    assert store.write_frames(table, tmp_path / "f.parquet") == Ok(tmp_path / "f.parquet")
+    read = store.read_frames(tmp_path / "f.parquet")
+    assert isinstance(read, Ok)
+    assert set(read.value.feature_names) == set(table.feature_names)
+    assert np.array_equal(read.value.match_id, table.match_id)
+    assert np.array_equal(read.value.outcome, table.outcome)
+
+
+def test_frames_without_required_columns_are_invalid(tmp_path: Path) -> None:
+    pl.DataFrame({"match_id": ["a"]}).write_parquet(tmp_path / "f.parquet")
+    result = ParquetFrameStore().read_frames(tmp_path / "f.parquet")
+    assert isinstance(result, Err)
+    assert "lacks columns" in result.error.message

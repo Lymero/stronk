@@ -4,6 +4,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 contracts_rs := "--manifest-path contracts/generated/rust/Cargo.toml"
+corpus_crawl := "corpus/crawl-euw1-16.20"
 
 # List recipes
 default:
@@ -60,7 +61,12 @@ pipeline out="runs/pipeline":
     rm -rf {{ out }}
     uv run stronk-pipeline run crawl.run --params '{"platform": "euw1", "max_matches": 10, "replay": "fixtures/riot/euw1", "out": "{{ out }}/crawl"}'
     uv run stronk-pipeline run extract.run --params '{"crawl": "{{ out }}/crawl", "out": "{{ out }}/extract"}'
-    uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}/extract/decisions.parquet"}' > {{ out }}/wpa.json
+    uv run stronk-pipeline run winprob.train --params '{"frames": "{{ out }}/extract/frames.parquet", "out": "{{ out }}/winprob"}' > /dev/null
+    uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}/extract/decisions.parquet", "winprob": "{{ out }}/winprob/model.json"}' > {{ out }}/wpa.json
+
+# Win probability model on frames: just winprob runs/extract/euw1/frames.parquet runs/winprob/euw1
+winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
+    uv run stronk-pipeline run winprob.train --params '{"frames": "{{ frames }}", "out": "{{ out }}"}'
 
 # Crawl ranked games from the Riot API (needs RIOT_API_KEY); rerun to resume
 crawl platform="euw1" games="100" out=("runs/crawl/" + platform):
@@ -86,8 +92,9 @@ pipeline-stage name params="{}":
     case "{{ name }}" in
         crawl) id=crawl.run ;;
         extract) id=extract.run ;;
+        winprob) id=winprob.train ;;
         wpa) id=wpa.estimate ;;
-        *) echo "unknown stage {{ name }}; known: crawl, extract, wpa" >&2; exit 2 ;;
+        *) echo "unknown stage {{ name }}; known: crawl, extract, winprob, wpa" >&2; exit 2 ;;
     esac
     uv run stronk-pipeline run "$id" --params '{{ params }}'
 
@@ -100,10 +107,13 @@ corpus-pack crawl name:
     uv run python tools/corpus/corpus.py pack {{ crawl }} {{ name }}
 
 # Synthetic-truth metrics against metrics/floors.toml
-floors:
+floors: corpus
     uv run stronk-synth eval --out metrics/out/synthetic.json > /dev/null
     just pipeline > /dev/null
     uv run python tools/checks/pipeline_metrics.py runs/pipeline/extract/report.json metrics/out/pipeline.json
+    just extract {{ corpus_crawl }} runs/floors/extract > /dev/null
+    just winprob runs/floors/extract/frames.parquet runs/floors/winprob > /dev/null
+    uv run python tools/checks/pipeline_metrics.py runs/floors/winprob/report.json metrics/out/winprob.json
     uv run python tools/checks/check_floors.py
 
 # Benchmark results against perf/budgets.toml

@@ -167,7 +167,46 @@ class MatchStore(Protocol):
 
 
 class FrameStore(Protocol):
+    def read_frames(self, path: Path) -> Result[FrameTable, StoreError]: ...
+
     def write_frames(self, table: FrameTable, path: Path) -> Result[Path, StoreError]: ...
+
+
+class WinProbModel(Protocol):
+    """A trained win probability model (docs/wpa-method.md, section 4)."""
+
+    @property
+    def feature_names(self) -> tuple[str, ...]: ...
+
+    def predict(self, features: Floats, minute: Floats) -> Floats:
+        """P(win) for the team whose leads `features` holds, columns in `feature_names` order.
+        Raw: not yet symmetric (`domain.winprob.symmetric`)."""
+        ...
+
+
+class WinProbLearner(Protocol):
+    """One kind of win probability model; `winprob.train` keeps the best on validation."""
+
+    @property
+    def id(self) -> str: ...
+
+    def fit(
+        self,
+        train: tuple[Floats, Floats, Floats],
+        valid: tuple[Floats, Floats, Floats],
+        feature_names: tuple[str, ...],
+        monotone: tuple[int, ...],
+        seed: int,
+    ) -> WinProbModel:
+        """`train` and `valid` are (features, minute, outcome); `valid` stops boosting early.
+        `monotone` per feature: 1 when P(win) may only rise with it, 0 when unconstrained."""
+        ...
+
+
+class WinProbStore(Protocol):
+    def save(self, model: WinProbModel, path: Path) -> Result[Path, StoreError]: ...
+
+    def load(self, path: Path) -> Result[WinProbModel, StoreError]: ...
 
 
 class ReportWriter(Protocol):

@@ -67,9 +67,10 @@ Methods are introduced in versions. Each version keeps the previous one availabl
 
 ### v1 · Adjusted WPA (M2)
 
-1. **Win probability model.** LightGBM on game state, situation and skill features; predicts P(win) for a team at a given minute.
+1. **Win probability model.** Predicts P(win) for a team at a given minute from team leads (gold, XP, kills, towers, inhibitors, dragons, barons, heralds, grubs) and the minute. Skill features aren't in frames yet, so the model doesn't use them.
    - Calibration matters more than accuracy: predicted 60% must win about 60% of the time.
-   - Train and test split **by match**, never by frame.
+   - Train, validation and test split **by match**, never by frame.
+   - Candidates (logistic on leads, minute and lead × minute; LightGBM with every lead monotone) are fitted on the training matches; the lowest validation log loss is kept, and the test matches only report. Predictions are made symmetric, so both teams' probabilities of one moment add up to 1 (ADR-030).
 2. **Event score** for a decision at minute t:
    `score = outcome − WP(state at t)`
    with outcome the final result, or WP at t + Δ (Δ about 5–8 minutes) for a less noisy, shorter-term measure. Both are computed and compared.
@@ -78,7 +79,7 @@ Methods are introduced in versions. Each version keeps the previous one availabl
 5. **Shrinkage.** Empirical Bayes shrinkage toward the champion-class average, so small samples don't produce extreme values.
 6. **Intervals.** Bootstrap by match.
 
-**Reference defaults** (`WpaSettings`): overlap where every option's propensity ≥ 0.05; `low_overlap` when under half of an option's decisions are in the overlap; `low_sample` under 300 overlap decisions; 200 bootstrap resamples by match with the models held fixed; shrinkage only when at least 3 champions of the class have an estimate. Until the `winprob` stage exists, a logistic baseline on situation features stands in for the WP model (ADR-024).
+**Reference defaults** (`WpaSettings`): overlap where every option's propensity ≥ 0.05; `low_overlap` when under half of an option's decisions are in the overlap; `low_sample` under 300 overlap decisions; 200 bootstrap resamples by match with the models held fixed; shrinkage only when at least 3 champions of the class have an estimate. `wpa.estimate` takes the model from `winprob.train`; without one (synthetic games have no frames) it fits the logistic form on the decisions themselves (ADR-024).
 
 ### v2 · Doubly robust (after v1 is validated)
 

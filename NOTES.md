@@ -29,3 +29,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the full crawl predates quarantine, so its 32 early rejects were refetched by hand, not retried; `just bench` next.
 - 2026-10-18: `just bench` times `just pipeline` 3 times into `perf/out/pipeline_fixtures.json`; the budget (max 60 s, measured 1.2 s) is enforced and `just check` runs bench before budgets.
   Open: lock-in, data-fetch and app-start scenarios with the app (M3). Next: M2 `winprob`.
+- 2026-10-18: `winprob.train` (ADR-030): logistic and LightGBM fitted on training matches, best on validation kept (logistic today: test log loss 0.516, calibration error 0.014 on 495 corpus matches; LightGBM 0.520); `wpa.estimate` uses the model; winprob floors enforced on the corpus.
+  Open: skill features in the WP model; next M2 item, `wpa` v1 scores with propensity overlap, shrinkage and bootstrap on real data.

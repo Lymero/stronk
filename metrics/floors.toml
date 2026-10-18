@@ -46,17 +46,20 @@ metric = "synthetic.confounded.meta_lock_flagged"
 source = "metrics/out/synthetic.json"
 min = 1.0
 
-# Set once the stage exists (M2: winprob, coverage; M5: backtests).
-
+# Win probability (`winprob.train` on the corpus, crawl-euw1-16.20: 495 test matches never seen
+# in training or model choice). Measured 2026-10-18 with the logistic model chosen: calibration
+# error 0.0136, log loss 0.5161. LightGBM on the same split: 0.0135 and 0.5203 (ADR-030).
 [[floor]]
 metric = "winprob.calibration_error"
 source = "metrics/out/winprob.json"
-enforce = false
+max = 0.015
 
 [[floor]]
 metric = "winprob.log_loss"
 source = "metrics/out/winprob.json"
-enforce = false
+max = 0.52
+
+# Set once the stage exists (M2: coverage; M5: backtests).
 
 [[floor]]
 metric = "coverage.confident_pairs_share"

@@ -1,6 +1,9 @@
-"""Pipeline quality metrics for metrics/floors.toml, from the extract report of `just pipeline`.
+"""Pipeline quality metrics for metrics/floors.toml, from a stage's report.json.
 
 pipeline_metrics.py <report.json> <out.json>
+
+extract: `pipeline.skip_rate`. winprob: `winprob.calibration_error` and `winprob.log_loss` of the
+chosen model on the test matches.
 """
 
 from __future__ import annotations
@@ -12,7 +15,18 @@ from typing import Any
 
 
 def metrics(report: dict[str, Any]) -> dict[str, float]:
-    return {"pipeline.skip_rate": float(report["result"]["skip_rate"])}
+    result = report["result"]
+    match report["stage"]:
+        case "extract":
+            return {"pipeline.skip_rate": float(result["skip_rate"])}
+        case "winprob":
+            test = result["test"]
+            return {
+                "winprob.calibration_error": float(test["calibration_error"]),
+                "winprob.log_loss": float(test["log_loss"]),
+            }
+        case stage:
+            raise ValueError(f"no metrics for stage {stage!r}")
 
 
 def main(argv: list[str]) -> int:

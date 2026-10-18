@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 
 from stronk_pipeline.domain.decisions import DecisionTable, InvalidDecisionsError
-from stronk_pipeline.domain.frames import FrameTable
+from stronk_pipeline.domain.frames import FrameTable, InvalidFramesError
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.ports import StoreError
 
@@ -87,7 +87,48 @@ class ParquetDecisionStore:
         return Ok(path)
 
 
+FRAME_COLUMNS: dict[str, pl.DataType] = {
+    "match_id": pl.String(),
+    "team": pl.Int64(),
+    "minute": pl.Float64(),
+    "outcome": pl.Int64(),
+}
+
+
 class ParquetFrameStore:
+    def read_frames(self, path: Path) -> Result[FrameTable, StoreError]:
+        if not path.is_file():
+            return Err(StoreError("not_found", f"no frame table at {path}"))
+        try:
+            frame = pl.read_parquet(path)
+        except (pl.exceptions.PolarsError, OSError) as e:
+            return Err(StoreError("invalid", f"{path} is not a readable Parquet file: {e}"))
+        missing = [c for c in FRAME_COLUMNS if c not in frame.columns]
+        if missing:
+            return Err(StoreError("invalid", f"{path} lacks columns: {', '.join(missing)}"))
+        features = sorted(c for c in frame.columns if c.startswith(FEATURE_PREFIX))
+        try:
+            frame = frame.select(
+                *(pl.col(c).cast(t, strict=True) for c, t in FRAME_COLUMNS.items()),
+                *(pl.col(c).cast(pl.Float64, strict=True) for c in features),
+            )
+            if frame.null_count().sum_horizontal().item() > 0:
+                return Err(StoreError("invalid", f"{path} contains nulls"))
+            table = FrameTable(
+                match_id=frame["match_id"].to_numpy().astype(str),
+                team=frame["team"].to_numpy(),
+                minute=frame["minute"].to_numpy(),
+                outcome=frame["outcome"].to_numpy(),
+                features=frame.select(features)
+                .to_numpy()
+                .astype(np.float64)
+                .reshape(len(frame), len(features)),
+                feature_names=tuple(f.removeprefix(FEATURE_PREFIX) for f in features),
+            )
+        except (pl.exceptions.PolarsError, InvalidFramesError) as e:
+            return Err(StoreError("invalid", f"{path}: {e}"))
+        return Ok(table)
+
     def write_frames(self, table: FrameTable, path: Path) -> Result[Path, StoreError]:
         columns: dict[str, object] = {
             "match_id": table.match_id,

@@ -102,7 +102,7 @@ Each stage is a command with explicit inputs and outputs, reading and writing Pa
 |---|---|---|
 | `crawl` | `MatchSource` (Riot API or a recording) | compact validated games and Data Dragon data per patch, in a crawl directory |
 | `extract` | raw data | `frames` (per minute, per team and player, with situation features), `decisions` (decision points with game state, options and the chosen one) |
-| `winprob` | frames | win probability model, calibration report |
+| `winprob` | frames | win probability model (best of logistic and LightGBM on validation matches), calibration report on test matches |
 | `wpa` | decisions + model | propensity model, estimates per champion, role, slot and option, with interval, sample size and flags |
 | `publish` | estimates | signed JSON per patch, region, elo, champion and role, through the `Publisher` port |
 
