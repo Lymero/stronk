@@ -2,8 +2,11 @@
 //!
 //!     stronk-core commands
 //!     stronk-core run build.get --params '{"champion": "LeeSin", "role": "JUNGLE"}'
+//!     stronk-core record-champselect --out tools/lcu_mock/sessions/custom.json
 //!
-//! Prints the result as JSON on stdout, or the error as JSON on stderr with exit code 1.
+//! `run` prints the result as JSON on stdout, or the error as JSON on stderr with exit code 1.
+
+mod record;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -30,9 +33,12 @@ struct Cli {
     /// The League client's lockfile; default: discovered.
     #[arg(long, env = "STRONK_LCU_LOCKFILE")]
     lockfile: Option<PathBuf>,
-    /// Root certificate the client's HTTPS chains to (`tools/lcu-mock` writes one).
+    /// Root certificate to trust instead of Riot's (`tools/lcu-mock` writes one).
     #[arg(long, env = "STRONK_LCU_CERT")]
     lcu_cert: Option<PathBuf>,
+    /// sha256 of the one client certificate to accept, instead of a root (fallback).
+    #[arg(long, env = "STRONK_LCU_PIN")]
+    lcu_pin: Option<String>,
     #[command(subcommand)]
     action: Action,
 }
@@ -47,6 +53,14 @@ enum Action {
         #[arg(long, default_value = "{}")]
         params: String,
     },
+    /// Record one champion select from the running client, scrubbed, in lcu-mock's format.
+    RecordChampselect {
+        #[arg(long)]
+        out: PathBuf,
+        /// Give up if no champion select starts and ends within this many minutes.
+        #[arg(long, default_value_t = 15)]
+        timeout_minutes: u64,
+    },
 }
 
 fn main() -> ExitCode {
@@ -57,6 +71,33 @@ fn main() -> ExitCode {
                 println!("{}\t{}", c.id, c.summary);
             }
             ExitCode::SUCCESS
+        }
+        Action::RecordChampselect {
+            ref out,
+            timeout_minutes,
+        } => {
+            let recorded = stronk_lcu::connect(&lcu_options(&cli))
+                .map_err(|e| e.to_string())
+                .and_then(|client| {
+                    eprintln!("recording: waiting for champion select (Ctrl-C to stop)");
+                    let timeout = std::time::Duration::from_secs(timeout_minutes * 60);
+                    record::record(&client, out, timeout, std::time::Duration::from_millis(500))
+                });
+            match recorded {
+                Ok(r) => {
+                    println!(
+                        "saved {} ({} steps, {} champions)",
+                        out.display(),
+                        r.steps,
+                        r.champions
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("recording failed: {e}");
+                    ExitCode::FAILURE
+                }
+            }
         }
         Action::Run { ref id, ref params } => match run(&cli, id, params) {
             Ok(value) => {
@@ -88,8 +129,16 @@ fn context(cli: &Cli) -> Result<Context, CommandError> {
     let key = TrustedKey::decode(&key_text)?;
     Ok(Context {
         builds: Arc::new(DirectorySource::new(expand(&cli.data), key)),
-        client: stronk_lcu::connect_or_absent(cli.lockfile.as_deref(), cli.lcu_cert.as_deref()),
+        client: stronk_lcu::connect_or_absent(&lcu_options(cli)),
     })
+}
+
+fn lcu_options(cli: &Cli) -> stronk_lcu::ConnectOptions {
+    stronk_lcu::ConnectOptions {
+        lockfile: cli.lockfile.clone(),
+        root: cli.lcu_cert.clone(),
+        pin: cli.lcu_pin.clone(),
+    }
 }
 
 fn expand(path: &std::path::Path) -> PathBuf {

@@ -45,10 +45,11 @@ fn context() -> Result<Context, CommandError> {
     })?;
     Ok(Context {
         builds: Arc::new(DirectorySource::new(data, TrustedKey::decode(&key_text)?)),
-        client: stronk_lcu::connect_or_absent(
-            var("STRONK_LCU_LOCKFILE").as_deref(),
-            var("STRONK_LCU_CERT").as_deref(),
-        ),
+        client: stronk_lcu::connect_or_absent(&stronk_lcu::ConnectOptions {
+            lockfile: var("STRONK_LCU_LOCKFILE"),
+            root: var("STRONK_LCU_CERT"),
+            pin: std::env::var("STRONK_LCU_PIN").ok(),
+        }),
     })
 }
 

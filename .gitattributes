@@ -1,2 +1,8 @@
 * text=auto eol=lf
 *.parquet binary
+# Signed or hashed bytes: never converted, on any platform (DirectorySource and the signature
+# tests check them byte for byte; the LCU root's sha256 is recorded in docs/security.md).
+fixtures/data/** -text
+fixtures/data.pub -text
+contracts/examples/** -text
+*.pem -text

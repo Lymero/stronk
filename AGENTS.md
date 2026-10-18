@@ -14,6 +14,7 @@ Working guide for AI agents and contributors. Read this first.
 | [docs/decisions.md](docs/decisions.md) | Why things are the way they are |
 | [docs/roadmap.md](docs/roadmap.md) | Current focus and next tasks |
 | [docs/gaps.md](docs/gaps.md) | What's missing compared with other tools |
+| [docs/windows.md](docs/windows.md) | Building and running on Windows, real-client testing |
 | [NOTES.md](NOTES.md) | What the last session did and left open |
 
 ## Commands
@@ -44,6 +45,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just app-build` | Build and lint the Tauri shell (CI's `app-shell` job) |
 | `just core-e2e` | The real `stronk-core` against lcu-mock and the signed fixture data (in `just check`) |
 | `just fixture-data` | Refresh `fixtures/data`, the signed fixture data the app tests use |
+| `stronk-core record-champselect --out <file>` | Record one champion select from the real client, scrubbed (on Windows: docs/windows.md) |
 | `just core <command-id> <params>` | Run an app command from the terminal |
 | `just e2e` | Playwright end-to-end tests |
 | `just bench` | Performance scenarios against `perf/budgets.toml` |

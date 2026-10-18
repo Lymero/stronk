@@ -60,3 +60,38 @@ jobs:
           workspaces: app/core
       - run: pnpm install --frozen-lockfile
       - run: just app-build
+
+  # The League client runs on Windows: build and test the app there (docs/windows.md).
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.0"
+          components: clippy
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.22.0"
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/core
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @stronk/ui test
+      - run: pnpm --filter @stronk/ui build
+      - run: cargo test --manifest-path app/core/Cargo.toml --locked --quiet
+      - run: cargo clippy --manifest-path app/core/Cargo.toml -p stronk-app --all-targets --locked --quiet -- -D warnings
+      - run: cargo build --manifest-path app/core/Cargo.toml --locked -p stronk-cli -p stronk-app
+      - run: uv sync --all-packages --locked
+      - run: uv run pytest -q tools/lcu_mock
+        env:
+          STRONK_CORE_BIN: ${{ github.workspace }}/app/core/target/debug/stronk-core.exe

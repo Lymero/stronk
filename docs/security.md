@@ -16,7 +16,7 @@ The app runs on players' machines and writes into their League client. These are
 ### Network
 
 - The app talks to two places only: the local League client (`127.0.0.1`) and the configured data source.
-- LCU connections pin the client's certificate; no general TLS bypass.
+- LCU connections trust Riot's League client CA only, never the system store and never "no verification" (see "League client" below).
 - Tauri 2 capabilities grant only the permissions the app uses; strict content security policy; no remote code or scripts loaded.
 
 ### Input
@@ -41,3 +41,13 @@ The app runs on players' machines and writes into their League client. These are
 ## Reporting
 
 Report vulnerabilities privately to the maintainer (contact in the README). Do not open a public issue.
+
+## League client
+
+The client serves HTTPS on `127.0.0.1` with a certificate from Riot's own CA.
+
+- **Root:** `app/core/crates/lcu/certs/riotgames.pem`, downloaded 2026-10-18 from Riot's official source for the Game Client API, https://static.developer.riotgames.com/docs/lol/riotgames.pem. sha256 of the file: `da884275737f024b33c93ae5d28bdb002768a3cb73752ab40254a32218193521`; certificate sha256 fingerprint `CA:8C:9D:32:5B:4C:DC:46:4C:6C:94:A5:85:C8:5E:91:EC:23:D4:0B:A5:BF:3A:E2:82:2B:95:1A:4A:50:4E:A3`; subject "LoL Game Engineering Certificate Authority"; valid 2013-12-04 to 2043-11-27. It is embedded in the binary; changing it means a new download, new hashes here and in `ATTRIBUTION.md`.
+- **Check:** that root is an X.509 v1 certificate signed with SHA-1, which standard verifiers reject, so `stronk_lcu::tls` checks explicitly: the client's certificate must be signed directly by the root (legacy SHA-1/RSA accepted for that signature only), within its validity dates. The name isn't checked because connections only go to the `127.0.0.1` literal. The TLS handshake itself uses rustls' normal algorithms.
+- **Fallback:** if the real client's certificate doesn't validate against the root, `--lcu-pin` / `STRONK_LCU_PIN` accepts exactly one certificate by sha256. Every rejection names the certificate presented (subject, issuer, signature algorithm, sha256), so the pin comes from an actual failure, not a guess. Status: not yet tried against a real client (docs/windows.md).
+- **Tests** use `tools/lcu_mock`, which writes its own root and trusts nothing else.
+- **Recordings** (`stronk-core record-champselect`) keep an allowlist of fields, are checked for identifiers before saving, and committed sessions are checked again by `tools/lcu_mock/tests/test_sessions_scrubbed.py`.

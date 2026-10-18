@@ -21,7 +21,7 @@ Status: **missing** · **partial** · **done**
 
 | Capability | Reference | Status |
 |---|---|---|
-| Detect champion and role | Blitz, Porofessor | partial: `champselect.state` reads it from the client (tested against lcu-mock); polling, no websocket yet; the real client's root certificate is still to add |
+| Detect champion and role | Blitz, Porofessor | partial: `champselect.state` reads it from the client (tested against lcu-mock); polling, no websocket yet; trusts Riot's CA, not yet tried on a real client |
 | Import rune page | Blitz, Porofessor | missing |
 | Write item set | Blitz, Porofessor | missing |
 | Set summoner spells | Blitz | missing |

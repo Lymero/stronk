@@ -14,7 +14,9 @@ serde_json = "1"
 stronk-domain = { path = "../domain" }
 stronk-service = { path = "../service" }
 thiserror = "2"
-ureq = { version = "3", default-features = false, features = ["rustls"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+sha2 = "0.10"
+x509-parser = { version = "0.18", features = ["verify"] }
 
 [lints]
 workspace = true

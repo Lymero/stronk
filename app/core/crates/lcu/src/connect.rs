@@ -1,33 +1,53 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use stronk_service::ports::{ChampSelect, LeagueClient, PortError};
 
+use crate::tls::Trust;
 use crate::{LcuClient, Lockfile, discover};
 
-/// The client behind `lockfile` (discovered when `None`), trusting the root in `cert`; when
-/// either is missing, a client whose every call says why, so commands that don't need the
-/// League client still run.
-pub fn connect_or_absent(lockfile: Option<&Path>, cert: Option<&Path>) -> Arc<dyn LeagueClient> {
-    match connect(lockfile, cert) {
-        Ok(client) => Arc::new(client),
-        Err(reason) => Arc::new(Absent(reason)),
+/// How to find and trust the client. Defaults: the discovered lockfile, Riot's root.
+#[derive(Default, Clone, Debug)]
+pub struct ConnectOptions {
+    pub lockfile: Option<PathBuf>,
+    /// A root certificate (PEM) to trust instead of Riot's (`tools/lcu-mock` writes one).
+    pub root: Option<PathBuf>,
+    /// The sha256 of the one certificate to accept, instead of any root (the fallback).
+    pub pin: Option<String>,
+}
+
+impl ConnectOptions {
+    pub fn trust(&self) -> Result<Trust, PortError> {
+        if let Some(pin) = &self.pin {
+            return Trust::pin(pin).map_err(PortError::Invalid);
+        }
+        match &self.root {
+            Some(path) => std::fs::read(path)
+                .map(Trust::Root)
+                .map_err(|e| PortError::Unavailable(format!("{}: {e}", path.display()))),
+            None => Ok(Trust::riot()),
+        }
     }
 }
 
-fn connect(lockfile: Option<&Path>, cert: Option<&Path>) -> Result<LcuClient, PortError> {
+/// The client, connected per `options`.
+pub fn connect(options: &ConnectOptions) -> Result<LcuClient, PortError> {
     let unavailable = |e: &dyn std::fmt::Display| PortError::Unavailable(e.to_string());
-    let path: PathBuf = match lockfile {
-        Some(path) => path.to_owned(),
+    let path = match &options.lockfile {
+        Some(path) => path.clone(),
         None => discover().map_err(|e| unavailable(&e))?,
     };
     let lock = Lockfile::read(&path).map_err(|e| unavailable(&e))?;
-    let cert = cert.ok_or_else(|| {
-        PortError::Unavailable("no root certificate for the League client".into())
-    })?;
-    let pem = std::fs::read(cert)
-        .map_err(|e| PortError::Unavailable(format!("{}: {e}", cert.display())))?;
-    LcuClient::new(&lock, &pem)
+    LcuClient::new(&lock, &options.trust()?)
+}
+
+/// [`connect`], or when that fails a client whose every call says why, so commands that don't
+/// need the League client still run.
+pub fn connect_or_absent(options: &ConnectOptions) -> Arc<dyn LeagueClient> {
+    match connect(options) {
+        Ok(client) => Arc::new(client),
+        Err(reason) => Arc::new(Absent(reason)),
+    }
 }
 
 struct Absent(PortError);
@@ -39,5 +59,21 @@ impl LeagueClient for Absent {
 
     fn champion_key(&self, _: i64) -> Result<String, PortError> {
         Err(self.0.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trusts_riots_root_by_default_and_a_pin_over_anything() {
+        assert_eq!(ConnectOptions::default().trust(), Ok(Trust::riot()));
+        let pinned = ConnectOptions {
+            pin: Some("00".repeat(32)),
+            root: Some("x".into()),
+            ..Default::default()
+        };
+        assert_eq!(pinned.trust(), Ok(Trust::Pin([0; 32])));
     }
 }
