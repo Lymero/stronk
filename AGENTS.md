@@ -43,6 +43,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just app-mock` | UI in the browser against `MockBackend` |
 | `just lcu-mock [session]` | Fake League client replaying a session (`tools/lcu_mock/sessions/`) |
 | `just app` | Desktop app on the fixture data (pair with `just lcu-mock`; needs WebKitGTK on Linux) |
+| `just app-real` | Desktop app on the fixture data against the real League client (start League first) |
 | `just app-build` | Build and lint the Tauri shell (CI's `app-shell` job) |
 | `just core-e2e` | The real `stronk-core` against lcu-mock and the signed fixture data (in `just check`) |
 | `just fixture-data` | Refresh `fixtures/data`, the signed fixture data the app tests use |

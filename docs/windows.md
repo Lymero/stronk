@@ -23,6 +23,7 @@ On Windows, `just` runs recipes in Windows PowerShell (`windows-shell` in the `j
 | `just test` | Rust (contracts, core) and UI tests; the Python tests run in WSL |
 | `just lcu-mock [session]` | Fake League client, writes `runs\lcu-mock\lockfile` and `root.pem` |
 | `just app` | Desktop app on the fixture data, talking to `just lcu-mock` |
+| `just app-real` | Desktop app on the fixture data, talking to the real League client |
 | `just app-mock` | UI in the browser against `MockBackend` |
 | `just core <command-id> [params]` | Run an app command from the terminal |
 
@@ -85,10 +86,10 @@ Send that line. The fallback is to pin that certificate: `--lcu-pin <sha256>` (o
 
 ## Run the desktop app against the real client
 
+Start League, then:
+
 ```powershell
-$env:STRONK_DATA_DIR = "$PWD\fixtures\data"
-$env:STRONK_DATA_KEY = "$PWD\fixtures\data.pub"
-pnpm --filter @stronk/ui exec tauri dev --config ../core/src-tauri/tauri.conf.json
+just app-real
 ```
 
 Then enter a champion select: the app shows the champion and role and, when the fixture data has that champion and role, its build. Without the variables, the app reports which setting is missing instead of starting blind.

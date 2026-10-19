@@ -259,6 +259,18 @@ app:
     $env:STRONK_LCU_LOCKFILE = "$PWD/runs/lcu-mock/lockfile"; $env:STRONK_LCU_CERT = "$PWD/runs/lcu-mock/root.pem"; \
     $env:TAURI_APP_PATH = "$PWD/app/core/src-tauri"; pnpm --filter @stronk/ui exec tauri dev
 
+# Desktop app on the fixture data, talking to the real League client (start League first)
+[unix]
+app-real:
+    STRONK_DATA_DIR="$PWD/fixtures/data" STRONK_DATA_KEY="$PWD/fixtures/data.pub" \
+    pnpm --filter @stronk/ui exec tauri dev --config ../core/src-tauri/tauri.conf.json
+
+# Desktop app on the fixture data, talking to the real League client (start League first)
+[windows]
+app-real:
+    $env:STRONK_DATA_DIR = "$PWD/fixtures/data"; $env:STRONK_DATA_KEY = "$PWD/fixtures/data.pub"; \
+    $env:TAURI_APP_PATH = "$PWD/app/core/src-tauri"; pnpm --filter @stronk/ui exec tauri dev
+
 # Build and lint the Tauri shell (needs WebKitGTK on Linux; CI's app-shell job)
 app-build:
     pnpm --filter @stronk/ui build
