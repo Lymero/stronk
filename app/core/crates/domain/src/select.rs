@@ -4,7 +4,7 @@
 use serde::Serialize;
 
 /// Why an option was chosen; shown next to it in the UI.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 #[serde(tag = "label", rename_all = "snake_case")]
 pub enum Label {
     /// The most played option (whole page, whole pair, or most picked item).
@@ -66,7 +66,8 @@ impl<T> Candidate<T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
+#[schemars(rename = "{T}Choice")]
 pub struct Choice<T> {
     pub value: T,
     #[serde(flatten)]
@@ -104,7 +105,7 @@ pub fn choose<T: Clone>(candidates: &[Candidate<T>]) -> Option<Choice<T>> {
 }
 
 /// How far an option's numbers can be trusted (docs/wpa-method.md, section 7).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Confidence {
     /// Beats the most played option head to head, by the rule [`choose`] uses.
@@ -122,7 +123,7 @@ pub enum Confidence {
 }
 
 /// What a row's win impact is measured against.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Versus {
     /// Head to head with the slot's most played option.
@@ -132,7 +133,8 @@ pub enum Versus {
 }
 
 /// One option of a slot, as the champion select view shows it (ADR-049).
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
+#[schemars(rename = "{T}Row")]
 pub struct Row<T> {
     pub value: T,
     /// Games (or picks) with this option.
@@ -153,7 +155,8 @@ pub struct Row<T> {
 }
 
 /// Every option of a slot, and how many of them are left out of the short list.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
+#[schemars(rename = "{T}Ranked")]
 pub struct Ranked<T> {
     pub rows: Vec<Row<T>>,
     /// Options played less, not listed until the player asks for every option.

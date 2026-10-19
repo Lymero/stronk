@@ -23,6 +23,45 @@ fn run(ctx: &Context, id: &str, params: Value) -> Result<Value, stronk_service::
 }
 
 #[test]
+fn the_schema_types_every_commands_params_and_result() {
+    let registry = registry();
+    let schema = registry.schema().unwrap();
+    let ids: Vec<&str> = registry.list().into_iter().map(|c| c.id).collect();
+    let properties = schema["properties"].as_object().unwrap();
+    assert_eq!(
+        properties.keys().map(String::as_str).collect::<Vec<_>>(),
+        ids
+    );
+    for id in ids {
+        let signature = &properties[id]["properties"];
+        assert!(
+            signature["params"].is_object() && signature["result"].is_object(),
+            "{id}"
+        );
+    }
+    let defs = schema["definitions"].as_object().unwrap();
+    for name in [
+        "Plan",
+        "ImportParams",
+        "Imported",
+        "ChampSelectState",
+        "CommandError",
+    ] {
+        assert!(defs.contains_key(name), "{name}");
+    }
+    // A flattened label next to an outcome's own fields stays in one object for json2ts.
+    let outcome = &defs["Outcome"]["oneOf"][0];
+    assert!(
+        outcome["allOf"][0]["properties"]["name"].is_object(),
+        "{outcome}"
+    );
+    assert_eq!(
+        properties["build.get"]["properties"]["result"],
+        json!({"tsType": "BuildV1.Build"})
+    );
+}
+
+#[test]
 fn lists_every_command() {
     let ids: Vec<_> = registry().list().into_iter().map(|c| c.id).collect();
     assert_eq!(

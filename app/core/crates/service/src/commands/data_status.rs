@@ -6,8 +6,9 @@ use crate::ports::DataStatus;
 use crate::registry::Command;
 use crate::{CommandError, Context};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(inline, extend("tsType" = "Record<string, never>"))]
 pub struct Params {}
 
 pub fn command() -> Command {

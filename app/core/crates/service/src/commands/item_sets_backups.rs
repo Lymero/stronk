@@ -6,11 +6,13 @@ use crate::ports::Backup;
 use crate::registry::Command;
 use crate::{CommandError, Context};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(inline, extend("tsType" = "Record<string, never>"))]
 pub struct Params {}
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, PartialEq, Eq, schemars::JsonSchema)]
+#[schemars(rename = "BackupList")]
 pub struct Listed {
     pub backups: Vec<Backup>,
 }

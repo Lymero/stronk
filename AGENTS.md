@@ -27,7 +27,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just setup` | Install dependencies |
 | `just check` | Format, lint, typecheck, architecture rules, tests, codegen drift, floors, enforced budgets. Run before finishing. |
 | `just test` | All tests |
-| `just gen` | Regenerate types from `contracts/schemas/` |
+| `just gen` | Regenerate types from `contracts/schemas/`, and the UI's command types from the core (`stronk-core schema`) |
 | `just corpus [name…]` | Fetch and verify the pinned corpora (`crawl-ci-16.20` for checks, `crawl-all-16.20` for real runs) |
 | `just pipeline` | Full pipeline on the committed fixture (crawl replay, extract, winprob, wpa, publish) into `runs/pipeline/`, signed with a throwaway key |
 | `just publish <estimates> <crawl,…> [key] [out]` | Signed build files into `dist/data/` |
@@ -49,6 +49,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just core-e2e` | The real `stronk-core` against lcu-mock and the signed fixture data (in `just check`) |
 | `just fixture-data` | Refresh `fixtures/data`, the signed fixture data the app tests use |
 | `just core build.plan '{"champion": "LeeSin", "role": "JUNGLE"}'` | What an import would write, each choice labelled (`build.import` writes it to the client) |
+| `stronk-core schema` | Every command's params and result as one JSON Schema (what the UI's types come from) |
 | `stronk-core serve` | Commands from stdin, one JSON line each, with one context as in the app |
 | `stronk-core restore-item-sets [file]` | Put a backup of the player's item sets back (without a file: list them) |
 | `stronk-core watch-champselect [--events N]` | Follow champion select over the client's websocket, one JSON line per state |

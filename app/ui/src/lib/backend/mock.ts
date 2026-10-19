@@ -334,7 +334,7 @@ export class MockBackend implements Backend {
           return err("unavailable", "no icons") as Out;
         }
         const asked = params as Commands["icons.get"]["params"];
-        const icons = Object.fromEntries(KINDS.map((k) => [k, {}])) as GameIcons;
+        const icons: GameIcons = { champions: {}, rune_styles: {}, runes: {}, spells: {}, items: {} };
         for (const kind of KINDS) {
           for (const id of asked[kind] ?? []) {
             const name = names[kind][String(id)];

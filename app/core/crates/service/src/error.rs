@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Stable error codes: the UI maps them to messages, scripts can match on them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     UnknownCommand,
@@ -16,7 +16,9 @@ pub enum ErrorCode {
 }
 
 /// What a command returns instead of crashing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, thiserror::Error, schemars::JsonSchema,
+)]
 #[error("{code:?}: {message}")]
 pub struct CommandError {
     pub code: ErrorCode,

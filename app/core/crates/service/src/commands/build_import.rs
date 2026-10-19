@@ -17,8 +17,9 @@ use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
 
 /// The player's picks, each one of the published options; Stronk's choice where none is given.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "ImportParams")]
 pub struct Params {
     #[serde(default)]
     pub runes: Option<Page>,
@@ -29,7 +30,7 @@ pub struct Params {
     pub items: Vec<ItemPick>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ItemPick {
     pub slot: u64,
@@ -37,7 +38,7 @@ pub struct ItemPick {
 }
 
 /// What happened to one part of the import.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum Outcome {
     Imported {
@@ -50,7 +51,7 @@ pub enum Outcome {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct Imported {
     pub champion: String,
     pub role: Role,

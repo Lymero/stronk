@@ -161,7 +161,7 @@ Patterns:
 - `thiserror` in libraries; one app error type mapped to user-facing messages.
 - `tracing` with a rotating local log; no telemetry.
 - `tokio`; one task owns the LCU connection and reconnects with backoff.
-- Typed IPC: commands and events exported to TypeScript with `tauri-specta`.
+- Typed IPC: every command's params, result and error types generated for the UI from the registry (`stronk-core schema`, JSON Schema via `schemars`, then `json2ts`, ADR-053); the shell keeps one IPC command, `run`.
 - Clippy denies `unwrap`, `expect`, `panic!`, `todo!` and unchecked indexing outside tests. Unfinished features return an "unsupported" error.
 
 ### Data source
@@ -191,7 +191,7 @@ Data for the likely champions is loaded when champion select starts and on hover
 
 | Backend | Use |
 |---|---|
-| `TauriBackend` | Desktop app, generated typed bindings |
+| `TauriBackend` | Desktop app, through `run` with the generated command types |
 | `MockBackend` | Scripted scenarios in a plain browser |
 | `CoreBackend` | The real core in a plain browser, through a local test bridge (Playwright, ADR-048) |
 | `HttpBackend` | Read-only web build viewer, reading the published data directly |

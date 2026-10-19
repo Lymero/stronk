@@ -1,14 +1,18 @@
 //! `build.get`: the verified build file for a champion and role.
 
-use serde::Deserialize;
+use std::borrow::Cow;
+
+use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
+use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::Build;
 use stronk_domain::{BuildKey, Patch, Role};
 
 use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "BuildGetParams")]
 pub struct Params {
     pub champion: String,
     pub role: Role,
@@ -36,7 +40,27 @@ pub fn command() -> Command {
     )
 }
 
-fn run(ctx: &Context, params: Params) -> Result<Build, CommandError> {
+/// The build file as the contract defines it (`build.v1`): its types come from
+/// `contracts/schemas/`, so the command's schema points at them instead of repeating them.
+#[derive(Serialize)]
+#[serde(transparent)]
+pub struct BuildFile(pub Build);
+
+impl JsonSchema for BuildFile {
+    fn schema_name() -> Cow<'static, str> {
+        "BuildFile".into()
+    }
+
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        json_schema!({"tsType": "BuildV1.Build"})
+    }
+}
+
+fn run(ctx: &Context, params: Params) -> Result<BuildFile, CommandError> {
     let patch = params.patch.map(|p| p.to_string());
     fetch(
         ctx,
@@ -46,6 +70,7 @@ fn run(ctx: &Context, params: Params) -> Result<Build, CommandError> {
         Some(&params.region),
         Some(&params.elo),
     )
+    .map(BuildFile)
 }
 
 /// The verified build file; `None` means the newest patch, `all` regions, `master_plus`.

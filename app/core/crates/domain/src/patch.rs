@@ -4,7 +4,19 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 /// A game patch, `major.minor` (`16.20`), as published data names it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(try_from = "String", into = "String")]
 pub struct Patch {
     pub major: u16,

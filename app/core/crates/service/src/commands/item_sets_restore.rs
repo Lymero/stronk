@@ -8,14 +8,15 @@ use crate::item_sets::Document;
 use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "RestoreParams")]
 pub struct Params {
     /// A backup file, as `item_sets.backups` lists them or as `build.import` reported.
     pub backup: String,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, PartialEq, Eq, schemars::JsonSchema)]
 pub struct Restored {
     pub restored: String,
     /// Item sets in the restored document.

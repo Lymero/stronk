@@ -1,7 +1,19 @@
 use serde::{Deserialize, Serialize};
 
 /// A position, spelled as the data contract spells it (`TOP`, `JUNGLE`...).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Role {
     Top,

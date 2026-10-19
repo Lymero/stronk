@@ -11,8 +11,9 @@ use crate::commands::build_get;
 use crate::registry::Command;
 use crate::{CommandError, Context};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "PlanParams")]
 pub struct Params {
     pub champion: String,
     pub role: Role,
@@ -21,7 +22,7 @@ pub struct Params {
     pub elo: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Page {
     pub primary_style: i64,
@@ -29,14 +30,14 @@ pub struct Page {
     pub perks: Vec<i64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct SlotChoice {
     pub slot: u64,
     #[serde(flatten)]
     pub choice: Choice<i64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct SlotRanked {
     pub slot: u64,
     #[serde(flatten)]
@@ -44,14 +45,14 @@ pub struct SlotRanked {
 }
 
 /// Every option of each slot, the most played and the chosen one marked as listed.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct Alternatives {
     pub runes: Ranked<Page>,
     pub spells: Ranked<(i64, i64)>,
     pub items: Vec<SlotRanked>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct Plan {
     pub champion: String,
     pub role: Role,

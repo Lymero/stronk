@@ -34,7 +34,7 @@ impl From<PortError> for CommandError {
 }
 
 /// A patch's verified manifest: the signature checked against the app's key.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct DataStatus {
     pub patch: Patch,
     pub run_id: String,
@@ -51,7 +51,7 @@ pub trait BuildSource: Send + Sync {
 }
 
 /// The local player's champion select, as far as the app needs it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ChampSelect {
     /// Champion id, 0 while none is picked or hovered.
     pub champion_id: i64,
@@ -75,7 +75,7 @@ pub struct NewRunePage {
 
 /// Display names by id, from the client's own game data, so in the player's language
 /// (`names.get`).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct GameNames {
     pub champions: BTreeMap<i64, String>,
     /// Rune trees (Precision, Domination…).
@@ -128,7 +128,7 @@ pub trait LeagueClient: Send + Sync {
 }
 
 /// One local backup.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Backup {
     /// What [`Backups::load`] takes.
     pub location: String,

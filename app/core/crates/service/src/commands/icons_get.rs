@@ -14,8 +14,9 @@ use crate::{CommandError, Context, ErrorCode};
 pub const MAX_IDS: usize = 200;
 
 /// The ids wanted, by kind.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields, default)]
+#[schemars(rename = "IconsParams")]
 pub struct Params {
     pub champions: Vec<i64>,
     pub rune_styles: Vec<i64>,
@@ -25,7 +26,7 @@ pub struct Params {
 }
 
 /// `data:` URLs by id, by kind; ids the client has no icon for are left out.
-#[derive(Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Icons {
     pub champions: BTreeMap<i64, String>,
     pub rune_styles: BTreeMap<i64, String>,

@@ -23,6 +23,7 @@ ignore = [
 "tools/serve_data/*.py" = ["T20"]
 "tools/lcu_mock/*.py" = ["T20"]
 "contracts/codegen.py" = ["T20", "S603"]
+"contracts/commands_codegen.py" = ["T20", "S603"]
 
 [lint.isort]
 known-first-party = ["stronk_pipeline", "stronk_synth", "stronk_contracts", "corpus"]

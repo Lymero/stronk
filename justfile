@@ -79,13 +79,15 @@ test:
     cargo test {{ core_rs }} --locked --quiet
     pnpm --filter @stronk/ui test
 
-# Regenerate types from contracts/schemas/
+# Regenerate types from contracts/schemas/, and the UI's command types from the core
 gen:
     uv run python contracts/codegen.py
+    uv run python contracts/commands_codegen.py
 
-# Fail if contracts/generated/ is stale
+# Fail if contracts/generated/ or the UI's command types (from `stronk-core schema`) are stale
 gen-check:
     uv run python contracts/codegen.py --check
+    uv run python contracts/commands_codegen.py --check
 
 # Full pipeline offline on the committed recording (fixtures/riot/euw1), into runs/pipeline/,
 # published under runs/pipeline/dist with a throwaway key (never dist/data)

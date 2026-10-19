@@ -1,6 +1,7 @@
 //! `stronk-core`: the app's commands from the terminal (docs/architecture.md, section 2).
 //!
 //!     stronk-core commands
+//!     stronk-core schema
 //!     stronk-core run build.get --params '{"champion": "LeeSin", "role": "JUNGLE"}'
 //!     stronk-core record-champselect --out tools/lcu_mock/sessions/custom.json
 //!     stronk-core watch-champselect --events 4
@@ -51,6 +52,9 @@ struct Cli {
 enum Action {
     /// List every command.
     Commands,
+    /// Every command's params and result as one JSON Schema, which the UI's types are
+    /// generated from (`just gen`).
+    Schema,
     /// Run one command.
     Run {
         id: String,
@@ -89,6 +93,16 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        Action::Schema => match registry().schema() {
+            Ok(schema) => {
+                println!("{schema:#}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("{}", json!({"code": e.code, "message": e.message}));
+                ExitCode::FAILURE
+            }
+        },
         Action::RestoreItemSets { ref backup } => {
             let (id, params) = match backup {
                 Some(file) => ("item_sets.restore", json!({ "backup": file })),
