@@ -24,6 +24,16 @@ def packed(tmp_path: Path) -> tuple[Path, str]:
     return archive, pack(crawl_dir(tmp_path / "crawl"), archive)
 
 
+def test_pack_is_the_same_whenever_it_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """gzip writes the current time in its header unless told otherwise (CI flake, 2026-10-19)."""
+    import time
+
+    _, digest = packed(tmp_path)
+    later = time.time() + 3600
+    monkeypatch.setattr(time, "time", lambda: later)
+    assert pack(tmp_path / "crawl", tmp_path / "later.tar.gz") == digest
+
+
 def test_pack_is_reproducible_and_leaves_out_the_salt(tmp_path: Path) -> None:
     archive, digest = packed(tmp_path)
     assert digest == hashlib.sha256(archive.read_bytes()).hexdigest()

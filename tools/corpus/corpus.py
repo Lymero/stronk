@@ -11,6 +11,7 @@ again. Archives hold the crawl's `matches/` and `static/`, never its `.salt`.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import io
 import os
@@ -135,7 +136,11 @@ def fetch(entries: list[Entry], corpus: Path = CORPUS) -> list[str]:
 def pack(crawl: Path, out: Path) -> str:
     """Write a reproducible archive of `crawl` to `out`; returns its sha256."""
     buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w:gz", compresslevel=9) as tar:
+    # gzip's header holds a timestamp, the current second unless given: zero, like the members'.
+    with (
+        gzip.GzipFile(fileobj=buffer, mode="wb", compresslevel=9, mtime=0) as gz,
+        tarfile.open(fileobj=gz, mode="w") as tar,
+    ):
         files = sorted(p for d in PACKED for p in (crawl / d).rglob("*") if p.is_file())
         if not files:
             raise CorpusError(f"{crawl} has no {' or '.join(PACKED)} to pack")
