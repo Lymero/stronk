@@ -3,13 +3,13 @@
 //! on the player's key (ADR-043). The player's pages and item sets are never changed.
 
 use serde::{Deserialize, Serialize};
-use serde_json::value::RawValue;
 use serde_json::{Value, json};
 use stronk_domain::Role;
-use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, is_ours, plan_rune_page};
+use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page};
 
 use crate::commands::build_get;
 use crate::commands::build_plan::{Plan, plan};
+use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};
 use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
@@ -132,9 +132,9 @@ fn item_set(ctx: &Context, plan: &Plan, champion_id: i64) -> (Outcome, Option<St
             );
         }
     };
-    let document = match merged_item_sets(&current, &item_set_json(plan, &name, champion_id)) {
-        Ok(document) => document,
-        Err(e) => return (skipped(&format!("{e}; nothing written")), None),
+    let document = match Document::parse(&current, "the client's item sets") {
+        Ok(parsed) => parsed.with_ours(&item_set_json(plan, &name, champion_id)),
+        Err(e) => return (skipped(&format!("{}; nothing written", e.message)), None),
     };
     let backup = match ctx.backups.save("item-sets", current.as_bytes()) {
         Ok(backup) => backup,
@@ -189,84 +189,6 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
     })
 }
 
-/// A JSON object's members in their order, each value as its raw text.
-struct Members(Vec<(String, Box<RawValue>)>);
-
-impl<'de> Deserialize<'de> for Members {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Visit;
-        impl<'de> serde::de::Visitor<'de> for Visit {
-            type Value = Members;
-            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str("a JSON object")
-            }
-            fn visit_map<A: serde::de::MapAccess<'de>>(
-                self,
-                mut map: A,
-            ) -> Result<Members, A::Error> {
-                let mut members = Vec::new();
-                while let Some(member) = map.next_entry::<String, Box<RawValue>>()? {
-                    members.push(member);
-                }
-                Ok(Members(members))
-            }
-        }
-        deserializer.deserialize_map(Visit)
-    }
-}
-
-/// Only what tells Stronk's sets from the player's; every other field stays raw.
-#[derive(Deserialize)]
-struct Titled {
-    title: Option<String>,
-}
-
-/// The client's document with Stronk's sets replaced by `ours`. Only the outline is parsed:
-/// every set that isn't Stronk's is copied byte for byte, and the other top-level members keep
-/// their order and their values' raw text (only the whitespace between members is rewritten).
-fn merged_item_sets(current: &str, ours: &Value) -> Result<String, CommandError> {
-    let invalid = |what: &str| {
-        CommandError::new(
-            ErrorCode::InvalidData,
-            format!("the client's item sets {what}"),
-        )
-    };
-    let Members(members) = serde_json::from_str(current)
-        .map_err(|e| invalid(&format!("are not a JSON object ({e})")))?;
-    if !members.iter().any(|(key, _)| key == "itemSets") {
-        return Err(invalid("have no `itemSets` list"));
-    }
-    let mut out = String::from("{");
-    for (i, (key, value)) in members.iter().enumerate() {
-        if i > 0 {
-            out.push(',');
-        }
-        out.push_str(&serde_json::to_string(key).map_err(|e| invalid(&e.to_string()))?);
-        out.push(':');
-        if key != "itemSets" {
-            out.push_str(value.get());
-            continue;
-        }
-        let sets: Vec<Box<RawValue>> = serde_json::from_str(value.get())
-            .map_err(|e| invalid(&format!("`itemSets` is not a list ({e})")))?;
-        let mut kept = Vec::with_capacity(sets.len() + 1);
-        for set in &sets {
-            let titled: Titled = serde_json::from_str(set.get())
-                .map_err(|e| invalid(&format!("hold a set that is not an object ({e})")))?;
-            if !titled.title.as_deref().is_some_and(is_ours) {
-                kept.push(set.get());
-            }
-        }
-        let ours = ours.to_string();
-        kept.push(&ours);
-        out.push('[');
-        out.push_str(&kept.join(","));
-        out.push(']');
-    }
-    out.push('}');
-    Ok(out)
-}
-
 fn spells(
     client: &dyn LeagueClient,
     plan: &Plan,
@@ -283,31 +205,4 @@ fn spells(
         name: format!("{d} {f}"),
         label: *label,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn merging_copies_the_players_sets_and_fields_byte_for_byte() {
-        let theirs = r#"{"title": "My Jinx", "blocks":[ ],"x-future": {"n": 2.50, "s": "\u00e9"}}"#;
-        let current = format!(
-            r#"{{"timestamp":5,"itemSets":[{theirs}, {{"title":"Stronk: Jinx BOTTOM"}}],"accountId": 1}}"#
-        );
-        let merged = merged_item_sets(&current, &json!({"title": "Stronk: Ahri MIDDLE"})).unwrap();
-        assert_eq!(
-            merged,
-            format!(
-                r#"{{"timestamp":5,"itemSets":[{theirs},{{"title":"Stronk: Ahri MIDDLE"}}],"accountId":1}}"#
-            )
-        );
-    }
-
-    #[test]
-    fn a_document_without_a_set_list_is_refused() {
-        for bad in ["", "[]", "{}", r#"{"itemSets": 3}"#, r#"{"itemSets": [1]}"#] {
-            assert!(merged_item_sets(bad, &json!({})).is_err(), "{bad}");
-        }
-    }
 }

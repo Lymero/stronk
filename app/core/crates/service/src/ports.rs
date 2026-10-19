@@ -95,4 +95,9 @@ pub trait LeagueClient: Send + Sync {
 pub trait Backups: Send + Sync {
     /// Saves `data` as the newest backup of `kind` (for example `item-sets`); returns where.
     fn save(&self, kind: &str, data: &[u8]) -> Result<String, PortError>;
+    /// The backups of `kind`, newest first, as locations [`Backups::load`] takes.
+    fn list(&self, kind: &str) -> Result<Vec<String>, PortError>;
+    /// A backup's bytes, exactly as saved; `location` is one [`Backups::save`] or
+    /// [`Backups::list`] returned, or a backup file the user points to.
+    fn load(&self, location: &str) -> Result<Vec<u8>, PortError>;
 }

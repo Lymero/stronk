@@ -61,3 +61,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: real-client check of imports and the watcher (Windows, custom game); lock-in timing in `just bench`; production key draft.
 - 2026-10-19: item set safety (ADR-043): the player's sets pass through as raw JSON (byte-for-byte tests with unknown fields), no write when reading fails, a local backup before every write (and no write if it fails). "Clearly better" tooltips show the head-to-head interval (new `comparison.ci`) and the games behind it.
   Open: the Windows real-client test of imports and the watcher.
+- 2026-10-19: `item_sets.restore` and `item_sets.backups` (CLI `restore-item-sets`): byte-for-byte restore, current sets backed up first, other accounts refused; production-key draft notes the local backups contain the account ID and never leave the machine.
+  Open: a restore button in the app's settings; the Windows real-client test.

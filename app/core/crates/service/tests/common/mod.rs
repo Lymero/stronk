@@ -245,6 +245,26 @@ impl Backups for FakeBackups {
         saved.push((kind.to_owned(), data.to_vec()));
         Ok(format!("backup-{}", saved.len()))
     }
+
+    fn list(&self, _: &str) -> Result<Vec<String>, PortError> {
+        let saved = self.saved.lock().unwrap();
+        Ok((1..=saved.len())
+            .rev()
+            .map(|n| format!("backup-{n}"))
+            .collect())
+    }
+
+    fn load(&self, location: &str) -> Result<Vec<u8>, PortError> {
+        let n: usize = location
+            .strip_prefix("backup-")
+            .and_then(|n| n.parse().ok())
+            .ok_or_else(|| PortError::NotFound(location.into()))?;
+        let saved = self.saved.lock().unwrap();
+        saved
+            .get(n - 1)
+            .map(|(_, data)| data.clone())
+            .ok_or_else(|| PortError::NotFound(location.into()))
+    }
 }
 
 /// A context over these fakes.

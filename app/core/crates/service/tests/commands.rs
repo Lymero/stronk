@@ -11,7 +11,7 @@ use common::{ClientState, FakeBackups, FakeClient, NoClient, THEIR_SET, context,
 use serde_json::{Value, json};
 use stronk_domain::Role;
 use stronk_domain::select::PageInfo;
-use stronk_service::ports::{ChampSelect, LeagueClient};
+use stronk_service::ports::{Backups, ChampSelect, LeagueClient};
 use stronk_service::{Context, ErrorCode, registry};
 
 fn ctx(client: impl LeagueClient + 'static) -> Context {
@@ -32,7 +32,9 @@ fn lists_every_command() {
             "build.import",
             "build.plan",
             "champselect.state",
-            "data.status"
+            "data.status",
+            "item_sets.backups",
+            "item_sets.restore"
         ]
     );
 }
@@ -299,4 +301,108 @@ fn nothing_is_written_when_the_item_sets_are_not_what_the_client_sends() {
 fn import_needs_a_champion_select() {
     let err = run(&ctx(FakeClient::new(None)), "build.import", json!({})).unwrap_err();
     assert_eq!(err.code, ErrorCode::InvalidParams);
+}
+
+fn run_on(
+    client: &Arc<FakeClient>,
+    backups: &Arc<FakeBackups>,
+    id: &str,
+    params: Value,
+) -> Result<Value, stronk_service::CommandError> {
+    registry().run(&context(client.clone(), backups.clone()), id, params)
+}
+
+#[test]
+fn restore_puts_a_backup_back_exactly_and_backs_up_what_it_replaces() {
+    let client = Arc::new(FakeClient::new(Some(viego((4, 14)))));
+    let backups = Arc::new(FakeBackups::default());
+    let original = client.state().item_sets.unwrap();
+    run_on(&client, &backups, "build.import", json!({})).unwrap();
+    let after_import = client.state().item_sets.unwrap();
+    assert_ne!(after_import, original);
+
+    let listed = run_on(&client, &backups, "item_sets.backups", json!({})).unwrap();
+    assert_eq!(listed, json!({"backups": ["backup-1"]}));
+    let out = run_on(
+        &client,
+        &backups,
+        "item_sets.restore",
+        json!({"backup": "backup-1"}),
+    )
+    .unwrap();
+    assert_eq!(
+        out,
+        json!({"restored": "backup-1", "sets": 1, "previous_backup": "backup-2"})
+    );
+    assert_eq!(client.state().item_sets.unwrap(), original); // byte for byte
+    let saved = backups.saved.lock().unwrap();
+    assert_eq!(saved[1].1, after_import.into_bytes()); // the restore itself can be undone
+}
+
+#[test]
+fn restore_refuses_another_accounts_backup_and_writes_nothing() {
+    let client = Arc::new(FakeClient::new(Some(viego((4, 14)))));
+    let backups = Arc::new(FakeBackups::default());
+    backups
+        .save("item-sets", br#"{"accountId":12345,"itemSets":[]}"#)
+        .unwrap();
+    let err = run_on(
+        &client,
+        &backups,
+        "item_sets.restore",
+        json!({"backup": "backup-1"}),
+    )
+    .unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    assert!(err.message.contains("another account"));
+    assert!(client.state().item_set_writes.is_empty());
+}
+
+#[test]
+fn restore_refuses_what_is_not_an_item_set_backup() {
+    let client = Arc::new(FakeClient::new(Some(viego((4, 14)))));
+    let backups = Arc::new(FakeBackups::default());
+    backups
+        .save("item-sets", br#"{"accountId":99,"itemSets":"?"}"#)
+        .unwrap();
+    let err = run_on(
+        &client,
+        &backups,
+        "item_sets.restore",
+        json!({"backup": "backup-1"}),
+    )
+    .unwrap_err();
+    assert_eq!(err.code, ErrorCode::InvalidData);
+    let missing = run_on(
+        &client,
+        &backups,
+        "item_sets.restore",
+        json!({"backup": "backup-9"}),
+    )
+    .unwrap_err();
+    assert_eq!(missing.code, ErrorCode::NotFound);
+    assert!(client.state().item_set_writes.is_empty());
+}
+
+#[test]
+fn restore_writes_nothing_when_the_client_cant_be_read() {
+    let state = ClientState {
+        item_sets: None,
+        ..ClientState::default()
+    };
+    let client = Arc::new(FakeClient::with(Some(viego((4, 14))), state));
+    let backups = Arc::new(FakeBackups::default());
+    backups
+        .save("item-sets", br#"{"accountId":99,"itemSets":[]}"#)
+        .unwrap();
+    let err = run_on(
+        &client,
+        &backups,
+        "item_sets.restore",
+        json!({"backup": "backup-1"}),
+    )
+    .unwrap_err();
+    assert_eq!(err.code, ErrorCode::Unavailable);
+    assert!(client.state().item_set_writes.is_empty());
+    assert_eq!(backups.saved.lock().unwrap().len(), 1);
 }

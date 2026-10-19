@@ -38,6 +38,17 @@ This gives `app\core\target\release\stronk-core.exe` (the CLI) and `stronk-app.e
 
 The lockfile is found at `C:\Riot Games\League of Legends\lockfile`; for another install folder, pass `--lockfile <path>` or set `STRONK_LCU_LOCKFILE`.
 
+## Restore your item sets
+
+Every import saves your item sets first (in `%APPDATA%\stronk\backups`). To put a backup back:
+
+```powershell
+app\core\target\release\stronk-core.exe restore-item-sets          # lists the backups, newest first
+app\core\target\release\stronk-core.exe restore-item-sets <file>   # restores one
+```
+
+A restore backs up the current sets first, and refuses a backup from another account.
+
 ## If the client's certificate is rejected
 
 The app trusts Riot's League client CA (`app/core/crates/lcu/certs/riotgames.pem`). If the real client's certificate doesn't validate against it, the error says why and names the certificate presented, for example:

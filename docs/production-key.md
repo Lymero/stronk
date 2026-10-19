@@ -47,6 +47,7 @@ The desktop app does not use the Riot API and ships no key. A crawler on our ser
 - What is published is aggregate statistics per champion, role and patch (signed JSON files); no player-level data.
 - The API key lives in the server's environment, never in code, commits, logs or the app.
 - Champion-select recordings used for tests keep an allowlist of fields; a test fails if a committed recording contains anything that looks like an identifier.
+- Before the app writes its item set, it saves a local backup of the player's item sets, exactly as the client returns them, so they can be restored. These backups contain the player's account ID (the client includes it), stay in the user's own data folder, are never sent anywhere, and only the 20 most recent are kept.
 
 ## Use of the League client (Game Client API)
 

@@ -80,7 +80,59 @@ impl Backups for FileBackups {
         }
         Ok(path.display().to_string())
     }
+
+    fn list(&self, kind: &str) -> Result<Vec<String>, PortError> {
+        Ok(self
+            .of_kind(kind)?
+            .iter()
+            .rev()
+            .map(|p| p.display().to_string())
+            .collect())
+    }
+
+    fn load(&self, location: &str) -> Result<Vec<u8>, PortError> {
+        let path = PathBuf::from(location);
+        let size = fs::metadata(&path)
+            .map_err(|e| PortError::NotFound(format!("{location}: {e}")))?
+            .len();
+        if size > MAX_BACKUP {
+            return Err(PortError::Invalid(format!(
+                "{location}: too large for a backup"
+            )));
+        }
+        fs::read(&path).map_err(|e| PortError::Unavailable(format!("{location}: {e}")))
+    }
 }
+
+impl FileBackups {
+    fn of_kind(&self, kind: &str) -> Result<Vec<PathBuf>, PortError> {
+        let entries = match fs::read_dir(&self.dir) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+            Err(e) => {
+                return Err(PortError::Unavailable(format!(
+                    "{}: {e}",
+                    self.dir.display()
+                )));
+            }
+        };
+        let prefix = format!("{kind}-");
+        let mut found: Vec<PathBuf> = entries
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| {
+                p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with(&prefix) && n.ends_with(".json"))
+            })
+            .collect();
+        found.sort();
+        Ok(found)
+    }
+}
+
+/// Backups are small; anything bigger isn't one.
+const MAX_BACKUP: u64 = 16 * 1024 * 1024;
 
 #[cfg(test)]
 mod tests {
@@ -109,6 +161,13 @@ mod tests {
         assert_eq!(contents, newest); // the newest KEEP, in the order they were written
         assert!(!PathBuf::from(&first).exists());
         assert!(backups.save("../x", b"").is_err());
+        let listed = backups.list("item-sets").unwrap();
+        assert_eq!(listed.len(), KEEP);
+        assert_eq!(
+            backups.load(&listed[0]).unwrap(),
+            (KEEP + 2).to_string().as_bytes()
+        ); // newest first
+        assert!(backups.load("/nonexistent/backup.json").is_err());
         fs::remove_dir_all(&dir).unwrap();
     }
 }

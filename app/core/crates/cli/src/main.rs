@@ -4,6 +4,7 @@
 //!     stronk-core run build.get --params '{"champion": "LeeSin", "role": "JUNGLE"}'
 //!     stronk-core record-champselect --out tools/lcu_mock/sessions/custom.json
 //!     stronk-core watch-champselect --events 4
+//!     stronk-core restore-item-sets <backup file>
 //!
 //! `run` prints the result as JSON on stdout, or the error as JSON on stderr with exit code 1.
 
@@ -54,6 +55,9 @@ enum Action {
         #[arg(long, default_value = "{}")]
         params: String,
     },
+    /// Put a backup of your item sets back into the client (`item_sets.restore`); without a
+    /// file, list the backups.
+    RestoreItemSets { backup: Option<String> },
     /// Follow champion select over the client's websocket: one JSON line per new state.
     WatchChampselect {
         /// Stop after this many states (default: run until interrupted).
@@ -78,6 +82,22 @@ fn main() -> ExitCode {
                 println!("{}\t{}", c.id, c.summary);
             }
             ExitCode::SUCCESS
+        }
+        Action::RestoreItemSets { ref backup } => {
+            let (id, params) = match backup {
+                Some(file) => ("item_sets.restore", json!({ "backup": file })),
+                None => ("item_sets.backups", json!({})),
+            };
+            match context(&cli).and_then(|ctx| registry().run(&ctx, id, params)) {
+                Ok(value) => {
+                    println!("{value:#}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{}", json!({"code": e.code, "message": e.message}));
+                    ExitCode::FAILURE
+                }
+            }
         }
         Action::WatchChampselect { events } => match watch(&cli, events) {
             Ok(()) => ExitCode::SUCCESS,

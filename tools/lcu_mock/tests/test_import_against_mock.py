@@ -140,3 +140,31 @@ def test_keeps_flash_on_the_players_key(
     result = import_build(mock)
     assert mock.replay.spells == expected
     assert result["spells"]["status"] == "imported"
+
+
+def core_cli(mock: Mock, backups: Path, *args: str) -> tuple[int, Any]:
+    env = {
+        **os.environ,
+        "STRONK_BACKUP_DIR": str(backups),
+        "STRONK_LCU_LOCKFILE": str(mock.lockfile),
+        "STRONK_LCU_CERT": str(mock.root),
+        "STRONK_DATA_DIR": str(ROOT / "fixtures/data"),
+        "STRONK_DATA_KEY": str(ROOT / "fixtures/data.pub"),
+    }
+    done = subprocess.run(  # noqa: S603 (our own binary)
+        [str(BINARY), *args], capture_output=True, text=True, env=env, timeout=30, check=False
+    )
+    return done.returncode, json.loads(done.stdout if done.returncode == 0 else done.stderr)
+
+
+def test_restore_puts_the_players_item_sets_back_byte_for_byte(mock: Mock, tmp_path: Path) -> None:
+    original = str(mock.replay.item_sets)
+    backups = tmp_path / "backups"
+    result = import_build(mock, backups=backups)
+    assert str(mock.replay.item_sets) != original
+    status, restored = core_cli(mock, backups, "restore-item-sets", result["item_set_backup"])
+    assert status == 0, restored
+    assert str(mock.replay.item_sets) == original
+    assert restored["sets"] == 1
+    status, listed = core_cli(mock, backups, "restore-item-sets")  # no file: the list
+    assert listed["backups"] == [restored["previous_backup"], result["item_set_backup"]]
