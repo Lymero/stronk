@@ -86,9 +86,10 @@ Send that line. The fallback is to pin that certificate: `--lcu-pin <sha256>` (o
 
 ## Run the desktop app against the real client
 
-`just app-real` reads real data from `runs\real\data` with its public key `runs\real\data.pub`. Build them once in WSL from the full corpus (22,954 games), signed with your own key (`~/.config/stronk/signing.key`, created if missing), then copy them to this clone:
+`just app-real` reads real data from `runs\real\data` with its public key `runs\real\data.pub`. Build them once in WSL from the full corpus (22,954 games), signed with your own key (`~/.config/stronk/signing.key`), then copy them to this clone. `just data-real` stops when the key is missing: creating it is a deliberate step, once (docs/security.md), and `just keygen` prints the public key the app needs.
 
 ```bash
+just keygen   # once, if you have no signing key yet
 just data-real
 mkdir -p /mnt/c/src/stronk/runs/real && cp -r runs/real/data runs/real/data.pub /mnt/c/src/stronk/runs/real/
 ```

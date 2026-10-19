@@ -113,14 +113,14 @@ publish estimates crawl key="~/.config/stronk/signing.key" out="dist/data":
     crawls=$(printf '%s' "{{ crawl }}" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().split(",")))')
     uv run stronk-pipeline run publish --params '{"estimates": "{{ estimates }}", "crawl": '"$crawls"', "key": "'"$(eval echo {{ key }})"'", "out": "{{ out }}"}'
 
-# Real data for the app from the full corpus (crawl-all-16.20), signed with your key (created if
-# missing): runs/real/data and its public key runs/real/data.pub, for `just app-real`
+# Real data for the app from the full corpus (crawl-all-16.20), signed with your key (stops if
+# missing: `just keygen` once): runs/real/data and its public key runs/real/data.pub, for `just app-real`
 [unix]
 data-real key="~/.config/stronk/signing.key" out="runs/real":
     #!/usr/bin/env bash
     set -euo pipefail
     key=$(eval echo {{ key }})
-    [ -f "$key" ] || just keygen "$key" > /dev/null
+    if [ ! -f "$key" ]; then echo "no signing key at $key: create it once with just keygen (it prints the public key the app needs)" >&2; exit 1; fi
     just corpus {{ full_corpus }}
     just extract corpus/{{ full_corpus }} {{ out }}/extract > /dev/null
     just winprob {{ out }}/extract/frames.parquet {{ out }}/winprob > /dev/null
