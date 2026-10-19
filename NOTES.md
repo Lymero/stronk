@@ -93,3 +93,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: nothing new from this change.
 - 2026-10-19: docs caught up with the review fixes: architecture's `serve-data` source is `http://127.0.0.1:8787`; gaps and ADR-050 say the view lists only the top options from `build.plan` (the 2026-10-19 ADR-050 entry's "all options on request" no longer holds); roadmap lists M3's open items.
   Open: tauri-specta bindings; the real-client check of names, restore, auto-import and picking; picking past the top 3; picks across restarts; icons.
+- 2026-10-19: pick any option, keep picks (ADR-051): `build.plan` returns every option of each slot, the short list marked `listed`; the view lists the rest behind "N more options" and keeps a pick from them listed; picks are saved per champion and role for the plan's patch and come back after a restart (only if still published); Playwright covers expanding, picking and a reload.
+  Open: check picking past the short list and picks after a restart on the real client; a picked option from an earlier patch is silently dropped (no notice).
