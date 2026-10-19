@@ -285,7 +285,7 @@ app-real data="runs/real/data" key="runs/real/data.pub":
     data="{{ data }}"; key="{{ key }}"
     case "$data" in http://*|https://*|/*) ;; *) data="$PWD/$data" ;; esac
     case "$key" in /*) ;; *) key="$PWD/$key" ;; esac
-    if [ ! -f "$key" ]; then echo "no $key: run \`just data-real\` first, or \`just app-real fixtures/data fixtures/data.pub\` for the test data" >&2; exit 1; fi
+    if [ ! -f "$key" ]; then echo "no $key: unzip the real data here, run \`just data-real\` first, or \`just app-real fixtures/data fixtures/data.pub\` for the test data" >&2; exit 1; fi
     STRONK_DATA_DIR="$data" STRONK_DATA_KEY="$key" \
     pnpm --filter @stronk/ui exec tauri dev --config ../core/src-tauri/tauri.conf.json
 
@@ -293,7 +293,7 @@ app-real data="runs/real/data" key="runs/real/data.pub":
 [windows]
 app-real data="runs/real/data" key="runs/real/data.pub":
     $data = '{{ data }}'; $key = '{{ key }}'; \
-    if (-not (Test-Path $key)) { Write-Error "no ${key}: copy runs/real from WSL after ``just data-real``, or run ``just app-real fixtures/data fixtures/data.pub`` for the test data"; exit 1 }; \
+    if (-not (Test-Path $key)) { Write-Host -ForegroundColor Red "no ${key}: unzip the real data into this clone, copy runs/real from WSL after ``just data-real``, or run ``just app-real fixtures/data fixtures/data.pub`` for the test data"; exit 1 }; \
     if ($data -notmatch '^https?://') { $data = (Resolve-Path $data).Path }; \
     $env:STRONK_DATA_DIR = $data; $env:STRONK_DATA_KEY = (Resolve-Path $key).Path; \
     $env:TAURI_APP_PATH = "$PWD/app/core/src-tauri"; pnpm --filter @stronk/ui exec tauri dev
