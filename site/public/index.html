@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stronk</title>
+<meta name="description" content="A free desktop app that imports runes, items and summoner spells in League of Legends champion select, ranked by win impact.">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+<a class="name" href="/">Stronk</a>
+<nav><a href="/method">Method</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+</header>
+<main>
+<h1>Your build, set up before the game starts.</h1>
+<p class="lead">Stronk is a free desktop app for League of Legends. In champion select it shows the runes, summoner spells and items played on your champion and role, how much each one changes the chance of winning, and how sure that number is. One click puts the build into your client.</p>
+
+<p class="status">Stronk is in development and not available for download yet. The source code is <a href="https://github.com/Lymero/stronk">on GitHub</a>.</p>
+
+<figure>
+<img src="/img/champion-select.png" width="760" height="1010" alt="Stronk during champion select for Lee Sin jungle: the most played rune page, spells and items for each slot, with share of games, number of games, win impact and a confidence marker for each option.">
+<figcaption>Lee Sin jungle on patch 16.20, from 4,190 Master+ games.</figcaption>
+</figure>
+
+<h2>What it does</h2>
+<ul>
+<li>Follows champion select as you hover and lock in, and shows the build for your champion and role from high-elo ranked games on the current patch.</li>
+<li>Lists every option for the rune page, the summoner spells and each item slot, with its share of games, the number of games behind it, and its <a href="/method">win impact</a>.</li>
+<li>Says "clearly better" only when the difference holds up against the most played option after correcting for chance across the whole patch. Otherwise it says "no clear difference" or "too few games", instead of picking a winner from noise.</li>
+<li>Proposes the most played build unless something is clearly better, and lets you pick any other option for any slot. Your picks are kept until the patch changes.</li>
+<li>Imports with one click, or on lock-in if you turn that on: a rune page and an item set named "Stronk: champion role", and your summoner spells, with Flash kept on the key you use.</li>
+</ul>
+
+<h2>What it doesn't do</h2>
+<ul>
+<li>It never edits or deletes your own rune pages or item sets. When all your rune pages are in use, it tells you instead of overwriting one. Your item sets are backed up before every import and can be restored from the settings.</li>
+<li>No in-game overlay and no information during the game.</li>
+<li>Nothing about other players: no names, ranks or match histories of teammates or opponents.</li>
+<li>No account, no ads, no telemetry.</li>
+</ul>
+</main>
+<footer>
+<nav><a href="/method">Method</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="https://github.com/Lymero/stronk">Source code</a><a href="mailto:christopher@christophercastel.com">Contact</a></nav>
+<p>Stronk isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
+</footer>
+</body>
+</html>

@@ -89,6 +89,7 @@ stronk/
 ├── metrics/
 │   └── floors.toml              # quality floors (only go up)
 ├── fixtures/                    # small committed samples (scrubbed Riot recordings)
+├── site/                        # product site: static pages in public/, Cloudflare Workers config (ADR-054)
 └── docs/
 ```
 
@@ -295,5 +296,6 @@ A floor can be raised, never lowered without an entry in `docs/decisions.md`. CI
 - **Signing key:** private key outside the repo (local keychain, later a CI secret); public key compiled into the app.
 - **App releases:** Tauri bundler, signed installers, built-in updater.
 - **Data updates:** independent of app releases; the app checks on start and when champion select begins.
+- **Product site:** `site/public/` at `stronk.christophercastel.com`, deployed by Cloudflare Workers on every push to `main` (ADR-054); `riot.txt` goes there for Riot's verification.
 
 See [security.md](security.md) for the threat model.

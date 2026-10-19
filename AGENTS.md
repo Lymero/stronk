@@ -40,6 +40,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just corpus-pack <crawl> <name>` | Archive a crawl for the corpus and print its `corpus.lock` entry |
 | `just floors-full` | Floors on the full corpus (weekly CI job) |
 | `just serve-data [root] [port]` | Serve `dist/data/` locally like the CDN: ETag and 304, CORS, on `127.0.0.1` only |
+| `just site [port]` | Preview the product site (`site/public/`) on `127.0.0.1:8788`, served as Cloudflare does |
 | `just app-mock` | UI in the browser against `MockBackend` |
 | `just lcu-mock [session]` | Fake League client replaying a session (`tools/lcu_mock/sessions/`) |
 | `just app` | Desktop app on the fixture data (pair with `just lcu-mock`; needs WebKitGTK on Linux) |

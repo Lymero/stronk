@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Method · Stronk</title>
+<meta name="description" content="How Stronk measures the win impact of runes, items and summoner spells.">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+<a class="name" href="/">Stronk</a>
+<nav><a href="/method" aria-current="page">Method</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+</header>
+<main>
+<h1>How win impact is measured</h1>
+<p class="lead">Raw win rates reward items for being bought by players who were already winning. Stronk compares choices made in the same game state instead.</p>
+
+<h2>The question</h2>
+<p>If the same player, in the same situation, had chosen option B instead of option A, how much would their chance of winning change? Nobody randomizes builds, so this has to be estimated from ranked games, and no method makes that perfectly unbiased. Stronk removes the biases the data lets it remove, and says how solid each number is.</p>
+
+<h2>How</h2>
+<ol>
+<li><strong>Win probability.</strong> A model predicts each team's chance of winning at every minute from the game state: gold, experience, kills, towers, dragons, barons and the time. It is checked for calibration: games given 60% are won about 60% of the time.</li>
+<li><strong>Decision points.</strong> Each choice is measured from the moment it is made: champion select for runes and spells, and the start of each item slot for items. A cheaper item that completes earlier gets credit for it, and games that end before an item is finished still count.</li>
+<li><strong>Win probability added.</strong> For each decision, the score is the final result minus the win probability at that moment. An option's win impact is its average score minus that of the alternatives chosen at the same point, for the same champion and role.</li>
+<li><strong>Comparable situations only.</strong> A second model estimates how likely each option is in each situation. Options that are almost never chosen where the others are get no number ("too few games") rather than a misleading one.</li>
+<li><strong>Uncertainty.</strong> Small samples are pulled toward the average of similar champions, intervals come from resampling whole games, and every option is compared with the most played one with a false discovery correction across the whole patch. Only differences that survive it are called clear.</li>
+</ol>
+
+<h2>How it is tested</h2>
+<p>Synthetic games with known, planted effects, including hidden player skill and items bought mostly when ahead, check that the method recovers the true effects and calls nothing clear that isn't. The win probability model's calibration and these checks run on every change, with limits that may only get stricter.</p>
+<p>The full method, its known limits and its tests are public: <a href="https://github.com/Lymero/stronk/blob/main/docs/wpa-method.md">docs/wpa-method.md</a>.</p>
+
+<h2>The data</h2>
+<p>Match data comes from Riot Games' official API: ranked solo games of high-elo players on the current patch. Only aggregate statistics per champion, role and patch are published, as signed files the app verifies before using.</p>
+</main>
+<footer>
+<nav><a href="/method">Method</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="https://github.com/Lymero/stronk">Source code</a><a href="mailto:christopher@christophercastel.com">Contact</a></nav>
+<p>Stronk isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
+</footer>
+</body>
+</html>

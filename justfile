@@ -108,6 +108,10 @@ keygen out="~/.config/stronk/signing.key":
 serve-data root="dist/data" port="8787":
     uv run python tools/serve_data/serve_data.py --root {{ root }} --port {{ port }}
 
+# The product site (site/public) on 127.0.0.1, as Cloudflare serves it
+site port="8788":
+    python3 site/serve.py --port {{ port }}
+
 # Signed build files into dist/data/ from estimates and their crawls (comma-separated)
 publish estimates crawl key="~/.config/stronk/signing.key" out="dist/data":
     #!/usr/bin/env bash

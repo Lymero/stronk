@@ -1,0 +1,11 @@
+// The product site (docs/decisions.md, ADR-054): static files in public/, served by Cloudflare Workers.
+{
+  "$schema": "https://unpkg.com/wrangler@4/config-schema.json",
+  "name": "stronk",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public",
+    "html_handling": "drop-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

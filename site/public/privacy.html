@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · Stronk</title>
+<meta name="description" content="What data Stronk uses, where it stays, and what it never collects.">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+<a class="name" href="/">Stronk</a>
+<nav><a href="/method">Method</a><a href="/privacy" aria-current="page">Privacy</a><a href="/terms">Terms</a></nav>
+</header>
+<main>
+<h1>Privacy</h1>
+<p class="lead">Stronk has no accounts, no ads and no telemetry. What the app learns about you stays on your computer.</p>
+<p>Last updated 19 October 2026.</p>
+
+<h2>The desktop app</h2>
+<ul>
+<li><strong>The League client.</strong> The app talks only to the League client running on your own computer. It reads the champion select session, your rune pages and item sets, and the client's names and icons for champions, runes, spells and items. It writes only its own rune page and item set and your summoner spell selection. Nothing it reads from the client is sent anywhere.</li>
+<li><strong>Item set backups.</strong> Before it writes its item set, the app saves your current item sets in its data folder on your computer, so you can restore them. The client includes your account ID in these files. The newest 20 are kept, and they never leave your computer.</li>
+<li><strong>Settings and picks.</strong> Your settings and the options you picked are stored on your computer.</li>
+<li><strong>Statistics.</strong> The app downloads the published statistics files. Like any download, this shows the server your IP address; Stronk doesn't log it or use it for anything. The files are the same for everyone and say nothing about you.</li>
+<li><strong>Logs.</strong> The app keeps a local log for troubleshooting. It stays on your computer unless you send it to us yourself.</li>
+</ul>
+
+<h2>The statistics</h2>
+<ul>
+<li>The statistics are computed from ranked games retrieved from Riot Games' official API.</li>
+<li>When a game is stored, player names and Riot IDs are dropped, and Riot's player identifiers are replaced with keyed hashes that can't be turned back into the original identifier.</li>
+<li>Only aggregate statistics per champion, role and patch are published. Nothing published describes or identifies an individual player.</li>
+</ul>
+
+<h2>This website</h2>
+<p>This site uses no cookies, analytics or trackers. It is served by Cloudflare, which processes requests to deliver the pages.</p>
+
+<h2>Contact</h2>
+<p>Questions or requests: <a href="mailto:christopher@christophercastel.com">christopher@christophercastel.com</a>.</p>
+</main>
+<footer>
+<nav><a href="/method">Method</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="https://github.com/Lymero/stronk">Source code</a><a href="mailto:christopher@christophercastel.com">Contact</a></nav>
+<p>Stronk isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
+</footer>
+</body>
+</html>

@@ -39,5 +39,5 @@ Status: **missing** · **partial** · **done**
 |---|---|---|
 | Lightweight install and memory use | none (Electron competitors) | missing |
 | Works offline with cached data | none | done (ADR-046: verified disk cache, used when the data source can't be reached) |
-| Web build viewer for preparation | Coachless | missing |
+| Web build viewer for preparation | Coachless | missing (a static product site exists, ADR-054, without builds) |
 | Auto-update (app and data) | Blitz | missing |

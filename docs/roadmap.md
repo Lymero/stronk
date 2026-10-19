@@ -56,7 +56,8 @@ Build a thin version end to end first, then improve each part. Structure is set 
 
 - [ ] All champions and roles, elo filters, several regions
 - [ ] `R2Publisher`; scheduled pipeline on a VPS
-- [ ] Web build viewer (`HttpBackend`), also hosting riot.txt
+- [x] Product site with method, privacy policy and terms (`site/`, Cloudflare Workers, ADR-054); riot.txt goes there
+- [ ] Web build viewer (`HttpBackend`)
 - [ ] Production key application (drafted: [production-key.md](production-key.md))
 - [ ] Privacy note, Riot legal notice, `ATTRIBUTION.md` complete
 - [ ] Signed installers and app auto-update
