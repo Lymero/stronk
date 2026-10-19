@@ -1,622 +1,774 @@
 {
- "source": "Hand-written subset of the League client's game data (names from Riot's Data Dragon), served by lcu-mock at /lol-game-data/assets/v1/; unlisted ids have no name, as for an id the client doesn't know.",
+ "source": "Hand-written subset of the League client's game data (names from Riot's Data Dragon), served by lcu-mock at /lol-game-data/assets/v1/; unlisted ids have no name, as for an id the client doesn't know. Icon paths follow the client's folders with simplified file names; lcu-mock serves a generated placeholder at each.",
  "/lol-game-data/assets/v1/perkstyles.json": {
   "schemaVersion": 2,
   "styles": [
    {
     "id": 8000,
-    "name": "Precision"
+    "name": "Precision",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/8000.png"
    },
    {
     "id": 8100,
-    "name": "Domination"
+    "name": "Domination",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/8100.png"
    },
    {
     "id": 8200,
-    "name": "Sorcery"
+    "name": "Sorcery",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/8200.png"
    },
    {
     "id": 8300,
-    "name": "Inspiration"
+    "name": "Inspiration",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/8300.png"
    },
    {
     "id": 8400,
-    "name": "Resolve"
+    "name": "Resolve",
+    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/8400.png"
    }
   ]
  },
  "/lol-game-data/assets/v1/perks.json": [
   {
    "id": 8005,
-   "name": "Press the Attack"
+   "name": "Press the Attack",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8005.png"
   },
   {
    "id": 8008,
-   "name": "Lethal Tempo"
+   "name": "Lethal Tempo",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8008.png"
   },
   {
    "id": 8010,
-   "name": "Conqueror"
+   "name": "Conqueror",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8010.png"
   },
   {
    "id": 8021,
-   "name": "Fleet Footwork"
+   "name": "Fleet Footwork",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8021.png"
   },
   {
    "id": 9111,
-   "name": "Triumph"
+   "name": "Triumph",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/9111.png"
   },
   {
    "id": 9104,
-   "name": "Legend: Alacrity"
+   "name": "Legend: Alacrity",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/9104.png"
   },
   {
    "id": 9105,
-   "name": "Legend: Haste"
+   "name": "Legend: Haste",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/9105.png"
   },
   {
    "id": 9103,
-   "name": "Legend: Bloodline"
+   "name": "Legend: Bloodline",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/9103.png"
   },
   {
    "id": 8014,
-   "name": "Coup de Grace"
+   "name": "Coup de Grace",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8014.png"
   },
   {
    "id": 8017,
-   "name": "Cut Down"
+   "name": "Cut Down",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8017.png"
   },
   {
    "id": 8299,
-   "name": "Last Stand"
+   "name": "Last Stand",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8299.png"
   },
   {
    "id": 8112,
-   "name": "Electrocute"
+   "name": "Electrocute",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8112.png"
   },
   {
    "id": 8128,
-   "name": "Dark Harvest"
+   "name": "Dark Harvest",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8128.png"
   },
   {
    "id": 8143,
-   "name": "Sudden Impact"
+   "name": "Sudden Impact",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8143.png"
   },
   {
    "id": 8139,
-   "name": "Taste of Blood"
+   "name": "Taste of Blood",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8139.png"
   },
   {
    "id": 8126,
-   "name": "Cheap Shot"
+   "name": "Cheap Shot",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8126.png"
   },
   {
    "id": 8135,
-   "name": "Treasure Hunter"
+   "name": "Treasure Hunter",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8135.png"
   },
   {
    "id": 8105,
-   "name": "Relentless Hunter"
+   "name": "Relentless Hunter",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8105.png"
   },
   {
    "id": 8214,
-   "name": "Summon Aery"
+   "name": "Summon Aery",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8214.png"
   },
   {
    "id": 8229,
-   "name": "Arcane Comet"
+   "name": "Arcane Comet",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8229.png"
   },
   {
    "id": 8230,
-   "name": "Phase Rush"
+   "name": "Phase Rush",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8230.png"
   },
   {
    "id": 8226,
-   "name": "Manaflow Band"
+   "name": "Manaflow Band",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8226.png"
   },
   {
    "id": 8210,
-   "name": "Transcendence"
+   "name": "Transcendence",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8210.png"
   },
   {
    "id": 8233,
-   "name": "Absolute Focus"
+   "name": "Absolute Focus",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8233.png"
   },
   {
    "id": 8237,
-   "name": "Scorch"
+   "name": "Scorch",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8237.png"
   },
   {
    "id": 8236,
-   "name": "Gathering Storm"
+   "name": "Gathering Storm",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8236.png"
   },
   {
    "id": 8275,
-   "name": "Nimbus Cloak"
+   "name": "Nimbus Cloak",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8275.png"
   },
   {
    "id": 8304,
-   "name": "Magical Footwear"
+   "name": "Magical Footwear",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8304.png"
   },
   {
    "id": 8347,
-   "name": "Cosmic Insight"
+   "name": "Cosmic Insight",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8347.png"
   },
   {
    "id": 8345,
-   "name": "Biscuit Delivery"
+   "name": "Biscuit Delivery",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8345.png"
   },
   {
    "id": 8313,
-   "name": "Triple Tonic"
+   "name": "Triple Tonic",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8313.png"
   },
   {
    "id": 8321,
-   "name": "Cash Back"
+   "name": "Cash Back",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8321.png"
   },
   {
    "id": 8316,
-   "name": "Jack Of All Trades"
+   "name": "Jack Of All Trades",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8316.png"
   },
   {
    "id": 8351,
-   "name": "Glacial Augment"
+   "name": "Glacial Augment",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8351.png"
   },
   {
    "id": 8360,
-   "name": "Unsealed Spellbook"
+   "name": "Unsealed Spellbook",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8360.png"
   },
   {
    "id": 8369,
-   "name": "First Strike"
+   "name": "First Strike",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8369.png"
   },
   {
    "id": 8437,
-   "name": "Grasp of the Undying"
+   "name": "Grasp of the Undying",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8437.png"
   },
   {
    "id": 8439,
-   "name": "Aftershock"
+   "name": "Aftershock",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8439.png"
   },
   {
    "id": 8465,
-   "name": "Guardian"
+   "name": "Guardian",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8465.png"
   },
   {
    "id": 8444,
-   "name": "Second Wind"
+   "name": "Second Wind",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8444.png"
   },
   {
    "id": 8473,
-   "name": "Bone Plating"
+   "name": "Bone Plating",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8473.png"
   },
   {
    "id": 8451,
-   "name": "Overgrowth"
+   "name": "Overgrowth",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8451.png"
   },
   {
    "id": 8453,
-   "name": "Revitalize"
+   "name": "Revitalize",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8453.png"
   },
   {
    "id": 8401,
-   "name": "Shield Bash"
+   "name": "Shield Bash",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8401.png"
   },
   {
    "id": 8429,
-   "name": "Conditioning"
+   "name": "Conditioning",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8429.png"
   },
   {
    "id": 8463,
-   "name": "Font of Life"
+   "name": "Font of Life",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8463.png"
   },
   {
    "id": 8242,
-   "name": "Unflinching"
+   "name": "Unflinching",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8242.png"
   },
   {
    "id": 8446,
-   "name": "Demolish"
+   "name": "Demolish",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8446.png"
   },
   {
    "id": 5001,
-   "name": "Health Scaling"
+   "name": "Health Scaling",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/5001.png"
   },
   {
    "id": 5005,
-   "name": "Attack Speed"
+   "name": "Attack Speed",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/5005.png"
   },
   {
    "id": 5007,
-   "name": "Ability Haste"
+   "name": "Ability Haste",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/5007.png"
   },
   {
    "id": 5008,
-   "name": "Adaptive Force"
+   "name": "Adaptive Force",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/5008.png"
   },
   {
    "id": 5010,
-   "name": "Move Speed"
+   "name": "Move Speed",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/5010.png"
   },
   {
    "id": 5011,
-   "name": "Health"
+   "name": "Health",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/5011.png"
   },
   {
    "id": 5013,
-   "name": "Tenacity and Slow Resist"
+   "name": "Tenacity and Slow Resist",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/5013.png"
   }
  ],
  "/lol-game-data/assets/v1/summoner-spells.json": [
   {
    "id": 1,
-   "name": "Cleanse"
+   "name": "Cleanse",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/1.png"
   },
   {
    "id": 3,
-   "name": "Exhaust"
+   "name": "Exhaust",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/3.png"
   },
   {
    "id": 4,
-   "name": "Flash"
+   "name": "Flash",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/4.png"
   },
   {
    "id": 6,
-   "name": "Ghost"
+   "name": "Ghost",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/6.png"
   },
   {
    "id": 7,
-   "name": "Heal"
+   "name": "Heal",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/7.png"
   },
   {
    "id": 11,
-   "name": "Smite"
+   "name": "Smite",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/11.png"
   },
   {
    "id": 12,
-   "name": "Teleport"
+   "name": "Teleport",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/12.png"
   },
   {
    "id": 14,
-   "name": "Ignite"
+   "name": "Ignite",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/14.png"
   },
   {
    "id": 21,
-   "name": "Barrier"
+   "name": "Barrier",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/21.png"
   },
   {
    "id": 32,
-   "name": "Mark"
+   "name": "Mark",
+   "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/32.png"
   }
  ],
  "/lol-game-data/assets/v1/items.json": [
   {
    "id": 3053,
-   "name": "Sterak's Gage"
+   "name": "Sterak's Gage",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3053.png"
   },
   {
    "id": 3071,
-   "name": "Black Cleaver"
+   "name": "Black Cleaver",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3071.png"
   },
   {
    "id": 3074,
-   "name": "Ravenous Hydra"
+   "name": "Ravenous Hydra",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3074.png"
   },
   {
    "id": 3142,
-   "name": "Youmuu's Ghostblade"
+   "name": "Youmuu's Ghostblade",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3142.png"
   },
   {
    "id": 3157,
-   "name": "Zhonya's Hourglass"
+   "name": "Zhonya's Hourglass",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3157.png"
   },
   {
    "id": 3020,
-   "name": "Sorcerer's Shoes"
+   "name": "Sorcerer's Shoes",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3020.png"
   },
   {
    "id": 3047,
-   "name": "Plated Steelcaps"
+   "name": "Plated Steelcaps",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3047.png"
   },
   {
    "id": 3111,
-   "name": "Mercury's Treads"
+   "name": "Mercury's Treads",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3111.png"
   },
   {
    "id": 3158,
-   "name": "Ionian Boots of Lucidity"
+   "name": "Ionian Boots of Lucidity",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3158.png"
   },
   {
    "id": 3006,
-   "name": "Berserker's Greaves"
+   "name": "Berserker's Greaves",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3006.png"
   },
   {
    "id": 4645,
-   "name": "Shadowflame"
+   "name": "Shadowflame",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/4645.png"
   },
   {
    "id": 6610,
-   "name": "Sundered Sky"
+   "name": "Sundered Sky",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6610.png"
   },
   {
    "id": 6653,
-   "name": "Liandry's Torment"
+   "name": "Liandry's Torment",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6653.png"
   },
   {
    "id": 6655,
-   "name": "Luden's Companion"
+   "name": "Luden's Companion",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6655.png"
   },
   {
    "id": 6676,
-   "name": "The Collector"
+   "name": "The Collector",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6676.png"
   },
   {
    "id": 6692,
-   "name": "Eclipse"
+   "name": "Eclipse",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6692.png"
   },
   {
    "id": 6694,
-   "name": "Serylda's Grudge"
+   "name": "Serylda's Grudge",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6694.png"
   },
   {
    "id": 6697,
-   "name": "Hubris"
+   "name": "Hubris",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6697.png"
   },
   {
    "id": 6698,
-   "name": "Profane Hydra"
+   "name": "Profane Hydra",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6698.png"
   },
   {
    "id": 6699,
-   "name": "Voltaic Cyclosword"
+   "name": "Voltaic Cyclosword",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6699.png"
   },
   {
    "id": 6701,
-   "name": "Opportunity"
+   "name": "Opportunity",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6701.png"
   },
   {
    "id": 3089,
-   "name": "Rabadon's Deathcap"
+   "name": "Rabadon's Deathcap",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3089.png"
   },
   {
    "id": 3135,
-   "name": "Void Staff"
+   "name": "Void Staff",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3135.png"
   },
   {
    "id": 3165,
-   "name": "Morellonomicon"
+   "name": "Morellonomicon",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3165.png"
   },
   {
    "id": 3036,
-   "name": "Lord Dominik's Regards"
+   "name": "Lord Dominik's Regards",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3036.png"
   },
   {
    "id": 3031,
-   "name": "Infinity Edge"
+   "name": "Infinity Edge",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3031.png"
   },
   {
    "id": 3094,
-   "name": "Rapid Firecannon"
+   "name": "Rapid Firecannon",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3094.png"
   },
   {
    "id": 3087,
-   "name": "Statikk Shiv"
+   "name": "Statikk Shiv",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3087.png"
   },
   {
    "id": 6672,
-   "name": "Kraken Slayer"
+   "name": "Kraken Slayer",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6672.png"
   },
   {
    "id": 3046,
-   "name": "Phantom Dancer"
+   "name": "Phantom Dancer",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3046.png"
   },
   {
    "id": 3072,
-   "name": "Bloodthirster"
+   "name": "Bloodthirster",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3072.png"
   },
   {
    "id": 3026,
-   "name": "Guardian Angel"
+   "name": "Guardian Angel",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3026.png"
   },
   {
    "id": 3156,
-   "name": "Maw of Malmortius"
+   "name": "Maw of Malmortius",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3156.png"
   },
   {
    "id": 6333,
-   "name": "Death's Dance"
+   "name": "Death's Dance",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6333.png"
   },
   {
    "id": 3065,
-   "name": "Spirit Visage"
+   "name": "Spirit Visage",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3065.png"
   },
   {
    "id": 3075,
-   "name": "Thornmail"
+   "name": "Thornmail",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3075.png"
   },
   {
    "id": 3143,
-   "name": "Randuin's Omen"
+   "name": "Randuin's Omen",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3143.png"
   },
   {
    "id": 3110,
-   "name": "Frozen Heart"
+   "name": "Frozen Heart",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3110.png"
   },
   {
    "id": 3190,
-   "name": "Locket of the Iron Solari"
+   "name": "Locket of the Iron Solari",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3190.png"
   },
   {
    "id": 3107,
-   "name": "Redemption"
+   "name": "Redemption",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3107.png"
   },
   {
    "id": 3222,
-   "name": "Mikael's Blessing"
+   "name": "Mikael's Blessing",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3222.png"
   },
   {
    "id": 3504,
-   "name": "Ardent Censer"
+   "name": "Ardent Censer",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3504.png"
   },
   {
    "id": 6617,
-   "name": "Moonstone Renewer"
+   "name": "Moonstone Renewer",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6617.png"
   },
   {
    "id": 3100,
-   "name": "Lich Bane"
+   "name": "Lich Bane",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3100.png"
   },
   {
    "id": 3115,
-   "name": "Nashor's Tooth"
+   "name": "Nashor's Tooth",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3115.png"
   },
   {
    "id": 3116,
-   "name": "Rylai's Crystal Scepter"
+   "name": "Rylai's Crystal Scepter",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3116.png"
   },
   {
    "id": 3152,
-   "name": "Hextech Rocketbelt"
+   "name": "Hextech Rocketbelt",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3152.png"
   },
   {
    "id": 3102,
-   "name": "Banshee's Veil"
+   "name": "Banshee's Veil",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3102.png"
   },
   {
    "id": 3137,
-   "name": "Cryptbloom"
+   "name": "Cryptbloom",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3137.png"
   },
   {
    "id": 6662,
-   "name": "Iceborn Gauntlet"
+   "name": "Iceborn Gauntlet",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6662.png"
   },
   {
    "id": 3068,
-   "name": "Sunfire Aegis"
+   "name": "Sunfire Aegis",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3068.png"
   },
   {
    "id": 3078,
-   "name": "Trinity Force"
+   "name": "Trinity Force",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3078.png"
   },
   {
    "id": 3748,
-   "name": "Titanic Hydra"
+   "name": "Titanic Hydra",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3748.png"
   },
   {
    "id": 3161,
-   "name": "Spear of Shojin"
+   "name": "Spear of Shojin",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3161.png"
   },
   {
    "id": 3181,
-   "name": "Hullbreaker"
+   "name": "Hullbreaker",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3181.png"
   },
   {
    "id": 6631,
-   "name": "Stridebreaker"
+   "name": "Stridebreaker",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6631.png"
   },
   {
    "id": 3153,
-   "name": "Blade of The Ruined King"
+   "name": "Blade of The Ruined King",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3153.png"
   },
   {
    "id": 3124,
-   "name": "Guinsoo's Rageblade"
+   "name": "Guinsoo's Rageblade",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3124.png"
   },
   {
    "id": 3091,
-   "name": "Wit's End"
+   "name": "Wit's End",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3091.png"
   },
   {
    "id": 3302,
-   "name": "Terminus"
+   "name": "Terminus",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3302.png"
   },
   {
    "id": 3814,
-   "name": "Edge of Night"
+   "name": "Edge of Night",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3814.png"
   },
   {
    "id": 3179,
-   "name": "Umbral Glaive"
+   "name": "Umbral Glaive",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3179.png"
   },
   {
    "id": 6696,
-   "name": "Axiom Arc"
+   "name": "Axiom Arc",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6696.png"
   },
   {
    "id": 6695,
-   "name": "Serpent's Fang"
+   "name": "Serpent's Fang",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6695.png"
   },
   {
    "id": 3033,
-   "name": "Mortal Reminder"
+   "name": "Mortal Reminder",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3033.png"
   },
   {
    "id": 3508,
-   "name": "Essence Reaver"
+   "name": "Essence Reaver",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3508.png"
   },
   {
    "id": 3085,
-   "name": "Runaan's Hurricane"
+   "name": "Runaan's Hurricane",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3085.png"
   },
   {
    "id": 3040,
-   "name": "Seraph's Embrace"
+   "name": "Seraph's Embrace",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3040.png"
   },
   {
    "id": 3003,
-   "name": "Archangel's Staff"
+   "name": "Archangel's Staff",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3003.png"
   },
   {
    "id": 3004,
-   "name": "Manamune"
+   "name": "Manamune",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3004.png"
   },
   {
    "id": 3042,
-   "name": "Muramana"
+   "name": "Muramana",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3042.png"
   },
   {
    "id": 3119,
-   "name": "Winter's Approach"
+   "name": "Winter's Approach",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3119.png"
   },
   {
    "id": 3118,
-   "name": "Malignance"
+   "name": "Malignance",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3118.png"
   },
   {
    "id": 2065,
-   "name": "Shurelya's Battlesong"
+   "name": "Shurelya's Battlesong",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/2065.png"
   },
   {
    "id": 3050,
-   "name": "Zeke's Convergence"
+   "name": "Zeke's Convergence",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3050.png"
   },
   {
    "id": 3109,
-   "name": "Knight's Vow"
+   "name": "Knight's Vow",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3109.png"
   },
   {
    "id": 4005,
-   "name": "Imperial Mandate"
+   "name": "Imperial Mandate",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/4005.png"
   },
   {
    "id": 6616,
-   "name": "Staff of Flowing Water"
+   "name": "Staff of Flowing Water",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/6616.png"
   },
   {
    "id": 4629,
-   "name": "Cosmic Drive"
+   "name": "Cosmic Drive",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/4629.png"
   },
   {
    "id": 4646,
-   "name": "Stormsurge"
+   "name": "Stormsurge",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/4646.png"
   },
   {
    "id": 3013,
-   "name": "Sheen"
+   "name": "Sheen",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3013.png"
   },
   {
    "id": 3009,
-   "name": "Boots of Swiftness"
+   "name": "Boots of Swiftness",
+   "iconPath": "/lol-game-data/assets/ASSETS/Items/Icons2D/3009.png"
   }
  ]
 }

@@ -10,8 +10,8 @@ use stronk_domain::select::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
 use stronk_service::Context;
 use stronk_service::ports::{
-    Backup, Backups, BuildSource, ChampSelect, DataStatus, GameNames, LeagueClient, NewRunePage,
-    PortError,
+    Backup, Backups, BuildSource, ChampSelect, DataStatus, GameNames, Icon, IconKind, LeagueClient,
+    NewRunePage, PortError,
 };
 
 pub fn example_build() -> Build {
@@ -144,6 +144,18 @@ impl LeagueClient for FakeClient {
         })
     }
 
+    /// Icons for Viego and Eclipse; item 1's "icon" is not an image.
+    fn icon(&self, kind: IconKind, id: i64) -> Result<Option<Icon>, PortError> {
+        match (kind, id) {
+            (IconKind::Champion, 234) | (IconKind::Item, 6692) => Ok(Some(Icon {
+                mime: "image/png",
+                bytes: b"png".to_vec(),
+            })),
+            (IconKind::Item, 1) => Err(PortError::Invalid("items/1.png: not an image".into())),
+            _ => Ok(None),
+        }
+    }
+
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {
         Ok(self
             .state
@@ -218,6 +230,9 @@ impl LeagueClient for NoClient {
         down()
     }
     fn game_names(&self) -> Result<GameNames, PortError> {
+        down()
+    }
+    fn icon(&self, _: IconKind, _: i64) -> Result<Option<Icon>, PortError> {
         down()
     }
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {

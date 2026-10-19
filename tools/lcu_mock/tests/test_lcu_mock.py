@@ -63,7 +63,34 @@ def test_replays_the_session_step_by_step(mock: Mock) -> None:
 
 def test_serves_the_champion_summary(mock: Mock) -> None:
     _, champions = call(mock, "/lol-game-data/assets/v1/champion-summary.json")
-    assert {"id": 64, "alias": "LeeSin", "name": "Lee Sin"} in champions
+    lee_sin = next(c for c in champions if c["id"] == 64)
+    assert (lee_sin["alias"], lee_sin["name"]) == ("LeeSin", "Lee Sin")
+    assert lee_sin["squarePortraitPath"] == "/lol-game-data/assets/v1/champion-icons/64.png"
+
+
+def get_bytes(mock: Mock, path: str) -> tuple[int, str, bytes]:
+    _, _, port, secret, _ = mock.lockfile.read_text().split(":")
+    context = ssl.create_default_context(cafile=str(mock.root))
+    request = urllib.request.Request(f"https://127.0.0.1:{port}{path}")
+    token = base64.b64encode(f"riot:{secret}".encode()).decode()
+    request.add_header("Authorization", f"Basic {token}")
+    try:
+        with urllib.request.urlopen(request, context=context, timeout=5) as response:  # noqa: S310
+            return response.status, response.headers["Content-Type"], response.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers["Content-Type"], e.read()
+
+
+def test_serves_a_placeholder_at_every_icon_path(mock: Mock) -> None:
+    _, items = call(mock, "/lol-game-data/assets/v1/items.json")
+    eclipse = next(i for i in items if i["id"] == 6692)["iconPath"]
+    status, kind, png = get_bytes(mock, eclipse)
+    assert (status, kind) == (200, "image/png")
+    assert png.startswith(b"\x89PNG\r\n\x1a\n")
+    champion = get_bytes(mock, "/lol-game-data/assets/v1/champion-icons/64.png")
+    assert champion[0] == 200
+    assert champion[2] != png  # a colour per path
+    assert get_bytes(mock, "/lol-game-data/assets/v1/champion-icons/99999.png")[0] == 404
 
 
 def test_records_what_the_app_writes(mock: Mock) -> None:

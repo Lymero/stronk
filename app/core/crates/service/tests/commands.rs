@@ -33,6 +33,7 @@ fn lists_every_command() {
             "build.plan",
             "champselect.state",
             "data.status",
+            "icons.get",
             "item_sets.backups",
             "item_sets.restore",
             "names.get"
@@ -103,8 +104,12 @@ fn champselect_state_outside_champion_select() {
 
 #[test]
 fn a_missing_client_is_an_error_not_a_crash() {
-    for id in ["champselect.state", "names.get"] {
-        let err = run(&ctx(NoClient), id, json!({})).unwrap_err();
+    for (id, params) in [
+        ("champselect.state", json!({})),
+        ("names.get", json!({})),
+        ("icons.get", json!({"items": [6692]})),
+    ] {
+        let err = run(&ctx(NoClient), id, params).unwrap_err();
         assert_eq!(err.code, ErrorCode::Unavailable);
     }
 }
@@ -117,6 +122,45 @@ fn names_get_maps_ids_to_the_clients_names() {
     assert_eq!(out["runes"]["8010"], "Conqueror");
     assert_eq!(out["spells"]["11"], "Smite");
     assert_eq!(out["items"]["6692"], "Eclipse");
+}
+
+#[test]
+fn icons_get_returns_data_urls_and_leaves_out_what_has_none() {
+    let out = run(
+        &ctx(FakeClient::new(None)),
+        "icons.get",
+        json!({"champions": [234, 234], "items": [6692, 1, 3071], "runes": [8010]}),
+    )
+    .unwrap();
+    assert_eq!(
+        out,
+        json!({
+            "champions": {"234": "data:image/png;base64,cG5n"},
+            "rune_styles": {},
+            "runes": {},
+            "spells": {},
+            "items": {"6692": "data:image/png;base64,cG5n"},
+        })
+    );
+}
+
+#[test]
+fn icons_get_takes_a_bounded_list_of_known_kinds() {
+    let none = run(&ctx(FakeClient::new(None)), "icons.get", json!({})).unwrap();
+    assert_eq!(none["items"], json!({}));
+    let unknown = run(
+        &ctx(FakeClient::new(None)),
+        "icons.get",
+        json!({"skins": [1]}),
+    );
+    assert_eq!(unknown.unwrap_err().code, ErrorCode::InvalidParams);
+    let ids: Vec<i64> = (0..201).collect();
+    let many = run(
+        &ctx(FakeClient::new(None)),
+        "icons.get",
+        json!({"items": ids}),
+    );
+    assert_eq!(many.unwrap_err().code, ErrorCode::InvalidParams);
 }
 
 #[test]

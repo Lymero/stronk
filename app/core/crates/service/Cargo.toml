@@ -13,6 +13,7 @@ stronk-domain = { path = "../domain" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 thiserror = "2"
+base64 = "0.22"
 
 [dev-dependencies]
 proptest = "1"

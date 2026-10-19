@@ -86,6 +86,23 @@ pub struct GameNames {
     pub items: BTreeMap<i64, String>,
 }
 
+/// What an icon is of (`icons.get`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum IconKind {
+    Champion,
+    RuneStyle,
+    Rune,
+    Spell,
+    Item,
+}
+
+/// An image from the client's game data, checked to be one: PNG, JPEG or WebP, and small.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Icon {
+    pub mime: &'static str,
+    pub bytes: Vec<u8>,
+}
+
 /// The running League client (`stronk-lcu`, or `tools/lcu-mock` in tests).
 pub trait LeagueClient: Send + Sync {
     /// `None` outside champion select.
@@ -94,6 +111,8 @@ pub trait LeagueClient: Send + Sync {
     fn champion_key(&self, champion_id: i64) -> Result<String, PortError>;
     /// Names for champions, runes, spells and items, from the client's game data.
     fn game_names(&self) -> Result<GameNames, PortError>;
+    /// The icon the client's game data gives for `id`; `None` when it gives none.
+    fn icon(&self, kind: IconKind, id: i64) -> Result<Option<Icon>, PortError>;
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError>;
     /// How many editable rune pages the account may have.
     fn rune_page_capacity(&self) -> Result<usize, PortError>;

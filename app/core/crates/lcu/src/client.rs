@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error as _;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -10,11 +10,14 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use stronk_domain::select::PageInfo;
-use stronk_service::ports::{ChampSelect, GameNames, LeagueClient, NewRunePage, PortError};
+use stronk_service::ports::{
+    ChampSelect, GameNames, Icon, IconKind, LeagueClient, NewRunePage, PortError,
+};
 
 use crate::lockfile::Lockfile;
 use crate::models::{
     ChampionSummary, CurrentSummoner, Named, PerkInventory, PerkPage, PerkStyles, Session, by_id,
+    icons_by_id, image_type,
 };
 use crate::tls::{Trust, client_config};
 
@@ -27,6 +30,17 @@ pub const ITEMS: &str = "/lol-game-data/assets/v1/items.json";
 const PAGES: &str = "/lol-perks/v1/pages";
 
 const TIMEOUT: Duration = Duration::from_secs(3);
+/// The largest icon read: the client's are a few kilobytes to a few tens.
+const MAX_ICON_BYTES: usize = 512 * 1024;
+
+/// What the client's game data says, read once per client: it changes only when the client
+/// updates.
+#[derive(Clone)]
+struct GameData {
+    names: GameNames,
+    /// Icon paths by kind, then id, each checked to stay under `/lol-game-data/assets/`.
+    icons: BTreeMap<IconKind, BTreeMap<i64, String>>,
+}
 
 /// HTTPS to the local client, accepting its certificate per [`Trust`] only. The address is
 /// always the `127.0.0.1` literal: the verifier skips the name check for that reason alone, so
@@ -36,8 +50,7 @@ pub struct LcuClient {
     base: String,
     auth: String,
     champions: Mutex<Option<HashMap<i64, String>>>,
-    /// Game data names, read once per client: they change only when the client updates.
-    names: Mutex<Option<GameNames>>,
+    game_data: Mutex<Option<GameData>>,
 }
 
 impl LcuClient {
@@ -59,7 +72,7 @@ impl LcuClient {
             base: format!("https://127.0.0.1:{}", lock.port),
             auth: format!("Basic {token}"),
             champions: Mutex::new(None),
-            names: Mutex::new(None),
+            game_data: Mutex::new(None),
         })
     }
 
@@ -136,6 +149,91 @@ impl LcuClient {
             .ok_or_else(|| PortError::NotFound(format!("League client: {path}")))
     }
 
+    /// Names and icon paths from the game data documents, read on first use.
+    fn game_data_cached(&self) -> Result<GameData, PortError> {
+        let mut cache = self
+            .game_data
+            .lock()
+            .map_err(|_| PortError::Unavailable("game data cache poisoned".into()))?;
+        if let Some(data) = cache.as_ref() {
+            return Ok(data.clone());
+        }
+        let champions: Vec<ChampionSummary> = self.game_data(CHAMPION_SUMMARY)?;
+        let styles = self.game_data::<PerkStyles>(PERK_STYLES)?.styles;
+        let runes = self.game_data::<Vec<Named>>(PERKS)?;
+        let spells = self.game_data::<Vec<Named>>(SPELLS)?;
+        let items = self.game_data::<Vec<Named>>(ITEMS)?;
+        let paths =
+            |entries: &[Named]| icons_by_id(entries.iter().map(|e| (e.id, e.icon_path.as_str())));
+        let data = GameData {
+            names: GameNames {
+                champions: champions
+                    .iter()
+                    .filter(|c| !c.name.is_empty())
+                    .map(|c| (c.id, c.name.clone()))
+                    .collect(),
+                rune_styles: by_id(&styles),
+                runes: by_id(&runes),
+                spells: by_id(&spells),
+                items: by_id(&items),
+            },
+            icons: BTreeMap::from([
+                (
+                    IconKind::Champion,
+                    icons_by_id(
+                        champions
+                            .iter()
+                            .map(|c| (c.id, c.square_portrait_path.as_str())),
+                    ),
+                ),
+                (IconKind::RuneStyle, paths(&styles)),
+                (IconKind::Rune, paths(&runes)),
+                (IconKind::Spell, paths(&spells)),
+                (IconKind::Item, paths(&items)),
+            ]),
+        };
+        *cache = Some(data.clone());
+        Ok(data)
+    }
+
+    /// An image the client serves at `path`, `None` on 404; anything else than a small PNG,
+    /// JPEG or WebP is refused.
+    fn image(&self, path: &str) -> Result<Option<Icon>, PortError> {
+        let unavailable =
+            |e: reqwest::Error| PortError::Unavailable(format!("League client: {}", chain(&e)));
+        let response = self
+            .http
+            .get(format!("{}{path}", self.base))
+            .header(AUTHORIZATION, &self.auth)
+            .header(ACCEPT, "image/*")
+            .send()
+            .map_err(unavailable)?;
+        match response.status() {
+            StatusCode::NOT_FOUND => return Ok(None),
+            status if status.is_success() => {}
+            status => {
+                return Err(PortError::Unavailable(format!(
+                    "League client: HTTP {status} on GET {path}"
+                )));
+            }
+        }
+        let too_large =
+            || PortError::Invalid(format!("{path}: larger than {MAX_ICON_BYTES} bytes"));
+        if response
+            .content_length()
+            .is_some_and(|n| n > MAX_ICON_BYTES as u64)
+        {
+            return Err(too_large());
+        }
+        let bytes = response.bytes().map_err(unavailable)?.to_vec();
+        if bytes.len() > MAX_ICON_BYTES {
+            return Err(too_large());
+        }
+        let mime = image_type(&bytes)
+            .ok_or_else(|| PortError::Invalid(format!("{path}: not a PNG, JPEG or WebP image")))?;
+        Ok(Some(Icon { mime, bytes }))
+    }
+
     fn summoner_id(&self) -> Result<i64, PortError> {
         self.get::<CurrentSummoner>("/lol-summoner/v1/current-summoner")?
             .map(|s| s.summoner_id)
@@ -177,26 +275,15 @@ impl LeagueClient for LcuClient {
     }
 
     fn game_names(&self) -> Result<GameNames, PortError> {
-        let mut cache = self
-            .names
-            .lock()
-            .map_err(|_| PortError::Unavailable("name cache poisoned".into()))?;
-        if let Some(names) = cache.as_ref() {
-            return Ok(names.clone());
+        Ok(self.game_data_cached()?.names)
+    }
+
+    fn icon(&self, kind: IconKind, id: i64) -> Result<Option<Icon>, PortError> {
+        let data = self.game_data_cached()?;
+        match data.icons.get(&kind).and_then(|paths| paths.get(&id)) {
+            Some(path) => self.image(path),
+            None => Ok(None),
         }
-        let champions: Vec<ChampionSummary> = self.game_data(CHAMPION_SUMMARY)?;
-        let names = GameNames {
-            champions: by_id(champions.into_iter().map(|c| Named {
-                id: c.id,
-                name: c.name,
-            })),
-            rune_styles: by_id(self.game_data::<PerkStyles>(PERK_STYLES)?.styles),
-            runes: by_id(self.game_data::<Vec<Named>>(PERKS)?),
-            spells: by_id(self.game_data::<Vec<Named>>(SPELLS)?),
-            items: by_id(self.game_data::<Vec<Named>>(ITEMS)?),
-        };
-        *cache = Some(names.clone());
-        Ok(names)
     }
 
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {

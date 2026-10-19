@@ -107,21 +107,27 @@ pub struct CurrentSummoner {
 /// One entry of `GET /lol-game-data/assets/v1/champion-summary.json`; `alias` is the key
 /// published data uses (`LeeSin`).
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChampionSummary {
     pub id: i64,
     pub alias: String,
     /// The display name, in the client's language.
     #[serde(default)]
     pub name: String,
+    /// The champion's square icon, under `/lol-game-data/assets/`.
+    #[serde(default)]
+    pub square_portrait_path: String,
 }
 
 /// An entry of the client's game data lists (`perks.json`, `summoner-spells.json`,
-/// `items.json`): only the id and display name.
+/// `items.json`): only the id, display name and icon.
 #[derive(Debug, Deserialize, Default)]
-#[serde(default)]
+#[serde(rename_all = "camelCase", default)]
 pub struct Named {
     pub id: i64,
     pub name: String,
+    /// Where the client serves its icon, under `/lol-game-data/assets/`.
+    pub icon_path: String,
 }
 
 /// `GET /lol-game-data/assets/v1/perkstyles.json`.
@@ -132,12 +138,46 @@ pub struct PerkStyles {
 }
 
 /// Id to name, leaving out entries without a name.
-pub fn by_id(entries: impl IntoIterator<Item = Named>) -> BTreeMap<i64, String> {
+pub fn by_id<'a>(entries: impl IntoIterator<Item = &'a Named>) -> BTreeMap<i64, String> {
     entries
         .into_iter()
         .filter(|e| !e.name.is_empty())
-        .map(|e| (e.id, e.name))
+        .map(|e| (e.id, e.name.clone()))
         .collect()
+}
+
+/// Where the client serves its game data images; an icon path must stay under it.
+pub const ASSETS: &str = "/lol-game-data/assets/";
+
+/// Id to icon path, leaving out entries without one and paths that could leave the client's
+/// game data: anything outside [`ASSETS`], with `..`, a query or a fragment, or not plain ASCII.
+pub fn icons_by_id<'a>(entries: impl IntoIterator<Item = (i64, &'a str)>) -> BTreeMap<i64, String> {
+    entries
+        .into_iter()
+        .filter(|(_, path)| safe_asset_path(path))
+        .map(|(id, path)| (id, path.to_owned()))
+        .collect()
+}
+
+fn safe_asset_path(path: &str) -> bool {
+    path.starts_with(ASSETS)
+        && !path.split('/').any(|part| part == "..")
+        && path
+            .bytes()
+            .all(|b| b.is_ascii_graphic() && !matches!(b, b'?' | b'#' | b'%' | b'\\'))
+}
+
+/// The image type of `bytes` from its first bytes, whatever the response claimed.
+pub fn image_type(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("image/png")
+    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("image/jpeg")
+    } else if bytes.len() > 12 && bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP") {
+        Some("image/webp")
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -175,12 +215,44 @@ mod tests {
                 {"id": 1, "description": "no name"}]"#,
         )
         .unwrap();
-        assert_eq!(by_id(items), BTreeMap::from([(6692, "Eclipse".to_owned())]));
+        assert_eq!(
+            by_id(&items),
+            BTreeMap::from([(6692, "Eclipse".to_owned())])
+        );
         let styles: PerkStyles = serde_json::from_str(
             r#"{"schemaVersion": 2, "styles": [{"id": 8000, "name": "Precision"}]}"#,
         )
         .unwrap();
-        assert_eq!(by_id(styles.styles)[&8000], "Precision");
+        assert_eq!(by_id(&styles.styles)[&8000], "Precision");
+    }
+
+    #[test]
+    fn icon_paths_stay_in_the_clients_game_data() {
+        let paths = [
+            (
+                1,
+                "/lol-game-data/assets/ASSETS/Items/Icons2D/6692_Marksman_T3_Eclipse.png",
+            ),
+            (2, "/lol-game-data/assets/v1/champion-icons/64.png"),
+            (3, ""),
+            (4, "/lol-perks/v1/pages"),
+            (5, "/lol-game-data/assets/../../lol-perks/v1/pages"),
+            (6, "/lol-game-data/assets/x.png?y=1"),
+            (7, "/lol-game-data/assets/%2e%2e/x.png"),
+            (8, "https://example.com/lol-game-data/assets/x.png"),
+            (9, "/lol-game-data/assets/a b.png"),
+        ];
+        let kept: Vec<_> = icons_by_id(paths).into_keys().collect();
+        assert_eq!(kept, [1, 2]);
+    }
+
+    #[test]
+    fn images_are_recognised_by_their_bytes() {
+        assert_eq!(image_type(b"\x89PNG\r\n\x1a\n...."), Some("image/png"));
+        assert_eq!(image_type(&[0xFF, 0xD8, 0xFF, 0xE0]), Some("image/jpeg"));
+        assert_eq!(image_type(b"RIFF\0\0\0\0WEBPVP8 "), Some("image/webp"));
+        assert_eq!(image_type(b"<svg onload=alert(1)>"), None);
+        assert_eq!(image_type(b"{\"message\": \"x\"}"), None);
     }
 
     #[test]

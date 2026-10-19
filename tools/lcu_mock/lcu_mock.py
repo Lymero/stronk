@@ -12,8 +12,10 @@ app makes (PUT, POST, PATCH, DELETE outside `/mock/`) is recorded and listed by
 The account side the imports touch is kept in memory, with made-up defaults, never in session
 files: rune pages (two of the player's, room for one more), the page inventory, the current
 summoner, item sets (one of the player's), and the spell selection, which is laid over the
-local player in the session. The client's game data (rune, spell and item names) comes from
-`game_data.json` next to this file, the same for every session.
+local player in the session. The client's game data (rune, spell and item names and icon
+paths) comes from `game_data.json` next to this file, the same for every session; champions
+get the client's `squarePortraitPath`. Every icon path in the game data serves a generated
+placeholder PNG, a square in a colour taken from the path, so no Riot artwork is needed.
 
 The client's websocket is there too: a `[5, "<topic>"]` message subscribes, and every step the
 replay moves to sends the subscribers of the champion-select session topic
@@ -31,9 +33,11 @@ import json
 import os
 import secrets
 import ssl
+import struct
 import sys
 import threading
 import time
+import zlib
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -61,6 +65,55 @@ def game_data() -> dict[str, object]:
     """The game data documents by path (`/lol-game-data/assets/v1/...`)."""
     data: dict[str, object] = json.loads(GAME_DATA.read_text(encoding="utf-8"))
     return {path: doc for path, doc in data.items() if path.startswith("/")}
+
+
+def with_portraits(champions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The champion summary with the icon path the client gives each champion."""
+    path = "/lol-game-data/assets/v1/champion-icons/{}.png"
+    return [{"squarePortraitPath": path.format(c.get("id")), **c} for c in champions]
+
+
+def icon_paths(documents: dict[str, object]) -> set[str]:
+    """Every `iconPath` and `squarePortraitPath` in the game data documents."""
+    paths: set[str] = set()
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in cast(dict[str, object], node).items():
+                if key in ("iconPath", "squarePortraitPath") and isinstance(value, str):
+                    paths.add(value)
+                else:
+                    walk(value)
+        elif isinstance(node, list):
+            for value in cast(list[object], node):
+                walk(value)
+
+    walk(documents)
+    return paths
+
+
+def placeholder_png(path: str, size: int = 32) -> bytes:
+    """A square PNG in a colour derived from `path`, with a lighter border."""
+    r, g, b = hashlib.sha256(path.encode()).digest()[:3]
+    fill = bytes((r // 2 + 64, g // 2 + 64, b // 2 + 64))
+    edge = bytes((min(255, fill[0] + 60), min(255, fill[1] + 60), min(255, fill[2] + 60)))
+    rows = b"".join(
+        b"\0"
+        + b"".join(edge if min(x, y, size - 1 - x, size - 1 - y) < 2 else fill for x in range(size))
+        for y in range(size)
+    )
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
+
+    header = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)  # 8-bit RGB
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(rows))
+        + chunk(b"IEND", b"")
+    )
 
 
 class Subscriber:
@@ -156,7 +209,12 @@ class Replay:
         if not steps:
             raise ValueError(f"{path}: `steps` must be a non-empty list")
         champions: list[dict[str, Any]] = data.get("champions", [])
-        return cls(steps=steps, champions=champions)
+        return cls(steps=steps, champions=with_portraits(champions))
+
+    def icons(self) -> set[str]:
+        """The icon paths the client would serve: the game data's and the champions'."""
+        with self.lock:
+            return icon_paths({**self.game_data, CHAMPIONS: self.champions})
 
     def current(self) -> dict[str, Any]:
         with self.lock:
@@ -204,6 +262,13 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
         def log_message(self, format: str, *args: object) -> None:
             pass  # quiet: tests read /mock/recorded instead
 
+        def _send_image(self, data: bytes) -> None:
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
         def _send(self, status: HTTPStatus, body: object | None = None) -> None:
             if body is None:
                 data = b""
@@ -239,6 +304,9 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
                 self._websocket()
                 return
             time.sleep(latency)
+            if self.path in replay.icons():
+                self._send_image(placeholder_png(self.path))
+                return
             self._send(*self._read())
 
         def _read(self) -> tuple[HTTPStatus, object]:

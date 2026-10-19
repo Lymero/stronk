@@ -30,6 +30,7 @@ pub fn registry() -> Registry {
         commands::build_plan::command(),
         commands::champselect_state::command(),
         commands::data_status::command(),
+        commands::icons_get::command(),
         commands::item_sets_backups::command(),
         commands::item_sets_restore::command(),
         commands::names_get::command(),
