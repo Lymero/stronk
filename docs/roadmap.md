@@ -58,7 +58,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [ ] `R2Publisher`; scheduled pipeline on a VPS
 - [x] Product site with method, privacy policy and terms (`site/`, Cloudflare Workers, ADR-054); riot.txt goes there
 - [ ] Web build viewer (`HttpBackend`)
-- [ ] Production key application (drafted: [production-key.md](production-key.md))
+- [ ] Production key application (submitted 2026-10-19, site verified with riot.txt; awaiting Riot's review: [production-key.md](production-key.md))
 - [ ] Privacy note, Riot legal notice, `ATTRIBUTION.md` complete
 - [ ] Signed installers and app auto-update
 

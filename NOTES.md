@@ -105,3 +105,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: everything in that list needs the owner (domain, site, registration, contact); the legal notice isn't in the app yet.
 - 2026-10-19: product site (ADR-054): `site/public/` with the product page (real-data screenshot), method, privacy policy, terms and 404, Riot's notice in every footer; `site/wrangler.jsonc` for Cloudflare Workers static assets (root directory `site`, no build command, `npx wrangler deploy`); `just site` previews on 127.0.0.1:8788; production key draft points at `stronk.christophercastel.com`.
   Open: the owner connects the Cloudflare project and the subdomain's DNS; riot.txt once Riot gives the string; the contact address on the site is the commit email; the legal notice in the app.
+- 2026-10-19: production key application submitted in the Developer Portal; `site/public/riot.txt` holds Riot's verification string and the site at stronk.christophercastel.com is verified.
+  Open: Riot's review (answers come in the portal's messages); remove riot.txt once approved; the legal notice in the app.
