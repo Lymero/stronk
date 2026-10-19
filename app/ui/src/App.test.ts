@@ -62,8 +62,37 @@ describe("App with MockBackend", () => {
     const better = screen.getByText("Clearly better · +2.1% win");
     expect(better).toHaveAttribute(
       "title",
-      "Win impact +2.1% against the most played option (95% interval +0.8% to +3.4%), from 2,300 games",
+      "Win impact +2.1% against the most played option (95% interval +0.8% to +3.4%), from 640 games",
     );
+  });
+
+  it("shows each slot's alternatives with their share, win impact and confidence", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    const build = screen.getByLabelText("Build");
+    expect(await within(build).findByText("Patch 16.20 · 1,840 games · Master+ · All regions")).toBeInTheDocument();
+    expect(within(build).getByText("Electrocute · Domination + Precision")).toBeInTheDocument();
+    expect(within(build).getAllByText("Death's Dance", { selector: ".name" })).toHaveLength(2); // slots 2 and 3
+    expect(within(build).getAllByText("Clearly worse")).toHaveLength(1); // Death's Dance at slot 3
+    expect(within(build).getAllByText("Too few games").length).toBeGreaterThan(0);
+    expect(within(build).getByText("Stronk imports the most played options, except where another one is clearly better.")).toBeInTheDocument();
+    // Sundered Sky, the pick at slot 2: 640 of 1,790 picks, +2.1% against Black Cleaver.
+    const pick = within(build).getAllByText("Stronk's pick").map((el) => el.closest("li")?.textContent ?? "");
+    expect(pick.some((t) => t.includes("Sundered Sky") && t.includes("36% · 640 games") && t.includes("+2.1% win"))).toBe(true);
+    const asked = backend.calls.filter((c) => c.id === "build.get").map((c) => c.params);
+    expect(asked).toEqual([
+      { champion: "Graves", role: "JUNGLE" },
+      { champion: "LeeSin", role: "JUNGLE" },
+    ]);
+  });
+
+  it("says when nothing beats the most played build", async () => {
+    const { app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next(); // Graves: every choice popular
+    expect(await screen.findByText(/No option beats the most played one clearly yet/)).toBeInTheDocument();
   });
 
   it("shows names from the client instead of ids, and readable phases", async () => {

@@ -81,3 +81,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: tauri-specta bindings and the real-client check of names, restore and auto-import (Windows); data-fetch and app-start scenarios.
 - 2026-10-19: `corpus-pack` archives are now byte-for-byte reproducible: the gzip header's timestamp is zeroed (it was the current second, which failed CI when two packs straddled one).
   Open: nothing new.
+- 2026-10-19: champion select view redesign (ADR-049): a champion banner, then runes, spells and each item slot as cards listing the top alternatives from `build.get` (share of games, win impact, games, confidence marker: clearly better or worse, no clear difference, too few games, fragile), Stronk's pick highlighted, and a line saying when the import falls back to the most played build; MockBackend's Lee Sin has a richer build file to show it.
+  Open: importing an alternative instead of Stronk's pick; champion and item icons from the client; check the view on the real client.

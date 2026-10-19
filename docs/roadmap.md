@@ -42,6 +42,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] `tools/lcu_mock` with one recorded champion-select session (`custom-2026-10-19.json`, recorded on Windows, scrubbed; ADR-042)
 - [x] Champion-select detection with preloading; import runes, item set and spells (ADR-043, ADR-044; checked on the real client 2026-10-19)
 - [x] UI from the real-client check: names instead of raw rune, spell and item IDs; readable champion-select phase; tell the player when all rune pages are used (ADR-047)
+- [x] Champion select view: the top alternatives per slot with win impact, games and a confidence marker, falling back clearly to the most played build (ADR-049)
 - [x] Settings: auto-import toggle and item set restore from a chosen backup, after a confirmation
 - [x] Playwright end-to-end tests: the UI against `MockBackend` and against the real core on lcu-mock, with screenshots (ADR-048)
 - [x] `just bench` lock-in scenario (`stronk-core serve` on lcu-mock, 200 replays); lock-in budget enforced (p50 55 ms, p95 67 ms)

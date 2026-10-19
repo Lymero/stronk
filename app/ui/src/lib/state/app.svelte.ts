@@ -5,6 +5,7 @@
 import type {
   Backend,
   Backup,
+  Build,
   ChampSelectState,
   CommandError,
   DataStatus,
@@ -26,6 +27,9 @@ export interface AppState {
   names: GameNames | null;
   /** What an import would write for the champion picked or hovered, loaded as soon as known. */
   plan: { key: string; value: Plan } | null;
+  /** The published build file behind the plan: every option, for the alternatives; null
+   * value when it couldn't be read (asked once per champion and role). */
+  build: { key: string; value: Build | null } | null;
   /** The last import, and for which champion and role. */
   imported: { key: string; value: Imported } | null;
   settings: Settings;
@@ -71,6 +75,7 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
     champSelect: null,
     names: null,
     plan: null,
+    build: null,
     imported: null,
     settings: store.load() ?? { autoImport: false },
     restore: { backups: null, done: null, error: null },
@@ -128,6 +133,12 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
     }
     if (session?.locked && state.settings.autoImport && state.imported?.key !== key) {
       await importBuild();
+    }
+    if (state.build?.key !== key) {
+      // After any import, so lock-in doesn't wait for it. The alternatives only add to the
+      // plan: without them it still shows and imports.
+      const build = await backend.run("build.get", { champion, role });
+      state.build = { key, value: build.ok ? build.value : null };
     }
   }
 

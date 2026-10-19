@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { name, phase, role, runePage } from "./labels.ts";
+import { elo, games, name, phase, region, role, runePage } from "./labels.ts";
 
 describe("labels", () => {
   it("spells out champion-select phases, known or not", () => {
@@ -28,5 +28,19 @@ describe("labels", () => {
       { title: "8300", runes: ["5", "6"] },
       { title: "Shards", runes: ["7", "8", "9"] },
     ]);
+  });
+
+  it("names elo brackets and regions", () => {
+    expect(elo("master_plus")).toBe("Master+");
+    expect(elo("diamond_plus")).toBe("Diamond+");
+    expect(elo("emerald")).toBe("Emerald");
+    expect(elo("all")).toBe("All ranks");
+    expect(region("all")).toBe("All regions");
+    expect(region("euw1")).toBe("EUW1");
+  });
+
+  it("counts games", () => {
+    expect(games(1)).toBe("1 game");
+    expect(games(1840)).toBe("1,840 games");
   });
 });

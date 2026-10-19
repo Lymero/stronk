@@ -45,3 +45,16 @@ export function runePage(names: GameNames | null, page: Page): { title: string; 
     { title: "Shards", runes: runes(page.perks.slice(6)) },
   ].filter((line) => line.runes.length > 0);
 }
+
+/** An elo bracket id (`master_plus`) as players say it. */
+export function elo(id: string): string {
+  const [tier = "", plus] = id.split("_");
+  const word = tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : id;
+  return plus === "plus" ? `${word}+` : id === "all" ? "All ranks" : word;
+}
+
+/** A region id (`euw1`, `all`) as players say it. */
+export const region = (id: string): string => (id === "all" ? "All regions" : id.toUpperCase());
+
+/** A count of games, `1 game` or `1,840 games`. */
+export const games = (n: number): string => `${n.toLocaleString("en-US")} ${n === 1 ? "game" : "games"}`;

@@ -9,6 +9,7 @@
   const imported = $derived(
     state.imported && state.imported.key === state.plan?.key ? state.imported.value : null,
   );
+  const build = $derived(state.build && state.build.key === state.plan?.key ? state.build.value : null);
 </script>
 
 <main>
@@ -24,7 +25,7 @@
 
   <ChampSelect select={state.champSelect} names={state.names} />
   {#if state.plan && state.champSelect?.champion}
-    <PlanView plan={state.plan.value} names={state.names} {imported} onimport={() => void app.importBuild()} />
+    <PlanView plan={state.plan.value} {build} names={state.names} {imported} onimport={() => void app.importBuild()} />
   {/if}
 
   <Settings
@@ -40,7 +41,7 @@
   main {
     display: grid;
     gap: var(--space-4);
-    max-width: 720px;
+    max-width: 960px;
     margin: 0 auto;
     padding: var(--space-6) var(--space-4);
   }

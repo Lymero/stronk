@@ -10,19 +10,27 @@
   --color-negative: #b3261e;
   --color-warning: #8a5a00;
   --color-warning-bg: #fff4dc;
+  --color-accent-bg: #e8eefc;
+  --color-positive-bg: #e3f3e9;
+  --color-negative-bg: #fbe7e5;
+  --color-track: #ecece6;
 
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
+  --space-8: 32px;
 
   --radius: 6px;
+  --radius-lg: 10px;
   --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", Menlo, monospace;
   --text-sm: 13px;
   --text-md: 15px;
   --text-lg: 20px;
+  --text-xl: 28px;
+  --text-xs: 11px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -37,6 +45,10 @@
     --color-negative: #ff8a80;
     --color-warning: #f2c46d;
     --color-warning-bg: #3a2e14;
+    --color-accent-bg: #1f2a4a;
+    --color-positive-bg: #17301f;
+    --color-negative-bg: #3a1c1a;
+    --color-track: #2c2c28;
   }
 }
 
