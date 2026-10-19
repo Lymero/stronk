@@ -2,7 +2,7 @@
 
 Build a thin version end to end first, then improve each part. Structure is set up correctly from the start; scope grows later. Use [gaps.md](gaps.md) to choose within a milestone.
 
-**Current focus: M3.** M0 done 2026-10-17, M1 and M2 done 2026-10-18.
+**Current focus: M4.** M0 done 2026-10-17, M1 and M2 done 2026-10-18, M3 done 2026-10-19.
 
 ## M0 · Foundation
 
@@ -33,7 +33,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] `publish` with `LocalPublisher`: signed JSON in `dist/data/`
 - [x] `just serve-data`: local static server with ETag
 
-## M3 · App v1
+## M3 · App v1 (done 2026-10-19)
 
 - [x] Tauri 2 + Svelte scaffold; Cargo workspace (`domain`, `service`, `lcu`, `data`, `cli`, `src-tauri`) (ADR-040, ADR-041)
 - [x] Command registry in `service`; `stronk-core` CLI; command fuzzing test
@@ -43,7 +43,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] Champion-select detection with preloading; import runes, item set and spells (ADR-043, ADR-044; checked on the real client 2026-10-19)
 - [x] UI from the real-client check: names instead of raw rune, spell and item IDs; readable champion-select phase; tell the player when all rune pages are used (ADR-047)
 - [x] Champion select view: the top alternatives per slot with win impact, games and a confidence marker, falling back clearly to the most played build (ADR-049); click an option to import it instead (ADR-050)
-- [ ] Real-client check of names, icons, restore, auto-import and picking (Windows, custom game)
+- [x] Real-client check of names, icons, restore, auto-import and picking (Windows, custom game, real data, 2026-10-19; icons needed `Accept: */*`)
 - [x] Pick any option of a slot, not only the listed ones; keep picks across restarts until the patch changes (ADR-051)
 - [x] Champion, rune, spell and item icons from the client (ADR-052)
 - [x] Settings: auto-import toggle and item set restore from a chosen backup, after a confirmation
