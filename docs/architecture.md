@@ -180,6 +180,8 @@ Signatures are verified for every source, including local ones, so the code path
 
 Data for the likely champions is loaded when champion select starts and on hover, so lock-in is always a cache hit and never waits on the network. Each step (lookup, rune write, item set write, spell write) is timed separately and logged locally.
 
+`just bench` measures this path (`lockin_import_cache_hit`): the real core in one long-lived process (`stronk-core serve`, one context as in the app) against lcu-mock and the signed fixture data, 200 replays of a hover then lock-in, timed from lock-in to the import confirmed. The budget (p50 100 ms, p95 300 ms) is enforced.
+
 ### UI
 
 - Svelte 5 (runes), TypeScript strict, Vite.

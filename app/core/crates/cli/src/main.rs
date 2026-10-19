@@ -5,6 +5,7 @@
 //!     stronk-core record-champselect --out tools/lcu_mock/sessions/custom.json
 //!     stronk-core watch-champselect --events 4
 //!     stronk-core restore-item-sets <backup file>
+//!     stronk-core serve < commands.jsonl
 //!
 //! `run` prints the result as JSON on stdout, or the error as JSON on stderr with exit code 1.
 
@@ -56,6 +57,10 @@ enum Action {
         #[arg(long, default_value = "{}")]
         params: String,
     },
+    /// Run commands from stdin with one context, as the app does: one `{"id", "params"}` per
+    /// line in, one `{"ok": true, "value"}` or `{"ok": false, "error"}` per line out
+    /// (`just bench` times lock-in this way).
+    Serve,
     /// Put a backup of your item sets back into the client (`item_sets.restore`); without a
     /// file, list the backups.
     RestoreItemSets { backup: Option<String> },
@@ -134,6 +139,13 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Action::Serve => match serve(&cli) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{}", json!({"code": e.code, "message": e.message}));
+                ExitCode::FAILURE
+            }
+        },
         Action::Run { ref id, ref params } => match run(&cli, id, params) {
             Ok(value) => {
                 println!("{value:#}");
@@ -152,6 +164,40 @@ fn run(cli: &Cli, id: &str, params: &str) -> Result<Value, CommandError> {
         .map_err(|e| CommandError::new(ErrorCode::InvalidParams, format!("--params: {e}")))?;
     let ctx = context(cli)?;
     registry().run(&ctx, id, params)
+}
+
+fn serve(cli: &Cli) -> Result<(), CommandError> {
+    use std::io::{BufRead, Write};
+    let ctx = context(cli)?;
+    let registry = registry();
+    let mut out = std::io::stdout().lock();
+    for line in std::io::stdin().lock().lines() {
+        let line =
+            line.map_err(|e| CommandError::new(ErrorCode::Unavailable, format!("stdin: {e}")))?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let answer = match serde_json::from_str::<Value>(&line) {
+            Ok(request) => {
+                let id = request
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let params = request.get("params").cloned().unwrap_or_else(|| json!({}));
+                match registry.run(&ctx, id, params) {
+                    Ok(value) => json!({"ok": true, "value": value}),
+                    Err(e) => json!({"ok": false, "error": {"code": e.code, "message": e.message}}),
+                }
+            }
+            Err(e) => {
+                json!({"ok": false, "error": {"code": ErrorCode::InvalidParams, "message": format!("not JSON: {e}")}})
+            }
+        };
+        writeln!(out, "{answer}")
+            .and_then(|()| out.flush())
+            .map_err(|e| CommandError::new(ErrorCode::Unavailable, format!("stdout: {e}")))?;
+    }
+    Ok(())
 }
 
 fn context(cli: &Cli) -> Result<Context, CommandError> {

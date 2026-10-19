@@ -44,7 +44,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] UI from the real-client check: names instead of raw rune, spell and item IDs; readable champion-select phase; tell the player when all rune pages are used (ADR-047)
 - [x] Settings: auto-import toggle and item set restore from a chosen backup, after a confirmation
 - [x] Playwright end-to-end tests: the UI against `MockBackend` and against the real core on lcu-mock, with screenshots (ADR-048)
-- [ ] `just bench` lock-in scenario; enforce the lock-in budget once met
+- [x] `just bench` lock-in scenario (`stronk-core serve` on lcu-mock, 200 replays); lock-in budget enforced (p50 55 ms, p95 67 ms)
 
 **Milestone: usable in your own lobbies, with data served from your machine.**
 

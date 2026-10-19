@@ -12,7 +12,7 @@ source = "perf/out/lockin_import_cache_hit.json"
 unit = "ms"
 p50 = 100
 p95 = 300
-enforce = false
+enforce = true  # 2026-10-19: p50 55 ms, p95 67 ms (debug build, `stronk-core serve` on lcu-mock)
 
 [[budget]]
 scenario = "cold_data_fetch"

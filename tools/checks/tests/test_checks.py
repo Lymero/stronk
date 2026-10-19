@@ -136,6 +136,12 @@ def test_bench_reports_median_and_max() -> None:
     assert len(runs) == 3
 
 
+def test_bench_percentiles_are_nearest_rank() -> None:
+    samples = [float(ms) for ms in range(100, 0, -1)]  # 1..100 ms, out of order
+    assert bench.percentiles(samples) == {"p50": 50.0, "p95": 95.0, "p99": 99.0, "max": 100.0}
+    assert bench.percentiles([7.0]) == {"p50": 7.0, "p95": 7.0, "p99": 7.0, "max": 7.0}
+
+
 def test_rust_layers_point_inward() -> None:
     import rust_layers
 

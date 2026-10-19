@@ -187,7 +187,8 @@ budgets:
 
 # Performance scenarios, results in perf/out/ (checked by `just budgets`)
 bench:
-    uv run python tools/checks/bench.py
+    cargo build {{ core_rs }} --locked --quiet -p stronk-cli
+    STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" PYTHONPATH=tools/lcu_mock uv run python tools/checks/bench.py
 
 # Run a pipeline command: just pipeline-run wpa.estimate '{"decisions": "runs/synth/decisions.parquet"}'
 pipeline-run id params="{}":

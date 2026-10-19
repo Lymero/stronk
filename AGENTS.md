@@ -47,12 +47,13 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just core-e2e` | The real `stronk-core` against lcu-mock and the signed fixture data (in `just check`) |
 | `just fixture-data` | Refresh `fixtures/data`, the signed fixture data the app tests use |
 | `just core build.plan '{"champion": "LeeSin", "role": "JUNGLE"}'` | What an import would write, each choice labelled (`build.import` writes it to the client) |
+| `stronk-core serve` | Commands from stdin, one JSON line each, with one context as in the app |
 | `stronk-core restore-item-sets [file]` | Put a backup of the player's item sets back (without a file: list them) |
 | `stronk-core watch-champselect [--events N]` | Follow champion select over the client's websocket, one JSON line per state |
 | `stronk-core record-champselect --out <file>` | Record one champion select from the real client, scrubbed (on Windows: docs/windows.md) |
 | `just core <command-id> <params>` | Run an app command from the terminal |
 | `just e2e` | Playwright: the UI against `MockBackend` and against the real core on lcu-mock; screenshots in `runs/e2e/screenshots/` (in `just check`) |
-| `just bench` | Performance scenarios against `perf/budgets.toml` |
+| `just bench` | Performance scenarios against `perf/budgets.toml`: the fixture pipeline and lock-in to import on lcu-mock |
 
 ## Rules
 
