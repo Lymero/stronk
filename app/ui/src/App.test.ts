@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/svelte";
+import { fireEvent, render, screen, within } from "@testing-library/svelte";
 import { describe, expect, it } from "vitest";
 import App from "./App.svelte";
 import { MockBackend, scenarios } from "./lib/backend/mock.ts";
@@ -127,6 +127,47 @@ describe("App with MockBackend", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("hash mismatch");
     expect(screen.queryByLabelText("Build")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "LeeSin" })).toBeInTheDocument(); // no names: the key
+  });
+});
+
+describe("settings", () => {
+  async function openSettings() {
+    await fireEvent.click(screen.getByText("Settings"));
+    return screen.findAllByRole("radio");
+  }
+
+  it("lists item set backups newest first and restores the chosen one after confirming", async () => {
+    const { backend } = setup("ranked-jungle");
+    const radios = await openSettings();
+    const [newest, older] = radios;
+    expect(radios).toHaveLength(2);
+    expect(newest).toBeChecked();
+    await fireEvent.click(older as HTMLElement);
+    await fireEvent.click(screen.getByRole("button", { name: "Restore this backup" }));
+    expect(backend.calls.some((c) => c.id === "item_sets.restore")).toBe(false); // not before confirming
+    const confirm = screen.getByRole("group", { name: "Confirm restore" });
+    await fireEvent.click(within(confirm).getByRole("button", { name: "Restore" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Restored 30 item sets. The sets they replaced were backed up first.",
+    );
+    const restores = backend.calls.filter((c) => c.id === "item_sets.restore").map((c) => c.params);
+    expect(restores).toEqual([{ backup: "backups/item-sets-0001792318800000-000.json" }]);
+    expect(await screen.findAllByRole("radio")).toHaveLength(3); // the replaced sets, backed up
+  });
+
+  it("cancelling a restore writes nothing", async () => {
+    const { backend } = setup("ranked-jungle");
+    await openSettings();
+    await fireEvent.click(screen.getByRole("button", { name: "Restore this backup" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(backend.calls.some((c) => c.id === "item_sets.restore")).toBe(false);
+    expect(screen.getByRole("button", { name: "Restore this backup" })).toBeInTheDocument();
+  });
+
+  it("says when there is nothing to restore", async () => {
+    setup("no-client");
+    await fireEvent.click(screen.getByText("Settings"));
+    expect(await screen.findByText("No backups yet: Stronk hasn't changed your item sets.")).toBeInTheDocument();
   });
 });
 

@@ -24,6 +24,7 @@ Status: **missing** · **partial** · **done**
 | Detect champion and role | Blitz, Porofessor | partial: `champselect.state` reads it from the client (tested against lcu-mock); websocket watcher with reconnects (ADR-044); trusts Riot's CA, verified against a real client |
 | Import rune page | Blitz, Porofessor | partial: `build.import` writes Stronk's own page (most played full page unless one is clearly better, ADR-043); tested against lcu-mock and on a real client (2026-10-19) |
 | Write item set | Blitz, Porofessor | partial: Stronk's own item set, the player's kept and backed up before each write; tested against lcu-mock and on a real client (2026-10-19) |
+| Undo an import | none | partial: settings list the item set backups with their dates and restore one after a confirmation (`item_sets.restore`, current sets backed up first); rune pages and spells have no undo |
 | Set summoner spells | Blitz | partial: most played pair, Flash on the player's key; tested against lcu-mock and on a real client (2026-10-19) |
 | Auto-import on lock-in | Blitz | partial: a setting, off by default, on the websocket watcher (the watcher checked on a real client 2026-10-19; auto-import itself not yet) |
 | Readable names for runes, spells and items | Blitz, Porofessor | partial: `names.get` reads them from the client's own game data, in its language (ADR-047); readable phases and roles; tested against lcu-mock, not yet on a real client |

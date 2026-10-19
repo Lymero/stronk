@@ -4,12 +4,14 @@
 
 import type {
   Backend,
+  Backup,
   ChampSelectState,
   CommandError,
   DataStatus,
   GameNames,
   Imported,
   Plan,
+  Restored,
 } from "../backend/backend.ts";
 
 export interface Settings {
@@ -27,6 +29,8 @@ export interface AppState {
   /** The last import, and for which champion and role. */
   imported: { key: string; value: Imported } | null;
   settings: Settings;
+  /** Item set backups in settings: listed when settings open, and the last restore. */
+  restore: { backups: Backup[] | null; done: Restored | null; error: CommandError | null };
   /** Why something can't be shown or done; cleared when things work again. */
   error: CommandError | null;
 }
@@ -69,6 +73,7 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
     plan: null,
     imported: null,
     settings: store.load() ?? { autoImport: false },
+    restore: { backups: null, done: null, error: null },
     error: null,
   });
 
@@ -131,7 +136,23 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
     store.save(state.settings);
   }
 
-  return { state, refresh, importBuild, setAutoImport };
+  async function loadBackups(): Promise<void> {
+    const listed = await backend.run("item_sets.backups", {});
+    state.restore = listed.ok
+      ? { ...state.restore, backups: listed.value.backups, error: null }
+      : { ...state.restore, backups: null, error: listed.error };
+  }
+
+  /** Puts a backup of the player's item sets back; the core backs up the current ones first. */
+  async function restoreItemSets(location: string): Promise<void> {
+    const restored = await backend.run("item_sets.restore", { backup: location });
+    state.restore = restored.ok
+      ? { ...state.restore, done: restored.value, error: null }
+      : { ...state.restore, done: null, error: restored.error };
+    if (restored.ok) await loadBackups(); // the replaced sets are now the newest backup
+  }
+
+  return { state, refresh, importBuild, setAutoImport, loadBackups, restoreItemSets };
 }
 
 export type App = ReturnType<typeof createApp>;

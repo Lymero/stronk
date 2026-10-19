@@ -10,7 +10,8 @@ use stronk_domain::select::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
 use stronk_service::Context;
 use stronk_service::ports::{
-    Backups, BuildSource, ChampSelect, DataStatus, GameNames, LeagueClient, NewRunePage, PortError,
+    Backup, Backups, BuildSource, ChampSelect, DataStatus, GameNames, LeagueClient, NewRunePage,
+    PortError,
 };
 
 pub fn example_build() -> Build {
@@ -259,11 +260,14 @@ impl Backups for FakeBackups {
         Ok(format!("backup-{}", saved.len()))
     }
 
-    fn list(&self, _: &str) -> Result<Vec<String>, PortError> {
+    fn list(&self, _: &str) -> Result<Vec<Backup>, PortError> {
         let saved = self.saved.lock().unwrap();
         Ok((1..=saved.len())
             .rev()
-            .map(|n| format!("backup-{n}"))
+            .map(|n| Backup {
+                location: format!("backup-{n}"),
+                saved_at_ms: Some(n as u64 * 1_000),
+            })
             .collect())
     }
 

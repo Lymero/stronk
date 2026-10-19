@@ -4,6 +4,7 @@
 
 import {
   type Backend,
+  type Backup,
   type ChampSelectState,
   type CommandError,
   type CommandId,
@@ -26,6 +27,8 @@ export interface Scenario {
   names?: GameNames | CommandError;
   /** What importing the rune page does; imported by default. */
   runes?: Outcome;
+  /** The item set backups on this machine, newest first; restoring one adds a backup. */
+  backups?: Backup[];
 }
 
 const lobby: ChampSelectState = { session: null, champion: null, role: null };
@@ -70,6 +73,11 @@ const names: GameNames = {
   items: { "6692": "Eclipse", "6610": "Sundered Sky", "3053": "Sterak's Gage", "6676": "The Collector" },
 };
 
+const backups = (): Backup[] => [
+  { location: "backups/item-sets-0001792405200000-000.json", saved_at_ms: 1792405200000 },
+  { location: "backups/item-sets-0001792318800000-000.json", saved_at_ms: 1792318800000 },
+];
+
 const rankedJungle = [
   lobby,
   selecting("Graves", 104, "PLANNING"),
@@ -85,6 +93,7 @@ export const scenarios = {
     plans: { "Graves/JUNGLE": graves, "LeeSin/JUNGLE": leeSin },
     status,
     names,
+    backups: backups(),
   },
   "pages-full": {
     steps: rankedJungle,
@@ -118,8 +127,12 @@ export class MockBackend implements Backend {
   #step = 0;
   #listeners = new Set<() => void>();
   readonly calls: { id: CommandId; params: unknown }[] = [];
+  /** This run's backups: restoring adds one, and scenarios stay as written. */
+  #backups: Backup[];
 
-  constructor(readonly scenario: Scenario) {}
+  constructor(readonly scenario: Scenario) {
+    this.#backups = [...(scenario.backups ?? [])];
+  }
 
   /** Moves to the next champion-select step; stays on the last one. */
   step(): void {
@@ -142,6 +155,19 @@ export class MockBackend implements Backend {
         return result(this.scenario.status) as Out;
       case "champselect.state":
         return result(current) as Out;
+      case "item_sets.backups":
+        return ok({ backups: [...this.#backups] }) as Out;
+      case "item_sets.restore": {
+        const { backup } = params as Commands["item_sets.restore"]["params"];
+        if (isError(current)) return result(current) as Out;
+        if (!this.#backups.some((b) => b.location === backup)) {
+          return err("not_found", `${backup}: no such backup`) as Out;
+        }
+        const saved_at_ms = Date.now();
+        const previous_backup = `backups/item-sets-${String(saved_at_ms).padStart(16, "0")}-000.json`;
+        this.#backups.unshift({ location: previous_backup, saved_at_ms });
+        return ok({ restored: backup, sets: 30, previous_backup }) as Out;
+      }
       case "names.get":
         return result(this.scenario.names ?? { code: "unavailable", message: "no names" }) as Out;
       case "build.plan": {

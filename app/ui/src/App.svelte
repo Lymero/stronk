@@ -1,6 +1,7 @@
 <script lang="ts">
   import PlanView from "./lib/features/build-view/PlanView.svelte";
   import ChampSelect from "./lib/features/champ-select/ChampSelect.svelte";
+  import Settings from "./lib/features/settings/Settings.svelte";
   import type { App } from "./lib/state/app.svelte.ts";
 
   let { app, onstep }: { app: App; onstep?: () => void } = $props();
@@ -14,14 +15,6 @@
   <header>
     <h1>Stronk</h1>
     {#if state.data}<span class="meta">Data {state.data.patch}</span>{/if}
-    <label class="toggle">
-      <input
-        type="checkbox"
-        checked={state.settings.autoImport}
-        onchange={(e) => app.setAutoImport(e.currentTarget.checked)}
-      />
-      Auto-import on lock-in
-    </label>
     {#if onstep}<button type="button" onclick={onstep}>Next step</button>{/if}
   </header>
 
@@ -33,6 +26,14 @@
   {#if state.plan && state.champSelect?.champion}
     <PlanView plan={state.plan.value} names={state.names} {imported} onimport={() => void app.importBuild()} />
   {/if}
+
+  <Settings
+    settings={state.settings}
+    restore={state.restore}
+    onautoimport={(on) => app.setAutoImport(on)}
+    onopen={() => void app.loadBackups()}
+    onrestore={(location) => void app.restoreItemSets(location)}
+  />
 </main>
 
 <style>
@@ -55,10 +56,8 @@
   .meta {
     color: var(--color-muted);
   }
-  .toggle {
+  header button {
     margin-left: auto;
-    color: var(--color-muted);
-    font-size: var(--text-sm);
   }
   button {
     padding: var(--space-1) var(--space-3);

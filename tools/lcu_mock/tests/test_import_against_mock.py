@@ -167,4 +167,7 @@ def test_restore_puts_the_players_item_sets_back_byte_for_byte(mock: Mock, tmp_p
     assert str(mock.replay.item_sets) == original
     assert restored["sets"] == 1
     status, listed = core_cli(mock, backups, "restore-item-sets")  # no file: the list
-    assert listed["backups"] == [restored["previous_backup"], result["item_set_backup"]]
+    locations = [b["location"] for b in listed["backups"]]
+    assert locations == [restored["previous_backup"], result["item_set_backup"]]
+    times = [b["saved_at_ms"] for b in listed["backups"]]
+    assert times[0] >= times[1] > 0

@@ -73,3 +73,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: roadmap items for the UI fixes from the real-client check and tauri-specta bindings, now unblocked on Windows.
 - 2026-10-19: names from the client (ADR-047): `names.get` reads champion, rune, spell and item names from the League client's game data (lcu-mock serves a subset, `game_data.json`); the UI shows them, with readable phases and roles, and each skipped import part (for example all rune pages in use) as a warning.
   Open: check the names on the real client; tauri-specta bindings (Windows).
+- 2026-10-19: settings panel: auto-import moved there, item set backups listed newest first with their dates (`item_sets.backups` now returns `{location, saved_at_ms}`), and a restore after an inline confirmation.
+  Open: undo for rune pages and spells; check the restore button on the real client.

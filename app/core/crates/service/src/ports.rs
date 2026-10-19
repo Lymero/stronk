@@ -108,12 +108,21 @@ pub trait LeagueClient: Send + Sync {
     fn set_spells(&self, spells: (i64, i64)) -> Result<(), PortError>;
 }
 
+/// One local backup.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Backup {
+    /// What [`Backups::load`] takes.
+    pub location: String,
+    /// When it was saved, in milliseconds since the Unix epoch, when known.
+    pub saved_at_ms: Option<u64>,
+}
+
 /// Local copies of what an import replaces, written before each write (ADR-043).
 pub trait Backups: Send + Sync {
     /// Saves `data` as the newest backup of `kind` (for example `item-sets`); returns where.
     fn save(&self, kind: &str, data: &[u8]) -> Result<String, PortError>;
-    /// The backups of `kind`, newest first, as locations [`Backups::load`] takes.
-    fn list(&self, kind: &str) -> Result<Vec<String>, PortError>;
+    /// The backups of `kind`, newest first.
+    fn list(&self, kind: &str) -> Result<Vec<Backup>, PortError>;
     /// A backup's bytes, exactly as saved; `location` is one [`Backups::save`] or
     /// [`Backups::list`] returned, or a backup file the user points to.
     fn load(&self, location: &str) -> Result<Vec<u8>, PortError>;

@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::ports::Backup;
 use crate::registry::Command;
 use crate::{CommandError, Context};
 
@@ -11,7 +12,7 @@ pub struct Params {}
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct Listed {
-    pub backups: Vec<String>,
+    pub backups: Vec<Backup>,
 }
 
 pub fn command() -> Command {

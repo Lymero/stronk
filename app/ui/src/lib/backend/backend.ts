@@ -99,6 +99,22 @@ export interface GameNames {
   items: Record<string, string>;
 }
 
+/** A local backup of the player's item sets (`item_sets.backups`). */
+export interface Backup {
+  location: string;
+  /** When it was saved, ms since the Unix epoch, when known. */
+  saved_at_ms: number | null;
+}
+
+/** What `item_sets.restore` put back. */
+export interface Restored {
+  restored: string;
+  /** Item sets in the restored document. */
+  sets: number;
+  /** Where the sets it replaced were saved first. */
+  previous_backup: string;
+}
+
 export interface BuildGetParams {
   champion: string;
   role: Role;
@@ -113,6 +129,8 @@ export interface Commands {
   "build.plan": { params: PlanParams; result: Plan };
   "champselect.state": { params: Record<string, never>; result: ChampSelectState };
   "data.status": { params: Record<string, never>; result: DataStatus };
+  "item_sets.backups": { params: Record<string, never>; result: { backups: Backup[] } };
+  "item_sets.restore": { params: { backup: string }; result: Restored };
   "names.get": { params: Record<string, never>; result: GameNames };
 }
 

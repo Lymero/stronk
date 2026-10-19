@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use stronk_service::ports::{Backups, PortError};
+use stronk_service::ports::{Backup, Backups, PortError};
 
 const KEEP: usize = 20;
 
@@ -81,12 +81,15 @@ impl Backups for FileBackups {
         Ok(path.display().to_string())
     }
 
-    fn list(&self, kind: &str) -> Result<Vec<String>, PortError> {
+    fn list(&self, kind: &str) -> Result<Vec<Backup>, PortError> {
         Ok(self
             .of_kind(kind)?
             .iter()
             .rev()
-            .map(|p| p.display().to_string())
+            .map(|p| Backup {
+                location: p.display().to_string(),
+                saved_at_ms: saved_at_ms(p, kind),
+            })
             .collect())
     }
 
@@ -131,6 +134,16 @@ impl FileBackups {
     }
 }
 
+/// The time in a backup's name (`<kind>-<millis>-<n>.json`, see [`FileBackups::save`]).
+fn saved_at_ms(path: &std::path::Path, kind: &str) -> Option<u64> {
+    let name = path.file_name()?.to_str()?;
+    let (millis, _) = name
+        .strip_prefix(kind)?
+        .strip_prefix('-')?
+        .split_once('-')?;
+    millis.parse().ok()
+}
+
 /// Backups are small; anything bigger isn't one.
 const MAX_BACKUP: u64 = 16 * 1024 * 1024;
 
@@ -163,8 +176,14 @@ mod tests {
         assert!(backups.save("../x", b"").is_err());
         let listed = backups.list("item-sets").unwrap();
         assert_eq!(listed.len(), KEEP);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let saved = u128::from(listed[0].saved_at_ms.unwrap());
+        assert!(now - saved < 60_000, "saved {saved}, now {now}");
         assert_eq!(
-            backups.load(&listed[0]).unwrap(),
+            backups.load(&listed[0].location).unwrap(),
             (KEEP + 2).to_string().as_bytes()
         ); // newest first
         assert!(backups.load("/nonexistent/backup.json").is_err());

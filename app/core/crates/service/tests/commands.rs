@@ -339,7 +339,10 @@ fn restore_puts_a_backup_back_exactly_and_backs_up_what_it_replaces() {
     assert_ne!(after_import, original);
 
     let listed = run_on(&client, &backups, "item_sets.backups", json!({})).unwrap();
-    assert_eq!(listed, json!({"backups": ["backup-1"]}));
+    assert_eq!(
+        listed,
+        json!({"backups": [{"location": "backup-1", "saved_at_ms": 1000}]})
+    );
     let out = run_on(
         &client,
         &backups,
