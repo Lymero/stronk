@@ -230,6 +230,13 @@ e2e *args:
     rm -rf runs/e2e
     STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" pnpm --filter @stronk/ui exec playwright test {{ args }}
 
+# Playwright end to end (Windows PowerShell)
+[windows]
+e2e *args:
+    cargo build {{ core_rs }} --locked --quiet -p stronk-cli
+    if (Test-Path runs/e2e) { Remove-Item -Recurse -Force runs/e2e }
+    $env:STRONK_CORE_BIN = "$PWD/app/core/target/debug/stronk-core.exe"; pnpm --filter @stronk/ui exec playwright test {{ args }}
+
 # Fake League client replaying a session: just lcu-mock tools/lcu_mock/sessions/<file>.json
 lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":
     uv run python tools/lcu_mock/lcu_mock.py {{ session }}

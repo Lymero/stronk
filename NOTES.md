@@ -76,7 +76,7 @@ Session log. Append two lines per session: what landed, what's still open. Newes
 - 2026-10-19: settings panel: auto-import moved there, item set backups listed newest first with their dates (`item_sets.backups` now returns `{location, saved_at_ms}`), and a restore after an inline confirmation.
   Open: undo for rune pages and spells; check the restore button on the real client.
 - 2026-10-19: Playwright end to end (ADR-048): `just e2e` (in `just check`) runs the UI in Chromium against MockBackend scenarios and against the real core through `CoreBackend` and `tools/lcu_mock/core_bridge.py` (replayed lobby to import, auto-import once, restore); screenshots in `runs/e2e/screenshots/`; CI installs Chromium first.
-  Open: the CI `check` job's first run with Playwright; on Windows `just e2e` is unix-only for now.
+  Open: `just e2e` on Windows (PowerShell twin added, untested there).
 - 2026-10-19: lock-in bench: `stronk-core serve` (JSON lines on stdin, one context) and `lockin_import_cache_hit` in `just bench`, 200 hover-then-lock-in replays on lcu-mock: p50 55 ms, p95 67 ms (debug build), so the budget (100/300 ms) is enforced.
   Open: tauri-specta bindings and the real-client check of names, restore and auto-import (Windows); data-fetch and app-start scenarios.
 - 2026-10-19: `corpus-pack` archives are now byte-for-byte reproducible: the gzip header's timestamp is zeroed (it was the current second, which failed CI when two packs straddled one).
