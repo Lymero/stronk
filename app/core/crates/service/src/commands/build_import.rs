@@ -89,7 +89,8 @@ fn runes(client: &dyn LeagueClient, plan: &Plan) -> Result<Outcome, CommandError
         });
     };
     let Some(room) = plan_rune_page(&client.rune_pages()?, client.rune_page_capacity()?) else {
-        let reason = "every rune page is yours: free one to let Stronk add its own".into();
+        let reason =
+            "all your rune pages are in use: delete one in the client, then import again".into();
         return Ok(Outcome::Skipped { reason });
     };
     for id in room.delete {

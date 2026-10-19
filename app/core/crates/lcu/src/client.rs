@@ -10,14 +10,20 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use stronk_domain::select::PageInfo;
-use stronk_service::ports::{ChampSelect, LeagueClient, NewRunePage, PortError};
+use stronk_service::ports::{ChampSelect, GameNames, LeagueClient, NewRunePage, PortError};
 
 use crate::lockfile::Lockfile;
-use crate::models::{ChampionSummary, CurrentSummoner, PerkInventory, PerkPage, Session};
+use crate::models::{
+    ChampionSummary, CurrentSummoner, Named, PerkInventory, PerkPage, PerkStyles, Session, by_id,
+};
 use crate::tls::{Trust, client_config};
 
 pub const SESSION: &str = "/lol-champ-select/v1/session";
 pub const CHAMPION_SUMMARY: &str = "/lol-game-data/assets/v1/champion-summary.json";
+pub const PERK_STYLES: &str = "/lol-game-data/assets/v1/perkstyles.json";
+pub const PERKS: &str = "/lol-game-data/assets/v1/perks.json";
+pub const SPELLS: &str = "/lol-game-data/assets/v1/summoner-spells.json";
+pub const ITEMS: &str = "/lol-game-data/assets/v1/items.json";
 const PAGES: &str = "/lol-perks/v1/pages";
 
 const TIMEOUT: Duration = Duration::from_secs(3);
@@ -30,6 +36,8 @@ pub struct LcuClient {
     base: String,
     auth: String,
     champions: Mutex<Option<HashMap<i64, String>>>,
+    /// Game data names, read once per client: they change only when the client updates.
+    names: Mutex<Option<GameNames>>,
 }
 
 impl LcuClient {
@@ -51,6 +59,7 @@ impl LcuClient {
             base: format!("https://127.0.0.1:{}", lock.port),
             auth: format!("Basic {token}"),
             champions: Mutex::new(None),
+            names: Mutex::new(None),
         })
     }
 
@@ -121,6 +130,12 @@ impl LcuClient {
         Ok(Some(response.bytes().map_err(unavailable)?.to_vec()))
     }
 
+    /// A game data document that must be there.
+    fn game_data<T: DeserializeOwned>(&self, path: &str) -> Result<T, PortError> {
+        self.get(path)?
+            .ok_or_else(|| PortError::NotFound(format!("League client: {path}")))
+    }
+
     fn summoner_id(&self) -> Result<i64, PortError> {
         self.get::<CurrentSummoner>("/lol-summoner/v1/current-summoner")?
             .map(|s| s.summoner_id)
@@ -159,6 +174,29 @@ impl LeagueClient for LcuClient {
             .as_ref()
             .and_then(|by_id| by_id.get(&champion_id).cloned())
             .ok_or_else(|| PortError::NotFound(format!("champion {champion_id}")))
+    }
+
+    fn game_names(&self) -> Result<GameNames, PortError> {
+        let mut cache = self
+            .names
+            .lock()
+            .map_err(|_| PortError::Unavailable("name cache poisoned".into()))?;
+        if let Some(names) = cache.as_ref() {
+            return Ok(names.clone());
+        }
+        let champions: Vec<ChampionSummary> = self.game_data(CHAMPION_SUMMARY)?;
+        let names = GameNames {
+            champions: by_id(champions.into_iter().map(|c| Named {
+                id: c.id,
+                name: c.name,
+            })),
+            rune_styles: by_id(self.game_data::<PerkStyles>(PERK_STYLES)?.styles),
+            runes: by_id(self.game_data::<Vec<Named>>(PERKS)?),
+            spells: by_id(self.game_data::<Vec<Named>>(SPELLS)?),
+            items: by_id(self.game_data::<Vec<Named>>(ITEMS)?),
+        };
+        *cache = Some(names.clone());
+        Ok(names)
     }
 
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {

@@ -1,0 +1,622 @@
+{
+ "source": "Hand-written subset of the League client's game data (names from Riot's Data Dragon), served by lcu-mock at /lol-game-data/assets/v1/; unlisted ids have no name, as for an id the client doesn't know.",
+ "/lol-game-data/assets/v1/perkstyles.json": {
+  "schemaVersion": 2,
+  "styles": [
+   {
+    "id": 8000,
+    "name": "Precision"
+   },
+   {
+    "id": 8100,
+    "name": "Domination"
+   },
+   {
+    "id": 8200,
+    "name": "Sorcery"
+   },
+   {
+    "id": 8300,
+    "name": "Inspiration"
+   },
+   {
+    "id": 8400,
+    "name": "Resolve"
+   }
+  ]
+ },
+ "/lol-game-data/assets/v1/perks.json": [
+  {
+   "id": 8005,
+   "name": "Press the Attack"
+  },
+  {
+   "id": 8008,
+   "name": "Lethal Tempo"
+  },
+  {
+   "id": 8010,
+   "name": "Conqueror"
+  },
+  {
+   "id": 8021,
+   "name": "Fleet Footwork"
+  },
+  {
+   "id": 9111,
+   "name": "Triumph"
+  },
+  {
+   "id": 9104,
+   "name": "Legend: Alacrity"
+  },
+  {
+   "id": 9105,
+   "name": "Legend: Haste"
+  },
+  {
+   "id": 9103,
+   "name": "Legend: Bloodline"
+  },
+  {
+   "id": 8014,
+   "name": "Coup de Grace"
+  },
+  {
+   "id": 8017,
+   "name": "Cut Down"
+  },
+  {
+   "id": 8299,
+   "name": "Last Stand"
+  },
+  {
+   "id": 8112,
+   "name": "Electrocute"
+  },
+  {
+   "id": 8128,
+   "name": "Dark Harvest"
+  },
+  {
+   "id": 8143,
+   "name": "Sudden Impact"
+  },
+  {
+   "id": 8139,
+   "name": "Taste of Blood"
+  },
+  {
+   "id": 8126,
+   "name": "Cheap Shot"
+  },
+  {
+   "id": 8135,
+   "name": "Treasure Hunter"
+  },
+  {
+   "id": 8105,
+   "name": "Relentless Hunter"
+  },
+  {
+   "id": 8214,
+   "name": "Summon Aery"
+  },
+  {
+   "id": 8229,
+   "name": "Arcane Comet"
+  },
+  {
+   "id": 8230,
+   "name": "Phase Rush"
+  },
+  {
+   "id": 8226,
+   "name": "Manaflow Band"
+  },
+  {
+   "id": 8210,
+   "name": "Transcendence"
+  },
+  {
+   "id": 8233,
+   "name": "Absolute Focus"
+  },
+  {
+   "id": 8237,
+   "name": "Scorch"
+  },
+  {
+   "id": 8236,
+   "name": "Gathering Storm"
+  },
+  {
+   "id": 8275,
+   "name": "Nimbus Cloak"
+  },
+  {
+   "id": 8304,
+   "name": "Magical Footwear"
+  },
+  {
+   "id": 8347,
+   "name": "Cosmic Insight"
+  },
+  {
+   "id": 8345,
+   "name": "Biscuit Delivery"
+  },
+  {
+   "id": 8313,
+   "name": "Triple Tonic"
+  },
+  {
+   "id": 8321,
+   "name": "Cash Back"
+  },
+  {
+   "id": 8316,
+   "name": "Jack Of All Trades"
+  },
+  {
+   "id": 8351,
+   "name": "Glacial Augment"
+  },
+  {
+   "id": 8360,
+   "name": "Unsealed Spellbook"
+  },
+  {
+   "id": 8369,
+   "name": "First Strike"
+  },
+  {
+   "id": 8437,
+   "name": "Grasp of the Undying"
+  },
+  {
+   "id": 8439,
+   "name": "Aftershock"
+  },
+  {
+   "id": 8465,
+   "name": "Guardian"
+  },
+  {
+   "id": 8444,
+   "name": "Second Wind"
+  },
+  {
+   "id": 8473,
+   "name": "Bone Plating"
+  },
+  {
+   "id": 8451,
+   "name": "Overgrowth"
+  },
+  {
+   "id": 8453,
+   "name": "Revitalize"
+  },
+  {
+   "id": 8401,
+   "name": "Shield Bash"
+  },
+  {
+   "id": 8429,
+   "name": "Conditioning"
+  },
+  {
+   "id": 8463,
+   "name": "Font of Life"
+  },
+  {
+   "id": 8242,
+   "name": "Unflinching"
+  },
+  {
+   "id": 8446,
+   "name": "Demolish"
+  },
+  {
+   "id": 5001,
+   "name": "Health Scaling"
+  },
+  {
+   "id": 5005,
+   "name": "Attack Speed"
+  },
+  {
+   "id": 5007,
+   "name": "Ability Haste"
+  },
+  {
+   "id": 5008,
+   "name": "Adaptive Force"
+  },
+  {
+   "id": 5010,
+   "name": "Move Speed"
+  },
+  {
+   "id": 5011,
+   "name": "Health"
+  },
+  {
+   "id": 5013,
+   "name": "Tenacity and Slow Resist"
+  }
+ ],
+ "/lol-game-data/assets/v1/summoner-spells.json": [
+  {
+   "id": 1,
+   "name": "Cleanse"
+  },
+  {
+   "id": 3,
+   "name": "Exhaust"
+  },
+  {
+   "id": 4,
+   "name": "Flash"
+  },
+  {
+   "id": 6,
+   "name": "Ghost"
+  },
+  {
+   "id": 7,
+   "name": "Heal"
+  },
+  {
+   "id": 11,
+   "name": "Smite"
+  },
+  {
+   "id": 12,
+   "name": "Teleport"
+  },
+  {
+   "id": 14,
+   "name": "Ignite"
+  },
+  {
+   "id": 21,
+   "name": "Barrier"
+  },
+  {
+   "id": 32,
+   "name": "Mark"
+  }
+ ],
+ "/lol-game-data/assets/v1/items.json": [
+  {
+   "id": 3053,
+   "name": "Sterak's Gage"
+  },
+  {
+   "id": 3071,
+   "name": "Black Cleaver"
+  },
+  {
+   "id": 3074,
+   "name": "Ravenous Hydra"
+  },
+  {
+   "id": 3142,
+   "name": "Youmuu's Ghostblade"
+  },
+  {
+   "id": 3157,
+   "name": "Zhonya's Hourglass"
+  },
+  {
+   "id": 3020,
+   "name": "Sorcerer's Shoes"
+  },
+  {
+   "id": 3047,
+   "name": "Plated Steelcaps"
+  },
+  {
+   "id": 3111,
+   "name": "Mercury's Treads"
+  },
+  {
+   "id": 3158,
+   "name": "Ionian Boots of Lucidity"
+  },
+  {
+   "id": 3006,
+   "name": "Berserker's Greaves"
+  },
+  {
+   "id": 4645,
+   "name": "Shadowflame"
+  },
+  {
+   "id": 6610,
+   "name": "Sundered Sky"
+  },
+  {
+   "id": 6653,
+   "name": "Liandry's Torment"
+  },
+  {
+   "id": 6655,
+   "name": "Luden's Companion"
+  },
+  {
+   "id": 6676,
+   "name": "The Collector"
+  },
+  {
+   "id": 6692,
+   "name": "Eclipse"
+  },
+  {
+   "id": 6694,
+   "name": "Serylda's Grudge"
+  },
+  {
+   "id": 6697,
+   "name": "Hubris"
+  },
+  {
+   "id": 6698,
+   "name": "Profane Hydra"
+  },
+  {
+   "id": 6699,
+   "name": "Voltaic Cyclosword"
+  },
+  {
+   "id": 6701,
+   "name": "Opportunity"
+  },
+  {
+   "id": 3089,
+   "name": "Rabadon's Deathcap"
+  },
+  {
+   "id": 3135,
+   "name": "Void Staff"
+  },
+  {
+   "id": 3165,
+   "name": "Morellonomicon"
+  },
+  {
+   "id": 3036,
+   "name": "Lord Dominik's Regards"
+  },
+  {
+   "id": 3031,
+   "name": "Infinity Edge"
+  },
+  {
+   "id": 3094,
+   "name": "Rapid Firecannon"
+  },
+  {
+   "id": 3087,
+   "name": "Statikk Shiv"
+  },
+  {
+   "id": 6672,
+   "name": "Kraken Slayer"
+  },
+  {
+   "id": 3046,
+   "name": "Phantom Dancer"
+  },
+  {
+   "id": 3072,
+   "name": "Bloodthirster"
+  },
+  {
+   "id": 3026,
+   "name": "Guardian Angel"
+  },
+  {
+   "id": 3156,
+   "name": "Maw of Malmortius"
+  },
+  {
+   "id": 6333,
+   "name": "Death's Dance"
+  },
+  {
+   "id": 3065,
+   "name": "Spirit Visage"
+  },
+  {
+   "id": 3075,
+   "name": "Thornmail"
+  },
+  {
+   "id": 3143,
+   "name": "Randuin's Omen"
+  },
+  {
+   "id": 3110,
+   "name": "Frozen Heart"
+  },
+  {
+   "id": 3190,
+   "name": "Locket of the Iron Solari"
+  },
+  {
+   "id": 3107,
+   "name": "Redemption"
+  },
+  {
+   "id": 3222,
+   "name": "Mikael's Blessing"
+  },
+  {
+   "id": 3504,
+   "name": "Ardent Censer"
+  },
+  {
+   "id": 6617,
+   "name": "Moonstone Renewer"
+  },
+  {
+   "id": 3100,
+   "name": "Lich Bane"
+  },
+  {
+   "id": 3115,
+   "name": "Nashor's Tooth"
+  },
+  {
+   "id": 3116,
+   "name": "Rylai's Crystal Scepter"
+  },
+  {
+   "id": 3152,
+   "name": "Hextech Rocketbelt"
+  },
+  {
+   "id": 3102,
+   "name": "Banshee's Veil"
+  },
+  {
+   "id": 3137,
+   "name": "Cryptbloom"
+  },
+  {
+   "id": 6662,
+   "name": "Iceborn Gauntlet"
+  },
+  {
+   "id": 3068,
+   "name": "Sunfire Aegis"
+  },
+  {
+   "id": 3078,
+   "name": "Trinity Force"
+  },
+  {
+   "id": 3748,
+   "name": "Titanic Hydra"
+  },
+  {
+   "id": 3161,
+   "name": "Spear of Shojin"
+  },
+  {
+   "id": 3181,
+   "name": "Hullbreaker"
+  },
+  {
+   "id": 6631,
+   "name": "Stridebreaker"
+  },
+  {
+   "id": 3153,
+   "name": "Blade of The Ruined King"
+  },
+  {
+   "id": 3124,
+   "name": "Guinsoo's Rageblade"
+  },
+  {
+   "id": 3091,
+   "name": "Wit's End"
+  },
+  {
+   "id": 3302,
+   "name": "Terminus"
+  },
+  {
+   "id": 3814,
+   "name": "Edge of Night"
+  },
+  {
+   "id": 3179,
+   "name": "Umbral Glaive"
+  },
+  {
+   "id": 6696,
+   "name": "Axiom Arc"
+  },
+  {
+   "id": 6695,
+   "name": "Serpent's Fang"
+  },
+  {
+   "id": 3033,
+   "name": "Mortal Reminder"
+  },
+  {
+   "id": 3508,
+   "name": "Essence Reaver"
+  },
+  {
+   "id": 3085,
+   "name": "Runaan's Hurricane"
+  },
+  {
+   "id": 3040,
+   "name": "Seraph's Embrace"
+  },
+  {
+   "id": 3003,
+   "name": "Archangel's Staff"
+  },
+  {
+   "id": 3004,
+   "name": "Manamune"
+  },
+  {
+   "id": 3042,
+   "name": "Muramana"
+  },
+  {
+   "id": 3119,
+   "name": "Winter's Approach"
+  },
+  {
+   "id": 3118,
+   "name": "Malignance"
+  },
+  {
+   "id": 2065,
+   "name": "Shurelya's Battlesong"
+  },
+  {
+   "id": 3050,
+   "name": "Zeke's Convergence"
+  },
+  {
+   "id": 3109,
+   "name": "Knight's Vow"
+  },
+  {
+   "id": 4005,
+   "name": "Imperial Mandate"
+  },
+  {
+   "id": 6616,
+   "name": "Staff of Flowing Water"
+  },
+  {
+   "id": 4629,
+   "name": "Cosmic Drive"
+  },
+  {
+   "id": 4646,
+   "name": "Stormsurge"
+  },
+  {
+   "id": 3013,
+   "name": "Sheen"
+  },
+  {
+   "id": 3009,
+   "name": "Boots of Swiftness"
+  }
+ ]
+}

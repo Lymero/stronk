@@ -71,3 +71,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: data-fetch scenario in `just bench`; cache pruning; a settings screen for the source; the CDN URL and real public key (M4).
 - 2026-10-19: docs caught up with today's work: README and AGENTS link docs/windows.md and the production key draft; gaps record the real-client check of imports; architecture describes Riot's CA trust (ADR-042), the Windows and app-shell CI jobs and the Windows clone (ADR-045).
   Open: roadmap items for the UI fixes from the real-client check and tauri-specta bindings, now unblocked on Windows.
+- 2026-10-19: names from the client (ADR-047): `names.get` reads champion, rune, spell and item names from the League client's game data (lcu-mock serves a subset, `game_data.json`); the UI shows them, with readable phases and roles, and each skipped import part (for example all rune pages in use) as a warning.
+  Open: check the names on the real client; tauri-specta bindings (Windows).

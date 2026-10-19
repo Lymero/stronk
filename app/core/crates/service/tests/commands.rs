@@ -34,7 +34,8 @@ fn lists_every_command() {
             "champselect.state",
             "data.status",
             "item_sets.backups",
-            "item_sets.restore"
+            "item_sets.restore",
+            "names.get"
         ]
     );
 }
@@ -102,8 +103,20 @@ fn champselect_state_outside_champion_select() {
 
 #[test]
 fn a_missing_client_is_an_error_not_a_crash() {
-    let err = run(&ctx(NoClient), "champselect.state", json!({})).unwrap_err();
-    assert_eq!(err.code, ErrorCode::Unavailable);
+    for id in ["champselect.state", "names.get"] {
+        let err = run(&ctx(NoClient), id, json!({})).unwrap_err();
+        assert_eq!(err.code, ErrorCode::Unavailable);
+    }
+}
+
+#[test]
+fn names_get_maps_ids_to_the_clients_names() {
+    let out = run(&ctx(FakeClient::new(None)), "names.get", json!({})).unwrap();
+    assert_eq!(out["champions"]["234"], "Viego");
+    assert_eq!(out["rune_styles"]["8000"], "Precision");
+    assert_eq!(out["runes"]["8010"], "Conqueror");
+    assert_eq!(out["spells"]["11"], "Smite");
+    assert_eq!(out["items"]["6692"], "Eclipse");
 }
 
 #[test]
@@ -199,6 +212,10 @@ fn import_never_deletes_the_players_page_to_make_room() {
     };
     let (out, client) = import(FakeClient::with(Some(viego((4, 14))), state));
     assert_eq!(out["runes"]["status"], "skipped");
+    assert_eq!(
+        out["runes"]["reason"],
+        "all your rune pages are in use: delete one in the client, then import again"
+    );
     assert!(client.state().deleted.is_empty());
     assert_eq!(client.state().pages.len(), 1);
 }

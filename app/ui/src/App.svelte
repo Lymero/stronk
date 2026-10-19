@@ -29,9 +29,9 @@
     <p class="error" role="alert">{state.error.message}</p>
   {/if}
 
-  <ChampSelect select={state.champSelect} />
+  <ChampSelect select={state.champSelect} names={state.names} />
   {#if state.plan && state.champSelect?.champion}
-    <PlanView plan={state.plan.value} {imported} onimport={() => void app.importBuild()} />
+    <PlanView plan={state.plan.value} names={state.names} {imported} onimport={() => void app.importBuild()} />
   {/if}
 </main>
 

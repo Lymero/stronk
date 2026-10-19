@@ -90,6 +90,15 @@ export interface DataStatus {
   files: number;
 }
 
+/** Display names by id (as a string), from the League client's game data (`names.get`). */
+export interface GameNames {
+  champions: Record<string, string>;
+  rune_styles: Record<string, string>;
+  runes: Record<string, string>;
+  spells: Record<string, string>;
+  items: Record<string, string>;
+}
+
 export interface BuildGetParams {
   champion: string;
   role: Role;
@@ -104,6 +113,7 @@ export interface Commands {
   "build.plan": { params: PlanParams; result: Plan };
   "champselect.state": { params: Record<string, never>; result: ChampSelectState };
   "data.status": { params: Record<string, never>; result: DataStatus };
+  "names.get": { params: Record<string, never>; result: GameNames };
 }
 
 export type CommandId = keyof Commands;

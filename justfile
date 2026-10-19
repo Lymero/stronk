@@ -224,7 +224,7 @@ core-e2e:
 lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":
     uv run python tools/lcu_mock/lcu_mock.py {{ session }}
 
-# UI in the browser against MockBackend: http://127.0.0.1:5173/?scenario=ranked-jungle|no-client|bad-data
+# UI in the browser against MockBackend: http://127.0.0.1:5173/?scenario=ranked-jungle|pages-full|no-client|bad-data
 app-mock:
     pnpm --filter @stronk/ui dev
 

@@ -2,7 +2,7 @@
 
 #![allow(dead_code, clippy::unwrap_used)]
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
 use stronk_contracts::build_v1::Build;
@@ -10,7 +10,7 @@ use stronk_domain::select::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
 use stronk_service::Context;
 use stronk_service::ports::{
-    Backups, BuildSource, ChampSelect, DataStatus, LeagueClient, NewRunePage, PortError,
+    Backups, BuildSource, ChampSelect, DataStatus, GameNames, LeagueClient, NewRunePage, PortError,
 };
 
 pub fn example_build() -> Build {
@@ -133,6 +133,16 @@ impl LeagueClient for FakeClient {
             .ok_or_else(|| PortError::NotFound(format!("champion {champion_id}")))
     }
 
+    fn game_names(&self) -> Result<GameNames, PortError> {
+        Ok(GameNames {
+            champions: BTreeMap::from([(234, "Viego".to_owned())]),
+            rune_styles: BTreeMap::from([(8000, "Precision".to_owned())]),
+            runes: BTreeMap::from([(8010, "Conqueror".to_owned())]),
+            spells: BTreeMap::from([(4, "Flash".to_owned()), (11, "Smite".to_owned())]),
+            items: BTreeMap::from([(6692, "Eclipse".to_owned())]),
+        })
+    }
+
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {
         Ok(self
             .state
@@ -204,6 +214,9 @@ impl LeagueClient for NoClient {
         down()
     }
     fn champion_key(&self, _: i64) -> Result<String, PortError> {
+        down()
+    }
+    fn game_names(&self) -> Result<GameNames, PortError> {
         down()
     }
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {

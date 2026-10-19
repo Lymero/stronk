@@ -10,8 +10,10 @@ import {
   type Commands,
   type DataStatus,
   err,
+  type GameNames,
   type Imported,
   ok,
+  type Outcome,
   type Plan,
   type Result,
 } from "./backend.ts";
@@ -20,6 +22,10 @@ export interface Scenario {
   steps: (ChampSelectState | CommandError)[];
   plans: Record<string, Plan | CommandError>;
   status: DataStatus | CommandError;
+  /** The client's game data names; without them the UI shows ids. */
+  names?: GameNames | CommandError;
+  /** What importing the rune page does; imported by default. */
+  runes?: Outcome;
 }
 
 const lobby: ChampSelectState = { session: null, champion: null, role: null };
@@ -45,18 +51,50 @@ const leeSin: Plan = {
   ],
 };
 
+/** The names tools/lcu_mock/game_data.json serves for the ids above. */
+const names: GameNames = {
+  champions: { "64": "Lee Sin", "104": "Graves" },
+  rune_styles: { "8000": "Precision", "8300": "Inspiration" },
+  runes: {
+    "8010": "Conqueror",
+    "9111": "Triumph",
+    "9104": "Legend: Alacrity",
+    "8014": "Coup de Grace",
+    "8304": "Magical Footwear",
+    "8347": "Cosmic Insight",
+    "5005": "Attack Speed",
+    "5008": "Adaptive Force",
+    "5001": "Health Scaling",
+  },
+  spells: { "4": "Flash", "11": "Smite", "14": "Ignite" },
+  items: { "6692": "Eclipse", "6610": "Sundered Sky", "3053": "Sterak's Gage", "6676": "The Collector" },
+};
+
+const rankedJungle = [
+  lobby,
+  selecting("Graves", 104, "PLANNING"),
+  selecting("LeeSin", 64, "BAN_PICK"),
+  selecting("LeeSin", 64, "FINALIZATION", true),
+];
+
 const graves: Plan = { ...leeSin, champion: "Graves", items: [{ slot: 1, value: 6676, label: "popular" }] };
 
 export const scenarios = {
   "ranked-jungle": {
-    steps: [
-      lobby,
-      selecting("Graves", 104, "PLANNING"),
-      selecting("LeeSin", 64, "BAN_PICK"),
-      selecting("LeeSin", 64, "FINALIZATION", true),
-    ],
+    steps: rankedJungle,
     plans: { "Graves/JUNGLE": graves, "LeeSin/JUNGLE": leeSin },
     status,
+    names,
+  },
+  "pages-full": {
+    steps: rankedJungle,
+    plans: { "Graves/JUNGLE": graves, "LeeSin/JUNGLE": leeSin },
+    status,
+    names,
+    runes: {
+      status: "skipped",
+      reason: "all your rune pages are in use: delete one in the client, then import again",
+    },
   },
   "no-client": {
     steps: [{ code: "unavailable", message: "no lockfile: is the League client running?" }],
@@ -104,6 +142,8 @@ export class MockBackend implements Backend {
         return result(this.scenario.status) as Out;
       case "champselect.state":
         return result(current) as Out;
+      case "names.get":
+        return result(this.scenario.names ?? { code: "unavailable", message: "no names" }) as Out;
       case "build.plan": {
         const { champion, role } = params as Commands["build.plan"]["params"];
         const plan = this.scenario.plans[`${champion}/${role}`];
@@ -117,7 +157,7 @@ export class MockBackend implements Backend {
         const imported: Imported = {
           champion: current.champion,
           role: current.role,
-          runes: { status: "imported", name, label: "popular" },
+          runes: this.scenario.runes ?? { status: "imported", name, label: "popular" },
           item_set: { status: "imported", name, label: "popular" },
           item_set_backup: "backups/item-sets-1.json",
           spells: { status: "imported", name: "4 11", label: "popular" },

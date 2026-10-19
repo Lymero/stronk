@@ -1,6 +1,8 @@
 //! The parts of the client's JSON the app reads, decoded leniently: unknown fields are ignored
 //! and missing ones take defaults, because the client adds fields every patch.
 
+use std::collections::BTreeMap;
+
 use serde::Deserialize;
 use stronk_domain::Role;
 use stronk_service::ports::ChampSelect;
@@ -108,6 +110,34 @@ pub struct CurrentSummoner {
 pub struct ChampionSummary {
     pub id: i64,
     pub alias: String,
+    /// The display name, in the client's language.
+    #[serde(default)]
+    pub name: String,
+}
+
+/// An entry of the client's game data lists (`perks.json`, `summoner-spells.json`,
+/// `items.json`): only the id and display name.
+#[derive(Debug, Deserialize, Default)]
+#[serde(default)]
+pub struct Named {
+    pub id: i64,
+    pub name: String,
+}
+
+/// `GET /lol-game-data/assets/v1/perkstyles.json`.
+#[derive(Debug, Deserialize, Default)]
+#[serde(default)]
+pub struct PerkStyles {
+    pub styles: Vec<Named>,
+}
+
+/// Id to name, leaving out entries without a name.
+pub fn by_id(entries: impl IntoIterator<Item = Named>) -> BTreeMap<i64, String> {
+    entries
+        .into_iter()
+        .filter(|e| !e.name.is_empty())
+        .map(|e| (e.id, e.name))
+        .collect()
 }
 
 #[cfg(test)]
@@ -136,6 +166,21 @@ mod tests {
         );
         assert_eq!(locked.local().champion_id, 121);
         assert!(locked.local().locked);
+    }
+
+    #[test]
+    fn names_keep_id_and_name_only_and_skip_unnamed_entries() {
+        let items: Vec<Named> = serde_json::from_str(
+            r#"[{"id": 6692, "name": "Eclipse", "priceTotal": 2900, "from": [3134]},
+                {"id": 1, "description": "no name"}]"#,
+        )
+        .unwrap();
+        assert_eq!(by_id(items), BTreeMap::from([(6692, "Eclipse".to_owned())]));
+        let styles: PerkStyles = serde_json::from_str(
+            r#"{"schemaVersion": 2, "styles": [{"id": 8000, "name": "Precision"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(by_id(styles.styles)[&8000], "Precision");
     }
 
     #[test]

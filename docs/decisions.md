@@ -322,3 +322,9 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - Plain `http://` only to `127.0.0.1`, `localhost` or `[::1]` (and without a proxy there); `https://` elsewhere. One cache folder per base URL.
   - `open_source` turns the setting into a source (`http(s)://` or a directory, `dir:` optional); `stronk-core` and the shell take it from `STRONK_DATA_DIR`.
 - **Consequences:** the app works offline once it has seen the data (docs/gaps.md). A withdrawn patch stays in use where it was cached until a newer one is published. The cache keeps old patches and runs' files; pruning comes when its size matters.
+
+### ADR-047 · Names from the League client's game data
+
+- **Context:** the real-client check (2026-10-19) showed rune, spell and item ids and the raw phase (`BAN_PICK`). Names could come from Data Dragon at publish time (a new signed file per patch) or from the running client, which serves its own game data under `/lol-game-data/assets/v1/`.
+- **Decision:** names come from the client. `LeagueClient::game_names` reads `champion-summary.json`, `perkstyles.json`, `perks.json`, `summoner-spells.json` and `items.json`, keeps only ids and names, and caches them per client; the `names.get` command returns them as five id-to-name maps. The UI loads them once a champion select is seen, shows ids for anything without a name, and never reports a failure to load them (they are cosmetic). Phases and roles are worded in the UI (`labels.ts`). An import part that was skipped shows as a warning with its reason, so "all your rune pages are in use" can't pass unnoticed. `tools/lcu_mock` serves a small hand-written subset (`game_data.json`).
+- **Consequences:** names are in the player's language and match the client's patch, with no new published file or network call; the plan is only shown during champion select, when the client is there anyway. A future web build viewer (no client) will need names from published data instead.

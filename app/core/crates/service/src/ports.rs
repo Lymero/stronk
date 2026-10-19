@@ -1,6 +1,8 @@
 //! What the use cases need from the outside world. Adapters live in other crates
 //! (`stronk-data`, `stronk-lcu`); tests use in-memory fakes.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::Build;
 use stronk_domain::select::PageInfo;
@@ -71,12 +73,27 @@ pub struct NewRunePage {
     pub perks: Vec<i64>,
 }
 
+/// Display names by id, from the client's own game data, so in the player's language
+/// (`names.get`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct GameNames {
+    pub champions: BTreeMap<i64, String>,
+    /// Rune trees (Precision, Domination…).
+    pub rune_styles: BTreeMap<i64, String>,
+    /// Runes and stat shards.
+    pub runes: BTreeMap<i64, String>,
+    pub spells: BTreeMap<i64, String>,
+    pub items: BTreeMap<i64, String>,
+}
+
 /// The running League client (`stronk-lcu`, or `tools/lcu-mock` in tests).
 pub trait LeagueClient: Send + Sync {
     /// `None` outside champion select.
     fn champ_select(&self) -> Result<Option<ChampSelect>, PortError>;
     /// Champion id to its key in published data (`LeeSin`), from the client's own data.
     fn champion_key(&self, champion_id: i64) -> Result<String, PortError>;
+    /// Names for champions, runes, spells and items, from the client's game data.
+    fn game_names(&self) -> Result<GameNames, PortError>;
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError>;
     /// How many editable rune pages the account may have.
     fn rune_page_capacity(&self) -> Result<usize, PortError>;

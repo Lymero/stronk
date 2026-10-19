@@ -26,6 +26,8 @@ Status: **missing** · **partial** · **done**
 | Write item set | Blitz, Porofessor | partial: Stronk's own item set, the player's kept and backed up before each write; tested against lcu-mock and on a real client (2026-10-19) |
 | Set summoner spells | Blitz | partial: most played pair, Flash on the player's key; tested against lcu-mock and on a real client (2026-10-19) |
 | Auto-import on lock-in | Blitz | partial: a setting, off by default, on the websocket watcher (the watcher checked on a real client 2026-10-19; auto-import itself not yet) |
+| Readable names for runes, spells and items | Blitz, Porofessor | partial: `names.get` reads them from the client's own game data, in its language (ADR-047); readable phases and roles; tested against lcu-mock, not yet on a real client |
+| Say why part of an import was skipped | none | partial: each skipped part shows as a warning, for example all rune pages in use (ADR-047) |
 | Cycle alternative builds by hotkey | none | missing |
 
 ## App

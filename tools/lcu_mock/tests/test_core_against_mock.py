@@ -76,6 +76,16 @@ def test_locked_champion_gets_its_verified_build(mock: Mock) -> None:
     assert (build["champion"], build["role"], build["patch"]) == ("LeeSin", "JUNGLE", "16.20")
 
 
+def test_names_come_from_the_clients_game_data(mock: Mock) -> None:
+    status, names = core(mock, "names.get")
+    assert status == 0, names
+    assert names["champions"]["64"] == "Lee Sin"
+    assert names["rune_styles"]["8000"] == "Precision"
+    assert names["runes"]["8010"] == "Conqueror"
+    assert names["spells"]["11"] == "Smite"
+    assert names["items"]["6692"] == "Eclipse"
+
+
 def test_a_wrong_password_is_an_error_not_a_crash(mock: Mock) -> None:
     text = mock.lockfile.read_text().rsplit(":", 2)
     mock.lockfile.write_text(f"{text[0]}:not-the-password:{text[2]}")

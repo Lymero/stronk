@@ -2,7 +2,15 @@
 // tests, mocks and debugging tools can read. Only the functions below change it, through the
 // Backend.
 
-import type { Backend, ChampSelectState, CommandError, DataStatus, Imported, Plan } from "../backend/backend.ts";
+import type {
+  Backend,
+  ChampSelectState,
+  CommandError,
+  DataStatus,
+  GameNames,
+  Imported,
+  Plan,
+} from "../backend/backend.ts";
 
 export interface Settings {
   /** Import on lock-in without asking (ADR-043); off by default. */
@@ -12,6 +20,8 @@ export interface Settings {
 export interface AppState {
   data: DataStatus | null;
   champSelect: ChampSelectState | null;
+  /** Names for the ids on screen, from the client; ids show until they load. */
+  names: GameNames | null;
   /** What an import would write for the champion picked or hovered, loaded as soon as known. */
   plan: { key: string; value: Plan } | null;
   /** The last import, and for which champion and role. */
@@ -55,6 +65,7 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
   const state = $state<AppState>({
     data: null,
     champSelect: null,
+    names: null,
     plan: null,
     imported: null,
     settings: store.load() ?? { autoImport: false },
@@ -89,6 +100,11 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
       return;
     }
     state.champSelect = select.value;
+    if (state.names === null && select.value.session) {
+      // Cosmetic: without names the ids show, so a failure is not an error to report.
+      const names = await backend.run("names.get", {});
+      if (names.ok) state.names = names.value;
+    }
     const { champion, role, session } = select.value;
     if (champion === null || role === null) {
       state.error = null;

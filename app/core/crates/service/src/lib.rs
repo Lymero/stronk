@@ -32,5 +32,6 @@ pub fn registry() -> Registry {
         commands::data_status::command(),
         commands::item_sets_backups::command(),
         commands::item_sets_restore::command(),
+        commands::names_get::command(),
     ])
 }

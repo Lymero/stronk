@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use stronk_domain::select::PageInfo;
-use stronk_service::ports::{ChampSelect, LeagueClient, NewRunePage, PortError};
+use stronk_service::ports::{ChampSelect, GameNames, LeagueClient, NewRunePage, PortError};
 
 use crate::tls::Trust;
 use crate::{LcuClient, Lockfile, discover};
@@ -87,6 +87,10 @@ impl LeagueClient for Reconnecting {
 
     fn champion_key(&self, champion_id: i64) -> Result<String, PortError> {
         self.client()?.champion_key(champion_id)
+    }
+
+    fn game_names(&self) -> Result<GameNames, PortError> {
+        self.client()?.game_names()
     }
 
     fn rune_pages(&self) -> Result<Vec<PageInfo>, PortError> {

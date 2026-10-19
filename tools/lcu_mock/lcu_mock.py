@@ -12,7 +12,8 @@ app makes (PUT, POST, PATCH, DELETE outside `/mock/`) is recorded and listed by
 The account side the imports touch is kept in memory, with made-up defaults, never in session
 files: rune pages (two of the player's, room for one more), the page inventory, the current
 summoner, item sets (one of the player's), and the spell selection, which is laid over the
-local player in the session.
+local player in the session. The client's game data (rune, spell and item names) comes from
+`game_data.json` next to this file, the same for every session.
 
 The client's websocket is there too: a `[5, "<topic>"]` message subscribes, and every step the
 replay moves to sends the subscribers of the champion-select session topic
@@ -53,6 +54,13 @@ SELECTION = "/lol-champ-select/v1/session/my-selection"
 SUMMONER_ID = 1
 SESSION_EVENT = "OnJsonApiEvent_lol-champ-select_v1_session"
 WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+GAME_DATA = Path(__file__).with_name("game_data.json")
+
+
+def game_data() -> dict[str, object]:
+    """The game data documents by path (`/lol-game-data/assets/v1/...`)."""
+    data: dict[str, object] = json.loads(GAME_DATA.read_text(encoding="utf-8"))
+    return {path: doc for path, doc in data.items() if path.startswith("/")}
 
 
 class Subscriber:
@@ -139,6 +147,7 @@ class Replay:
     spells: tuple[int, int] | None = None
     """The spell selection, D then F, laid over the local player; `None` keeps the session's."""
     subscribers: list[Subscriber] = field(default_factory=list[Subscriber])
+    game_data: dict[str, object] = field(default_factory=game_data)
 
     @classmethod
     def load(cls, path: Path) -> Replay:
@@ -244,6 +253,7 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
                     INVENTORY: {"ownedPageCount": replay.page_capacity},
                     SUMMONER: {"summonerId": SUMMONER_ID},
                     ITEM_SETS: replay.item_sets,
+                    **replay.game_data,
                 }
             if self.path == ITEM_SETS and replay.item_sets_fail:
                 return HTTPStatus.INTERNAL_SERVER_ERROR, {"message": "item sets unavailable"}

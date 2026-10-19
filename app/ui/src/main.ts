@@ -1,6 +1,6 @@
 // Entry point: picks the backend and polls champion select. Inside the desktop app
 // (`just app`) that is TauriBackend; in a plain browser (`just app-mock`) MockBackend, with
-// `?scenario=ranked-jungle|no-client|bad-data`.
+// `?scenario=ranked-jungle|pages-full|no-client|bad-data`.
 
 import { mount } from "svelte";
 import App from "./App.svelte";

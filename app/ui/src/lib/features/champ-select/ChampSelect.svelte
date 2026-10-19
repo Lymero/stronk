@@ -1,14 +1,20 @@
 <script lang="ts">
-  import type { ChampSelectState } from "../../backend/backend.ts";
+  import type { ChampSelectState, GameNames } from "../../backend/backend.ts";
+  import { phase, role } from "../../ui/labels.ts";
 
-  let { select }: { select: ChampSelectState | null } = $props();
+  let { select, names }: { select: ChampSelectState | null; names: GameNames | null } = $props();
+
+  /** The champion's name in the client's language, else its key in the data (`LeeSin`). */
+  const champion = $derived(
+    select?.champion ? (names?.champions[String(select.session?.champion_id)] ?? select.champion) : null,
+  );
 </script>
 
 <section class="champ-select" aria-label="Champion select">
   {#if select?.session}
-    <h2>{select.champion ?? "No champion yet"}</h2>
+    <h2>{champion ?? "No champion yet"}</h2>
     <p class="meta">
-      {select.role ?? "No role"} · {select.session.locked ? "Locked in" : "Hovering"} · {select.session.phase}
+      {select.role ? role(select.role) : "No role"} · {select.session.locked ? "Locked in" : "Hovering"} · {phase(select.session.phase)}
     </p>
   {:else}
     <p class="meta">Waiting for champion select</p>

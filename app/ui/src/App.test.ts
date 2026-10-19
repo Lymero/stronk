@@ -43,9 +43,9 @@ describe("App with MockBackend", () => {
     await next();
     expect(await screen.findByRole("heading", { name: "Graves" })).toBeInTheDocument();
     await next();
-    expect(await screen.findByRole("heading", { name: "LeeSin" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Lee Sin" })).toBeInTheDocument();
     await next();
-    expect(await screen.findByText(/Locked in/)).toBeInTheDocument();
+    expect(await screen.findByText("Jungle · Locked in · Final changes")).toBeInTheDocument();
     const planned = backend.calls.filter((c) => c.id === "build.plan").map((c) => c.params);
     expect(planned).toEqual([
       { champion: "Graves", role: "JUNGLE" },
@@ -66,13 +66,38 @@ describe("App with MockBackend", () => {
     );
   });
 
+  it("shows names from the client instead of ids, and readable phases", async () => {
+    const { app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    expect(await screen.findByText("Jungle · Hovering · Bans and picks")).toBeInTheDocument();
+    expect(screen.getByText("Conqueror · Triumph · Legend: Alacrity · Coup de Grace")).toBeInTheDocument();
+    expect(screen.getByText("Magical Footwear · Cosmic Insight")).toBeInTheDocument();
+    expect(screen.getByText("Attack Speed · Adaptive Force · Health Scaling")).toBeInTheDocument();
+    expect(screen.getByText("Smite · Flash")).toBeInTheDocument();
+    expect(screen.getByText("Sundered Sky")).toBeInTheDocument();
+  });
+
+  it("says when every rune page is in use and the rune page was skipped", async () => {
+    const { app, next } = setup("pages-full");
+    await app.refresh();
+    for (let i = 0; i < 3; i++) await next();
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Rune page not imported: all your rune pages are in use: delete one in the client, then import again",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Imported: Item set, Spells.");
+  });
+
   it("imports only when asked, unless auto-import is on", async () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     for (let i = 0; i < 3; i++) await next(); // locked in
     expect(imports(backend)).toBe(0);
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("Runes imported");
+    expect(await screen.findByRole("status")).toHaveTextContent("Imported: Rune page, Item set, Spells.");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(imports(backend)).toBe(1);
   });
 
@@ -101,6 +126,7 @@ describe("App with MockBackend", () => {
     await app.refresh();
     expect(await screen.findByRole("alert")).toHaveTextContent("hash mismatch");
     expect(screen.queryByLabelText("Build")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "LeeSin" })).toBeInTheDocument(); // no names: the key
   });
 });
 
