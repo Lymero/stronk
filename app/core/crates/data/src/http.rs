@@ -66,12 +66,15 @@ struct Cached {
 }
 
 impl HttpSource {
-    /// `base` is `https://…`, or `http://` to this machine only (`just serve-data`). The cache
-    /// for it is a folder of its own under `cache`.
+    /// `base` is `https://…`, or `http://` to this machine only (`just serve-data`): the
+    /// loopback literals `127.0.0.1` and `[::1]`, never a name such as `localhost` that the hosts
+    /// file could send elsewhere. The cache for it is a folder of its own under `cache`.
     pub fn new(base: &str, key: TrustedKey, cache: &Path) -> Result<Self, PortError> {
         let invalid = |why: &str| PortError::Invalid(format!("data source {base}: {why}"));
         let mut url = Url::parse(base).map_err(|e| invalid(&e.to_string()))?;
-        let local = matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"));
+        // The parser writes IP literals in canonical form, so these two strings are the only
+        // spellings of the loopback addresses (`127.1` and `[0::1]` included).
+        let local = matches!(url.host_str(), Some("127.0.0.1" | "[::1]"));
         match url.scheme() {
             "https" => {}
             "http" if local => {}

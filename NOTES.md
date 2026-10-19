@@ -89,3 +89,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: check picking and importing on the real client; picks are forgotten on restart.
 - 2026-10-19: one selection rule (ADR-049): `select::rank` next to `choose` ranks each slot's options from the published flags, `build.plan` returns them as `alternatives` (top 3 plus the chosen one, a `more` count) with the build's games, elo and region; the UI lost its own q threshold and the extra `build.get`, and the rule's cases moved to Rust.
   Open: options past the top 3 are counted but can't be picked from the view any more.
+- 2026-10-19: `HttpSource` takes plain `http://` only for the loopback literals `127.0.0.1` and `[::1]`, no longer `localhost` (ADR-046, docs/security.md); `just serve-data` and the app recipes already use `127.0.0.1`.
+  Open: nothing new from this change.

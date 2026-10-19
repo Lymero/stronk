@@ -29,7 +29,7 @@ The app runs on players' machines and writes into their League client. These are
 
 - Published data is signed (ed25519 manifest with per-file sha256).
 - The app verifies signatures for every source, including local ones; invalid data is rejected and the last valid cache is kept.
-- Over HTTP the data source is `https://`, checked against the operating system's roots; plain `http://` is accepted for this machine only (`just serve-data`). The patch list (`/index.json`) is unsigned, so the app never lets it move backwards: a patch verified once stays a candidate and an older run of a cached patch is refused (ADR-046).
+- Over HTTP the data source is `https://`, checked against the operating system's roots; plain `http://` is accepted for this machine only (`just serve-data`), as the loopback literals `127.0.0.1` or `[::1]`: never `localhost` or another name, which the hosts file could redirect. The patch list (`/index.json`) is unsigned, so the app never lets it move backwards: a patch verified once stays a candidate and an older run of a cached patch is refused (ADR-046).
 - The private signing key never enters the repository. `just keygen` writes it to `~/.config/stronk/` with owner-only permissions and refuses to overwrite one. No private key is committed, not even a test one (`*.key` is ignored): the contract example is signed with a throwaway test key whose public half is `contracts/tests/keys/test-only.pub`, and no app ever trusts it.
 
 ### Secrets and privacy

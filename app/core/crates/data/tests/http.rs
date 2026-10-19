@@ -430,7 +430,8 @@ fn plain_http_is_for_this_machine_only() {
         "https://data.example/",
         "https://data.example/v1",
         "http://127.0.0.1:8787",
-        "http://localhost:8787/data/",
+        "http://[::1]:8787/data/",
+        "http://[0:0:0:0:0:0:0:1]:8787", // the same address, written out
     ] {
         assert!(
             HttpSource::new(ok, fixture_key(), cache.path()).is_ok(),
@@ -440,6 +441,9 @@ fn plain_http_is_for_this_machine_only() {
     for bad in [
         "http://data.example",
         "http://192.168.1.2:8787",
+        // A name: the hosts file could send it anywhere, so only the literals count.
+        "http://localhost:8787/data/",
+        "http://127.0.0.1.example:8787",
         "ftp://data.example",
         "https://u:p@data.example",
         "https://data.example/?x=1",
