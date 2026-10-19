@@ -47,6 +47,12 @@
     onopen={() => void app.loadBackups()}
     onrestore={(location) => void app.restoreItemSets(location)}
   />
+
+  <footer>
+    Stronk isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone
+    officially involved in producing or managing Riot Games properties. Riot Games, and all associated
+    properties are trademarks or registered trademarks of Riot Games, Inc.
+  </footer>
 </main>
 
 <style>
@@ -79,6 +85,12 @@
     background: var(--color-surface);
     color: var(--color-text);
     font: inherit;
+  }
+  footer {
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
   }
   .error {
     margin: 0;

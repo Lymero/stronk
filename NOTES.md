@@ -107,3 +107,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the owner connects the Cloudflare project and the subdomain's DNS; riot.txt once Riot gives the string; the contact address on the site is the commit email; the legal notice in the app.
 - 2026-10-19: production key application submitted in the Developer Portal; `site/public/riot.txt` holds Riot's verification string and the site at stronk.christophercastel.com is verified.
   Open: Riot's review (answers come in the portal's messages); remove riot.txt once approved; the legal notice in the app.
+- 2026-10-19: Riot's legal notice in the app's footer, below the settings (App.svelte, tested in App.test.ts); production key draft updated.
+  Open: Riot's review of the application.

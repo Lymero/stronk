@@ -44,6 +44,12 @@ function setup(name: keyof typeof scenarios, store = memory(), picks = memoryPic
 const imports = (backend: MockBackend) => backend.calls.filter((c) => c.id === "build.import").length;
 
 describe("App with MockBackend", () => {
+  it("shows Riot's legal notice", async () => {
+    const { app } = setup("ranked-jungle");
+    await app.refresh();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("Stronk isn't endorsed by Riot Games");
+  });
+
   it("waits outside champion select", async () => {
     const { app } = setup("ranked-jungle");
     await app.refresh();

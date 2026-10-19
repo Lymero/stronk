@@ -87,13 +87,13 @@ Nothing about other players in the session is stored or shown.
 
 `https://stronk.christophercastel.com` (source in `site/`, ADR-054): the product page, the method description, the published data, a privacy policy and terms of use (Riot reviews both, and does not grant a production key without a verified website; a GitHub repository is not accepted instead). After submitting, Riot gives a text string to put, exactly as given, in `riot.txt` at the site's root; the file can be removed once the site is verified. **[Site deployed on Cloudflare; riot.txt in place after submitting]**.
 
-The Riot legal notice ("Stronk isn't endorsed by Riot Games…", ATTRIBUTION.md) is in every page's footer on the site and is shown in the app. **[Add it to the app's settings or footer before submitting]**.
+The Riot legal notice ("Stronk isn't endorsed by Riot Games…", ATTRIBUTION.md) is in every page's footer on the site and in the app's footer, below the settings.
 
 ## Before submitting
 
 - **[Register the product in the Developer Portal and note that it uses the League Client API, as Riot asks for LCU apps]**
 - **[Site live (privacy policy and terms are written, `site/public/`); domain verified with riot.txt]**
-- **[Legal notice visible in the app]**
+- Legal notice visible in the app (its footer)
 - **[Data served from the public location (R2/CDN), not a local folder]**
 - Reviews usually take one to three weeks; answers arrive in the Developer Portal's messages.
 
