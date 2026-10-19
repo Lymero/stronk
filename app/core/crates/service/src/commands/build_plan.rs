@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{Build, Comparison, Flag};
 use stronk_domain::Role;
-use stronk_domain::select::{self, Candidate, Choice, choose};
+use stronk_domain::select::{self, Candidate, Choice, choose, choose_items};
 
 use crate::commands::build_get;
 use crate::registry::Command;
@@ -20,7 +20,8 @@ pub struct Params {
     pub elo: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Page {
     pub primary_style: i64,
     pub sub_style: i64,
@@ -101,10 +102,10 @@ pub fn plan(build: &Build, role: Role) -> Plan {
     let mut slots: Vec<u64> = build.items.iter().map(|o| o.slot.get()).collect();
     slots.sort_unstable();
     slots.dedup();
-    let items = slots
+    let candidates: Vec<(u64, Vec<Candidate<i64>>)> = slots
         .into_iter()
-        .filter_map(|slot| {
-            let candidates: Vec<Candidate<i64>> = build
+        .map(|slot| {
+            let candidates = build
                 .items
                 .iter()
                 .filter(|o| o.slot.get() == slot)
@@ -117,8 +118,12 @@ pub fn plan(build: &Build, role: Role) -> Plan {
                     comparison: o.comparison.as_ref().map(compared),
                 })
                 .collect();
-            choose(&candidates).map(|choice| SlotChoice { slot, choice })
+            (slot, candidates)
         })
+        .collect();
+    let items = choose_items(&candidates)
+        .into_iter()
+        .map(|(slot, choice)| SlotChoice { slot, choice })
         .collect();
     Plan {
         champion: build.champion.to_string(),

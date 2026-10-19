@@ -2,29 +2,41 @@
   import type { Build, Choice, GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import { elo, games, name, region, runePage } from "../../ui/labels.ts";
   import OptionList from "./OptionList.svelte";
+  import type { Pick, Picks } from "../../state/picks.ts";
   import { allPopular, alternatives } from "./options.ts";
 
   let {
     plan,
     build,
     names,
+    picks,
     imported,
+    changed,
     onimport,
+    onpick,
+    onreset,
   }: {
     plan: Plan;
     /** The build file behind the plan, for the alternatives; the choices alone without it. */
     build: Build | null;
     names: GameNames | null;
+    picks: Picks;
     imported: Imported | null;
+    /** The picks changed since that import. */
+    changed: boolean;
     onimport: () => void;
+    onpick: (pick: Pick) => void;
+    /** Back to Stronk's choices everywhere. */
+    onreset: () => void;
   } = $props();
 
   const percent = (v: number) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
   const why = (c: Choice<unknown>) =>
-    c.label === "popular" ? "Popular" : `Clearly better · ${percent(c.wpa)} win`;
+    c.label === "clearly_better" ? `Clearly better · ${percent(c.wpa)} win` : c.label === "picked" ? "Your pick" : "Popular";
   /** The evidence behind "Clearly better": the interval and how many games it rests on. */
   const evidence = (c: Choice<unknown>) => {
     if (c.label === "popular") return "The most played option";
+    if (c.label === "picked") return "Your pick instead of Stronk's";
     const interval = c.ci ? ` (95% interval ${percent(c.ci[0])} to ${percent(c.ci[1])})` : "";
     return `Win impact ${percent(c.wpa)} against the most played option${interval}, from ${c.games.toLocaleString("en-US")} games`;
   };
@@ -32,7 +44,16 @@
   const source = $derived(
     [`Patch ${plan.patch}`, ...(build ? [games(build.games), elo(build.elo), region(build.region)] : [])].join(" · "),
   );
-  const options = $derived(build ? alternatives(build, plan) : null);
+  const options = $derived(build ? alternatives(build, plan, picks) : null);
+  const picked = $derived(picks.runes !== undefined || picks.spells !== undefined || Object.keys(picks.items).length > 0);
+  const shownPage = $derived(picks.runes ?? plan.runes?.value);
+  /** The item each slot imports: the player's pick, else Stronk's. */
+  const slotItem = (slot: number) => picks.items[slot] ?? plan.items.find((i) => i.slot === slot)?.value;
+  /** Other slots importing the same item, so a duplicate the player picks is visible. */
+  const alsoIn = (slot: number) => (id: number) => {
+    const others = plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => `item ${i.slot}`);
+    return others.length ? `Also in ${others.join(" and ")}` : "";
+  };
   const popularOnly = $derived(allPopular(plan));
 
   const page = (p: Page) => {
@@ -62,13 +83,22 @@
   );
 </script>
 
+{#snippet label(c: Choice<unknown>)}
+  <span class="label" class:better={c.label === "clearly_better"} class:picked={c.label === "picked"} title={evidence(c)}
+    >{why(c)}</span
+  >
+{/snippet}
+
 <section class="plan" aria-label="Build">
   <header>
     <div>
       <h2>Recommended build</h2>
       <p class="meta">{source}</p>
     </div>
-    <button type="button" onclick={onimport}>Import</button>
+    <div class="actions">
+      {#if picked}<button type="button" class="quiet" onclick={onreset}>Use Stronk's picks</button>{/if}
+      <button type="button" class="primary" onclick={onimport}>Import</button>
+    </div>
   </header>
 
   <p class="note">
@@ -78,15 +108,17 @@
     {:else}
       Stronk imports the most played options, except where another one is clearly better.
     {/if}
+    {#if options}Click any option to import it instead.{/if}
   </p>
 
   {#if imported}
     {#each skipped as s (s.part)}
       <p class="skipped" role="alert">{s.part} not imported: {s.reason}</p>
     {/each}
-    <p class="result" role="status">
+    <p class="result" class:stale={changed} role="status">
       {done.length ? `Imported: ${done.join(", ")}.` : "Nothing imported."}
       {#if imported.item_set_backup}<span title={imported.item_set_backup}>Your item sets were backed up first.</span>{/if}
+      {#if changed}<strong>Your picks changed since: import again to use them.</strong>{/if}
     </p>
   {/if}
 
@@ -95,16 +127,16 @@
       <article class="card wide">
         <header>
           <h3>Runes</h3>
-          <span class="label" class:better={plan.runes.label !== "popular"} title={evidence(plan.runes)}>{why(plan.runes)}</span>
+          {@render label(picks.runes ? { value: null, label: "picked" } : plan.runes)}
         </header>
         <div class="page">
-          {#each runePage(names, plan.runes.value) as line (line.title)}
+          {#each runePage(names, shownPage ?? plan.runes.value) as line (line.title)}
             <p><span class="tree">{line.title}</span> {line.runes.join(" · ")}</p>
           {/each}
         </div>
         {#if options?.runes.rows.length}
           <h4>Pages played</h4>
-          <OptionList slot={options.runes} label={page} detail={pageDetail} />
+          <OptionList slot={options.runes} label={page} detail={pageDetail} onpick={(p) => onpick({ runes: p })} />
         {/if}
       </article>
     {/if}
@@ -113,10 +145,10 @@
       <article class="card">
         <header>
           <h3>Spells</h3>
-          <span class="label" class:better={plan.spells.label !== "popular"} title={evidence(plan.spells)}>{why(plan.spells)}</span>
+          {@render label(picks.spells ? { value: null, label: "picked" } : plan.spells)}
         </header>
         {#if options?.spells.rows.length}
-          <OptionList slot={options.spells} label={spells} />
+          <OptionList slot={options.spells} label={spells} onpick={(pair) => onpick({ spells: pair })} />
         {:else}
           <p class="value">{spells(plan.spells.value)}</p>
         {/if}
@@ -128,10 +160,15 @@
         <article class="card">
           <header>
             <h3>Item {choice.slot}</h3>
-            <span class="label" class:better={choice.label !== "popular"} title={evidence(choice)}>{why(choice)}</span>
+            {@render label(picks.items[choice.slot] !== undefined ? { value: null, label: "picked" } : choice)}
           </header>
           {#if alts?.rows.length}
-            <OptionList slot={alts} label={item} />
+            <OptionList
+              slot={alts}
+              label={item}
+              detail={alsoIn(choice.slot)}
+              onpick={(id) => onpick({ slot: choice.slot, item: id })}
+            />
           {:else}
             <p class="value">{item(choice.value)}</p>
           {/if}
@@ -239,7 +276,32 @@
     background: var(--color-positive-bg);
     color: var(--color-positive);
   }
-  button {
+  .label.picked {
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+  }
+  .result.stale {
+    background: var(--color-warning-bg);
+  }
+  .result strong {
+    display: block;
+    color: var(--color-warning);
+  }
+  .actions {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .quiet {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    cursor: pointer;
+  }
+  .primary {
     padding: var(--space-2) var(--space-6);
     border: 1px solid var(--color-accent);
     border-radius: var(--radius);

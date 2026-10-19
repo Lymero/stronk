@@ -85,3 +85,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: importing an alternative instead of Stronk's pick; champion and item icons from the client; check the view on the real client.
 - 2026-10-19: real data for the app: `just data-real` (WSL) builds and signs `runs/real/data` from the full corpus in about 8 minutes (727 files; Lee Sin jungle from 4,190 games); `just app-real` now defaults to it and takes a folder or a `serve-data` URL, on Windows too.
   Open: `build.plan` picks items slot by slot, so the same item can fill several slots (Lee Sin: Guardian Angel at 4, 5 and 6); a hosted data location (M4).
+- 2026-10-19: pick an alternative (ADR-050): clicking an option in runes, spells or an item slot imports it instead of Stronk's pick ("Use Stronk's picks" resets; all options on request); `build.import` takes `runes`, `spells` and `items` picks, refusing anything not published; `build.plan` no longer repeats an item across slots (Lee Sin real data: Guardian Angel at 4, then Maw and others).
+  Open: check picking and importing on the real client; picks are forgotten on restart.

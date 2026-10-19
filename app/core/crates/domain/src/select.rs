@@ -18,6 +18,8 @@ pub enum Label {
         /// Games (or picks) with this option.
         games: u64,
     },
+    /// The player picked this published option instead of Stronk's choice.
+    Picked,
 }
 
 /// The head-to-head comparison of an option with the most played one.
@@ -81,6 +83,28 @@ pub fn choose<T: Clone>(candidates: &[Candidate<T>]) -> Option<Choice<T>> {
             label: Label::Popular,
         },
     })
+}
+
+/// One choice per item slot, in slot order, never repeating an item: an item chosen for an
+/// earlier slot is left out of the later slots' candidates (a full build has six different
+/// items). Slots left without candidates get no choice.
+pub fn choose_items(slots: &[(u64, Vec<Candidate<i64>>)]) -> Vec<(u64, Choice<i64>)> {
+    let mut slots: Vec<&(u64, Vec<Candidate<i64>>)> = slots.iter().collect();
+    slots.sort_by_key(|(slot, _)| *slot);
+    let mut taken: Vec<i64> = Vec::new();
+    let mut chosen = Vec::new();
+    for (slot, candidates) in slots {
+        let left: Vec<Candidate<i64>> = candidates
+            .iter()
+            .filter(|c| !taken.contains(&c.value))
+            .cloned()
+            .collect();
+        if let Some(choice) = choose(&left) {
+            taken.push(choice.value);
+            chosen.push((*slot, choice));
+        }
+    }
+    chosen
 }
 
 pub const FLASH: i64 = 4;
@@ -218,6 +242,27 @@ mod tests {
             choose(&[candidate(5, 10, None), candidate(4, 10, None)]).map(|c| c.value),
             Some(4)
         );
+    }
+
+    #[test]
+    fn an_item_fills_one_slot_only() {
+        let guardian = 3026;
+        let slots = vec![
+            (
+                5,
+                vec![candidate(guardian, 55, None), candidate(7, 43, None)],
+            ),
+            (
+                4,
+                vec![candidate(guardian, 331, None), candidate(7, 185, None)],
+            ),
+            (6, vec![candidate(guardian, 5, None), candidate(7, 3, None)]),
+        ];
+        let chosen: Vec<(u64, i64)> = choose_items(&slots)
+            .into_iter()
+            .map(|(slot, c)| (slot, c.value))
+            .collect();
+        assert_eq!(chosen, [(4, guardian), (5, 7)]); // slot 6 has nothing left
     }
 
     #[test]

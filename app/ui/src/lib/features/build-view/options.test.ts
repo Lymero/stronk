@@ -52,7 +52,7 @@ describe("alternatives", () => {
       [20, 0.3],
       [30, 0.1],
     ]);
-    expect(slot?.rows.map((r) => r.chosen)).toEqual([true, false, false]);
+    expect(slot?.rows.map((r) => r.stronk)).toEqual([true, false, false]);
     expect(slot?.rows[0]?.confidence).toBe("most_played");
   });
 
@@ -69,7 +69,7 @@ describe("alternatives", () => {
     expect(rows[2]).toMatchObject({ wpa: -0.02, ci: null, versus: "most_played" });
     // Compared with something else: its own estimate against the alternatives, not a claim.
     const other = alternatives(b, plan([])).items[0];
-    expect(other?.more).toBe(1);
+    expect(other?.rest.length).toBe(1);
   });
 
   it("flags rare options and keeps fragile ones visible as such", () => {
@@ -94,8 +94,8 @@ describe("alternatives", () => {
     const chosen = { slot: 2, value: 50, label: "clearly_better", wpa: 0.03, ci: null, games: 100 } as const;
     const slot = alternatives(b, plan([chosen])).items[0];
     expect(slot?.rows.map((r) => r.value)).toEqual([10, 20, 30, 50]);
-    expect(slot?.more).toBe(1);
-    expect(slot?.rows.at(-1)?.chosen).toBe(true);
+    expect(slot?.rest.length).toBe(1);
+    expect(slot?.rows.at(-1)?.stronk).toBe(true);
   });
 
   it("matches the chosen rune page and spell pair whatever the key order", () => {
@@ -107,14 +107,26 @@ describe("alternatives", () => {
       runes: { value: { primary_style: 8000, sub_style: 8300, perks: perks(8010) }, label: "popular" },
     });
     const a = alternatives(build([], runes), p);
-    expect(a.runes.rows.map((r) => [r.value.perks[0], r.chosen])).toEqual([
+    expect(a.runes.rows.map((r) => [r.value.perks[0], r.stronk])).toEqual([
       [8112, false],
       [8010, true],
     ]);
-    expect(a.spells.rows.map((r) => [r.value, r.chosen, r.confidence])).toEqual([
+    expect(a.spells.rows.map((r) => [r.value, r.stronk, r.confidence])).toEqual([
       [[4, 11], true, "most_played"],
       [[11, 14], false, "too_few_games"],
     ]);
+  });
+
+  it("marks the player's pick as selected, Stronk's pick still shown", () => {
+    const b = build([item(4, 10, 500), item(4, 20, 400), item(4, 30, 300), item(4, 40, 200), item(4, 50, 10)]);
+    const slot = alternatives(b, plan([{ slot: 4, value: 10, label: "popular" }]), { items: { 4: 50 } }).items[0];
+    expect(slot?.rows.map((r) => [r.value, r.stronk, r.selected])).toEqual([
+      [10, true, false],
+      [20, false, false],
+      [30, false, false],
+      [50, false, true],
+    ]);
+    expect(slot?.rest.map((r) => r.value)).toEqual([40]);
   });
 
   it("knows when every choice is the most played one", () => {

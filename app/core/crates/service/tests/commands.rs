@@ -132,9 +132,17 @@ fn import(client: FakeClient) -> (Value, FakeClient) {
 }
 
 fn import_with(client: FakeClient, backups: FakeBackups) -> (Value, FakeClient, FakeBackups) {
+    import_picks(client, backups, json!({}))
+}
+
+fn import_picks(
+    client: FakeClient,
+    backups: FakeBackups,
+    picks: Value,
+) -> (Value, FakeClient, FakeBackups) {
     let (client, backups) = (Arc::new(client), Arc::new(backups));
     let ctx = context(client.clone(), backups.clone());
-    let out = registry().run(&ctx, "build.import", json!({})).unwrap();
+    let out = registry().run(&ctx, "build.import", picks).unwrap();
     drop(ctx);
     let unwrap = |a| Arc::try_unwrap(a).ok().unwrap();
     (out, unwrap(client), Arc::try_unwrap(backups).ok().unwrap())
@@ -312,6 +320,43 @@ fn nothing_is_written_when_the_item_sets_are_not_what_the_client_sends() {
     let (out, client) = import(FakeClient::with(Some(viego((4, 14))), state));
     assert_eq!(out["item_set"]["status"], "skipped");
     assert!(client.state().item_set_writes.is_empty());
+}
+
+#[test]
+fn import_writes_the_players_picks_instead_of_stronks() {
+    let (out, client, _) = import_picks(
+        FakeClient::new(Some(viego((14, 4)))),
+        FakeBackups::default(),
+        json!({"items": [{"slot": 1, "item": 6672}], "spells": [11, 4]}),
+    );
+    assert_eq!(out["item_set"]["label"], "picked");
+    assert_eq!(out["spells"]["label"], "popular"); // the published pair, whatever its order
+    let state = client.state();
+    assert_eq!(state.spells, Some((11, 4))); // Flash stays on F
+    let ours: Value = serde_json::from_str(&state.item_sets.unwrap()).unwrap();
+    let block = &ours["itemSets"][1]["blocks"][0];
+    assert_eq!(block["items"], json!([{"id": "6672", "count": 1}]));
+    assert_eq!(block["type"], "Item 1 · Your pick");
+}
+
+#[test]
+fn a_pick_that_isnt_published_writes_nothing() {
+    for picks in [
+        json!({"items": [{"slot": 1, "item": 3026}]}),
+        json!({"items": [{"slot": 2, "item": 6672}]}),
+        json!({"items": [{"slot": 1, "item": 6672}, {"slot": 1, "item": 6693}]}),
+        json!({"spells": [4, 14]}),
+        json!({"runes": {"primary_style": 8000, "sub_style": 8100, "perks": [8010]}}),
+    ] {
+        let client = Arc::new(FakeClient::new(Some(viego((4, 14)))));
+        let backups = Arc::new(FakeBackups::default());
+        let err = run_on(&client, &backups, "build.import", picks.clone()).unwrap_err();
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{picks}");
+        let state = client.state();
+        assert_eq!(state.pages.len(), 1, "{picks}");
+        assert!(state.item_set_writes.is_empty(), "{picks}");
+        assert_eq!(state.spells, None, "{picks}");
+    }
 }
 
 #[test]

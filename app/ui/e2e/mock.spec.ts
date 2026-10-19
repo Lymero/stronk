@@ -24,6 +24,21 @@ test("follows champion select and shows the plan by name", async ({ page }) => {
   await screenshot(page, "mock-imported");
 });
 
+test("imports the options the player clicks", async ({ page }) => {
+  await page.goto("/?scenario=ranked-jungle");
+  for (let i = 0; i < 3; i++) await next(page);
+  const build = page.getByLabel("Build");
+  await build.getByRole("button", { name: /^Black Cleaver/ }).click();
+  await build.getByRole("button", { name: /^Electrocute/ }).click();
+  await expect(build.getByRole("button", { name: /^Black Cleaver/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(build.locator(".page").getByText("Electrocute · Sudden Impact · Eyeball Collection · Treasure Hunter")).toBeVisible();
+  await screenshot(page, "mock-picked");
+  await page.getByRole("button", { name: "Import" }).click();
+  await expect(page.getByRole("status")).toHaveText(/Imported: Rune page, Item set, Spells\./);
+  await page.getByRole("button", { name: "Use Stronk's picks" }).click();
+  await expect(page.getByRole("status")).toHaveText(/Your picks changed since/);
+});
+
 test("warns when every rune page is in use", async ({ page }) => {
   await page.goto("/?scenario=pages-full");
   for (let i = 0; i < 3; i++) await next(page);

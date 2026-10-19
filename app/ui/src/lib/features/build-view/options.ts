@@ -4,6 +4,7 @@
 // and the view only draws them.
 
 import type { Build, Choice, Page, Plan } from "../../backend/backend.ts";
+import { noPicks, type Picks, samePage, samePair } from "../../state/picks.ts";
 
 /** How far an option's numbers can be trusted, shown next to it. */
 export type Confidence =
@@ -35,17 +36,20 @@ export interface Row<T> {
   confidence: Confidence;
   /** A modest hidden confounder could overturn the result. */
   fragile: boolean;
-  /** What the import writes. */
-  chosen: boolean;
+  /** Stronk's choice. */
+  stronk: boolean;
+  /** What the import writes: the player's pick, else Stronk's choice. */
+  selected: boolean;
 }
 
 export interface Slot<T> {
+  /** The options shown first. */
   rows: Row<T>[];
-  /** Options not shown. */
-  more: number;
+  /** The others, less played, shown on request. */
+  rest: Row<T>[];
 }
 
-/** Options shown per slot: the most played, plus the chosen one when it is not among them. */
+/** Options shown per slot: the most played, plus Stronk's and the player's when rarer. */
 export const SHOWN = 3;
 const CLEAR_Q = 0.05;
 
@@ -61,8 +65,8 @@ interface Option<T> {
   comparison?: { versus: number; wpa: number; q: number; ci?: [number, number] } | undefined;
 }
 
-function slot<T>(options: Option<T>[], chosen: (value: T) => boolean): Slot<T> {
-  if (options.length === 0) return { rows: [], more: 0 };
+function slot<T>(options: Option<T>[], stronk: (value: T) => boolean, picked: ((value: T) => boolean) | null): Slot<T> {
+  if (options.length === 0) return { rows: [], rest: [] };
   const sorted = [...options].sort((a, b) => b.played - a.played || a.id - b.id);
   const popular = sorted[0] as Option<T>;
   const total = sorted.reduce((sum, o) => sum + o.played, 0);
@@ -78,13 +82,13 @@ function slot<T>(options: Option<T>[], chosen: (value: T) => boolean): Slot<T> {
       versus: compared ? "most_played" : "alternatives",
       confidence: confidence(o, o === popular, compared),
       fragile: o.flags.includes("fragile"),
-      chosen: chosen(o.value),
+      stronk: stronk(o.value),
+      selected: picked ? picked(o.value) : stronk(o.value),
     };
   });
   const shown = rows.slice(0, SHOWN);
-  const pick = rows.find((r) => r.chosen);
-  if (pick && !shown.includes(pick)) shown.push(pick);
-  return { rows: shown, more: rows.length - shown.length };
+  for (const r of rows) if ((r.stronk || r.selected) && !shown.includes(r)) shown.push(r);
+  return { rows: shown, rest: rows.filter((r) => !shown.includes(r)) };
 }
 
 function confidence<T>(o: Option<T>, popular: boolean, compared: Option<T>["comparison"]): Confidence {
@@ -96,9 +100,7 @@ function confidence<T>(o: Option<T>, popular: boolean, compared: Option<T>["comp
   return o.wpa === null ? "not_estimated" : "no_clear_difference";
 }
 
-const samePage = (a: Page, b: Page) =>
-  a.primary_style === b.primary_style && a.sub_style === b.sub_style && a.perks.join() === b.perks.join();
-const samePair = (a: readonly number[], b: readonly number[]) => [...a].sort().join() === [...b].sort().join();
+
 
 export interface Alternatives {
   runes: Slot<Page>;
@@ -106,8 +108,8 @@ export interface Alternatives {
   items: ({ slot: number } & Slot<number>)[];
 }
 
-/** Each slot's alternatives, the plan's choices marked. */
-export function alternatives(build: Build, plan: Plan): Alternatives {
+/** Each slot's alternatives, Stronk's choices and the player's picks marked. */
+export function alternatives(build: Build, plan: Plan, picks: Picks = noPicks()): Alternatives {
   const chosenPage = plan.runes?.value;
   const chosenPair = plan.spells?.value;
   const runes = slot(
@@ -122,6 +124,7 @@ export function alternatives(build: Build, plan: Plan): Alternatives {
       comparison: o.comparison,
     })),
     (page) => chosenPage !== undefined && samePage(chosenPage, page),
+    picks.runes ? (page) => samePage(picks.runes as Page, page) : null,
   );
   const spells = slot(
     build.spells.map((o) => {
@@ -137,10 +140,12 @@ export function alternatives(build: Build, plan: Plan): Alternatives {
       };
     }),
     (pair) => chosenPair !== undefined && samePair(pair, chosenPair),
+    picks.spells ? (pair) => samePair(pair, picks.spells as [number, number]) : null,
   );
   const slots = [...new Set(build.items.map((o) => o.slot))].sort((a, b) => a - b);
   const items = slots.map((n) => {
     const chosen = plan.items.find((i) => i.slot === n)?.value;
+    const pick = picks.items[n];
     return {
       slot: n,
       ...slot(
@@ -157,6 +162,7 @@ export function alternatives(build: Build, plan: Plan): Alternatives {
             comparison: o.comparison,
           })),
         (item) => item === chosen,
+        pick === undefined ? null : (item) => item === pick,
       ),
     };
   });

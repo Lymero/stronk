@@ -1,22 +1,40 @@
 //! `build.import`: writes the plan (`build.plan`) for the current champion select into the
 //! client: Stronk's own rune page, Stronk's own item set, and the summoner spells with Flash
-//! on the player's key (ADR-043). The player's pages and item sets are never changed.
+//! on the player's key (ADR-043). The player's pages and item sets are never changed. The
+//! player can pick other published options instead of Stronk's (ADR-050).
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use stronk_contracts::build_v1::Build;
 use stronk_domain::Role;
 use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page};
 
 use crate::commands::build_get;
-use crate::commands::build_plan::{Plan, plan};
+use crate::commands::build_plan::{Page, Plan, SlotChoice, plan};
 use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};
 use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
 
+/// The player's picks, each one of the published options; Stronk's choice where none is given.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Params {
+    #[serde(default)]
+    pub runes: Option<Page>,
+    /// The pair in any order; Flash still goes on the player's key.
+    #[serde(default)]
+    pub spells: Option<(i64, i64)>,
+    #[serde(default)]
+    pub items: Vec<ItemPick>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Params {}
+pub struct ItemPick {
+    pub slot: u64,
+    pub item: i64,
+}
 
 /// What happened to one part of the import.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -51,7 +69,7 @@ pub fn command() -> Command {
     )
 }
 
-fn run(ctx: &Context, _: Params) -> Result<Imported, CommandError> {
+fn run(ctx: &Context, params: Params) -> Result<Imported, CommandError> {
     let client = ctx.client.as_ref();
     let not_ready = |what: &str| {
         CommandError::new(ErrorCode::InvalidParams, format!("no {what} to import for"))
@@ -65,7 +83,7 @@ fn run(ctx: &Context, _: Params) -> Result<Imported, CommandError> {
     }
     let champion = client.champion_key(session.champion_id)?;
     let build = build_get::fetch(ctx, &champion, role, None, None, None)?;
-    let plan = plan(&build, role);
+    let plan = with_picks(plan(&build, role), &build, &params)?;
     let runes = runes(client, &plan)?;
     let (item_set, item_set_backup) = item_set(ctx, &plan, session.champion_id);
     Ok(Imported {
@@ -76,6 +94,77 @@ fn run(ctx: &Context, _: Params) -> Result<Imported, CommandError> {
         champion,
         role,
     })
+}
+
+/// The plan with the player's picks in place of Stronk's choices. A pick that isn't a published
+/// option is refused before anything is written; one equal to Stronk's choice keeps its label.
+fn with_picks(mut plan: Plan, build: &Build, params: &Params) -> Result<Plan, CommandError> {
+    let invalid = |what: String| CommandError::new(ErrorCode::InvalidParams, what);
+    let id = |v: u64| i64::try_from(v).unwrap_or(-1);
+    if let Some(page) = &params.runes {
+        let published = build.runes.iter().any(|o| {
+            id(o.page.primary_style) == page.primary_style
+                && id(o.page.sub_style) == page.sub_style
+                && o.page
+                    .perks
+                    .iter()
+                    .map(|p| id(*p))
+                    .eq(page.perks.iter().copied())
+        });
+        if !published {
+            return Err(invalid("runes: not a published rune page".into()));
+        }
+        if plan.runes.as_ref().map(|c| &c.value) != Some(page) {
+            plan.runes = Some(picked(page.clone()));
+        }
+    }
+    if let Some((a, b)) = params.spells {
+        let same = |(c, d): (i64, i64)| (c, d) == (a, b) || (d, c) == (a, b);
+        let published = build.spells.iter().any(|o| {
+            let [d, f] = o.spells.map(|s| id(s.get()));
+            same((d, f))
+        });
+        if !published {
+            return Err(invalid(format!(
+                "spells: {a} and {b} are not a published pair"
+            )));
+        }
+        if !plan.spells.as_ref().is_some_and(|c| same(c.value)) {
+            plan.spells = Some(picked((a, b)));
+        }
+    }
+    for (i, pick) in params.items.iter().enumerate() {
+        if params.items.iter().take(i).any(|p| p.slot == pick.slot) {
+            return Err(invalid(format!("items: slot {} picked twice", pick.slot)));
+        }
+        if !build
+            .items
+            .iter()
+            .any(|o| o.slot.get() == pick.slot && id(o.item.get()) == pick.item)
+        {
+            let (slot, item) = (pick.slot, pick.item);
+            return Err(invalid(format!(
+                "items: {item} is not published for slot {slot}"
+            )));
+        }
+        match plan.items.iter_mut().find(|s| s.slot == pick.slot) {
+            Some(s) if s.choice.value == pick.item => {}
+            Some(s) => s.choice = picked(pick.item),
+            None => plan.items.push(SlotChoice {
+                slot: pick.slot,
+                choice: picked(pick.item),
+            }),
+        }
+    }
+    plan.items.sort_by_key(|s| s.slot);
+    Ok(plan)
+}
+
+fn picked<T>(value: T) -> Choice<T> {
+    Choice {
+        value,
+        label: Label::Picked,
+    }
 }
 
 fn title(plan: &Plan) -> String {
@@ -115,11 +204,10 @@ fn item_set(ctx: &Context, plan: &Plan, champion_id: i64) -> (Outcome, Option<St
     if plan.items.is_empty() {
         return (skipped("no items published"), None);
     }
-    let label = plan
-        .items
-        .iter()
-        .map(|s| s.choice.label)
-        .find(|l| matches!(l, Label::ClearlyBetter { .. }))
+    let labels = || plan.items.iter().map(|s| s.choice.label);
+    let label = labels()
+        .find(|l| matches!(l, Label::Picked))
+        .or_else(|| labels().find(|l| matches!(l, Label::ClearlyBetter { .. })))
         .unwrap_or(Label::Popular);
     let name = title(plan);
     let current = match ctx.client.item_sets() {
@@ -171,6 +259,7 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
         .map(|s| {
             let why = match s.choice.label {
                 Label::Popular => "Popular".to_owned(),
+                Label::Picked => "Your pick".to_owned(),
                 Label::ClearlyBetter { wpa, .. } => format!("Clearly better, {:+.1}% win", wpa * 100.0),
             };
             json!({"type": format!("Item {} · {why}", s.slot), "items": [{"id": s.choice.value.to_string(), "count": 1}]})

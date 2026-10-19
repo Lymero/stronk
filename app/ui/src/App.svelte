@@ -3,12 +3,15 @@
   import ChampSelect from "./lib/features/champ-select/ChampSelect.svelte";
   import Settings from "./lib/features/settings/Settings.svelte";
   import type { App } from "./lib/state/app.svelte.ts";
+  import { noPicks } from "./lib/state/picks.ts";
 
   let { app, onstep }: { app: App; onstep?: () => void } = $props();
   const state = $derived(app.state);
   const imported = $derived(
     state.imported && state.imported.key === state.plan?.key ? state.imported.value : null,
   );
+  const picks = $derived(state.picks && state.picks.key === state.plan?.key ? state.picks.value : noPicks());
+  const changed = $derived(!!imported && JSON.stringify(state.imported?.picks) !== JSON.stringify(picks));
   const build = $derived(state.build && state.build.key === state.plan?.key ? state.build.value : null);
 </script>
 
@@ -25,7 +28,17 @@
 
   <ChampSelect select={state.champSelect} names={state.names} />
   {#if state.plan && state.champSelect?.champion}
-    <PlanView plan={state.plan.value} {build} names={state.names} {imported} onimport={() => void app.importBuild()} />
+    <PlanView
+      plan={state.plan.value}
+      {build}
+      names={state.names}
+      {picks}
+      {imported}
+      {changed}
+      onimport={() => void app.importBuild()}
+      onpick={(p) => app.pick(p)}
+      onreset={() => app.resetPicks()}
+    />
   {/if}
 
   <Settings

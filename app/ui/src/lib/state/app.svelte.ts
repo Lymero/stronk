@@ -11,9 +11,11 @@ import type {
   DataStatus,
   GameNames,
   Imported,
+  ImportParams,
   Plan,
   Restored,
 } from "../backend/backend.ts";
+import { noPicks, type Pick, type Picks, samePage, samePair } from "./picks.ts";
 
 export interface Settings {
   /** Import on lock-in without asking (ADR-043); off by default. */
@@ -30,8 +32,10 @@ export interface AppState {
   /** The published build file behind the plan: every option, for the alternatives; null
    * value when it couldn't be read (asked once per champion and role). */
   build: { key: string; value: Build | null } | null;
-  /** The last import, and for which champion and role. */
-  imported: { key: string; value: Imported } | null;
+  /** The player's picks instead of Stronk's choices, for one champion and role (ADR-050). */
+  picks: { key: string; value: Picks } | null;
+  /** The last import, for which champion and role, and with which picks. */
+  imported: { key: string; value: Imported; picks: Picks } | null;
   settings: Settings;
   /** Item set backups in settings: listed when settings open, and the last restore. */
   restore: { backups: Backup[] | null; done: Restored | null; error: CommandError | null };
@@ -76,6 +80,7 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
     names: null,
     plan: null,
     build: null,
+    picks: null,
     imported: null,
     settings: store.load() ?? { autoImport: false },
     restore: { backups: null, done: null, error: null },
@@ -85,9 +90,17 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
   async function importBuild(): Promise<void> {
     const key = state.plan?.key;
     if (!key) return;
-    const imported = await backend.run("build.import", {});
+    const picks = currentPicks();
+    const params: ImportParams = {
+      ...(picks.runes ? { runes: picks.runes } : {}),
+      ...(picks.spells ? { spells: picks.spells } : {}),
+      ...(Object.keys(picks.items).length
+        ? { items: Object.entries(picks.items).map(([slot, item]) => ({ slot: Number(slot), item })) }
+        : {}),
+    };
+    const imported = await backend.run("build.import", params);
     if (imported.ok) {
-      state.imported = { key, value: imported.value };
+      state.imported = { key, value: imported.value, picks };
       state.error = null;
     } else {
       state.error = imported.error;
@@ -142,6 +155,35 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
     }
   }
 
+  /** The picks for the champion and role on screen; none for any other. */
+  function currentPicks(): Picks {
+    return state.picks && state.picks.key === state.plan?.key ? state.picks.value : noPicks();
+  }
+
+  /** Picks an option for a slot; picking Stronk's choice again drops the pick. */
+  function pick(choice: Pick): void {
+    const plan = state.plan;
+    if (!plan) return;
+    const picks: Picks = { ...currentPicks(), items: { ...currentPicks().items } };
+    if ("runes" in choice) {
+      const stronk = plan.value.runes?.value;
+      picks.runes = stronk && samePage(stronk, choice.runes) ? undefined : choice.runes;
+    } else if ("spells" in choice) {
+      const stronk = plan.value.spells?.value;
+      picks.spells = stronk && samePair(stronk, choice.spells) ? undefined : choice.spells;
+    } else {
+      const stronk = plan.value.items.find((i) => i.slot === choice.slot)?.value;
+      if (stronk === choice.item) delete picks.items[choice.slot];
+      else picks.items[choice.slot] = choice.item;
+    }
+    state.picks = { key: plan.key, value: picks };
+  }
+
+  /** Back to Stronk's choices everywhere. */
+  function resetPicks(): void {
+    state.picks = null;
+  }
+
   function setAutoImport(on: boolean): void {
     state.settings = { ...state.settings, autoImport: on };
     store.save(state.settings);
@@ -163,7 +205,7 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
     if (restored.ok) await loadBackups(); // the replaced sets are now the newest backup
   }
 
-  return { state, refresh, importBuild, setAutoImport, loadBackups, restoreItemSets };
+  return { state, refresh, importBuild, pick, resetPicks, setAutoImport, loadBackups, restoreItemSets };
 }
 
 export type App = ReturnType<typeof createApp>;

@@ -6,12 +6,18 @@
     slot,
     label,
     detail,
+    onpick,
   }: {
     slot: Slot<T>;
     label: (value: T) => string;
-    /** A second, quieter line for an option (the rest of a rune page). */
+    /** A second, quieter line for an option (the rest of a rune page); none when empty. */
     detail?: (value: T) => string;
+    /** The player clicked an option: import it instead of Stronk's choice. */
+    onpick: (value: T) => void;
   } = $props();
+
+  let all = $state(false);
+  const rows = $derived(all ? [...slot.rows, ...slot.rest] : slot.rows);
 
   const CONFIDENCE: Record<Confidence, { text: string; title: string }> = {
     clearly_better: {
@@ -41,33 +47,46 @@
 </script>
 
 <ol class="options">
-  {#each slot.rows as row (row.key)}
-    <li class:chosen={row.chosen}>
-      <div class="line">
-        <span class="name">{label(row.value)}</span>
-        {#if row.chosen}<span class="pick">Stronk's pick</span>{/if}
-        <span class="confidence {row.confidence}" title={CONFIDENCE[row.confidence].title}>
-          {CONFIDENCE[row.confidence].text}{#if row.fragile}<span title="A modest hidden factor could overturn this">{" · fragile"}</span>{/if}
+  {#each rows as row (row.key)}
+    {@const more = detail?.(row.value)}
+    <li>
+      <button
+        type="button"
+        class="option"
+        class:selected={row.selected}
+        aria-pressed={row.selected}
+        title={row.selected ? "What the import writes" : "Import this instead"}
+        onclick={() => onpick(row.value)}
+      >
+        <span class="line">
+          <span class="name">{label(row.value)}</span>
+          {#if row.stronk}<span class="pick">Stronk's pick</span>{/if}
+          {#if row.selected && !row.stronk}<span class="pick yours">Your pick</span>{/if}
+          <span class="confidence {row.confidence}" title={CONFIDENCE[row.confidence].title}>
+            {CONFIDENCE[row.confidence].text}{#if row.fragile}<span title="A modest hidden factor could overturn this">{" · fragile"}</span>{/if}
+          </span>
         </span>
-      </div>
-      {#if detail}<p class="detail">{detail(row.value)}</p>{/if}
-      <div class="line stats">
-        <span class="bar" aria-hidden="true"><span style:width={share(row.share)}></span></span>
-        <span>{share(row.share)} · {games(row.played)}</span>
-        {#if row.wpa !== null}
-          <span
-            class="impact"
-            class:positive={row.confidence === "clearly_better"}
-            class:negative={row.confidence === "clearly_worse"}
-            title={impactTitle(row)}>{percent(row.wpa)} win</span
-          >
-        {/if}
-      </div>
+        {#if more}<span class="detail">{more}</span>{/if}
+        <span class="line stats">
+          <span class="bar" aria-hidden="true"><span style:width={share(row.share)}></span></span>
+          <span>{share(row.share)} · {games(row.played)}</span>
+          {#if row.wpa !== null}
+            <span
+              class="impact"
+              class:positive={row.confidence === "clearly_better"}
+              class:negative={row.confidence === "clearly_worse"}
+              title={impactTitle(row)}>{percent(row.wpa)} win</span
+            >
+          {/if}
+        </span>
+      </button>
     </li>
   {/each}
 </ol>
-{#if slot.more > 0}
-  <p class="more">{slot.more} more {slot.more === 1 ? "option" : "options"}, each played less</p>
+{#if slot.rest.length > 0}
+  <button type="button" class="more" onclick={() => (all = !all)}>
+    {all ? "Show fewer" : `Show ${slot.rest.length} more ${slot.rest.length === 1 ? "option" : "options"}, each played less`}
+  </button>
 {/if}
 
 <style>
@@ -78,12 +97,26 @@
     padding: 0;
     list-style: none;
   }
-  li {
+  .option {
+    display: block;
+    width: 100%;
     padding: var(--space-2) var(--space-3);
     border: 1px solid transparent;
     border-radius: var(--radius);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
-  li.chosen {
+  .option:hover {
+    border-color: var(--color-border);
+  }
+  .option:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+  .option.selected {
     border-color: var(--color-accent);
     background: var(--color-accent-bg);
   }
@@ -94,6 +127,9 @@
   }
   .name {
     font-weight: 600;
+  }
+  .pick.yours {
+    background: var(--color-positive);
   }
   .pick {
     padding: 0 var(--space-2);
@@ -122,6 +158,7 @@
     color: var(--color-warning);
   }
   .detail {
+    display: block;
     margin: 0;
     color: var(--color-muted);
     font-size: var(--text-sm);
@@ -143,7 +180,7 @@
     height: 100%;
     background: var(--color-muted);
   }
-  li.chosen .bar span {
+  .option.selected .bar span {
     background: var(--color-accent);
   }
   .impact {
@@ -157,8 +194,14 @@
     color: var(--color-negative);
   }
   .more {
-    margin: var(--space-1) var(--space-3) 0;
-    color: var(--color-muted);
+    justify-self: start;
+    margin: var(--space-1) var(--space-2) 0;
+    padding: 0 var(--space-1);
+    border: 0;
+    background: none;
+    color: var(--color-accent);
+    font: inherit;
     font-size: var(--text-sm);
+    cursor: pointer;
   }
 </style>

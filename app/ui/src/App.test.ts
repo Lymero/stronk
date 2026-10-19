@@ -77,7 +77,7 @@ describe("App with MockBackend", () => {
     expect(within(build).getAllByText("Death's Dance", { selector: ".name" })).toHaveLength(2); // slots 2 and 3
     expect(within(build).getAllByText("Clearly worse")).toHaveLength(1); // Death's Dance at slot 3
     expect(within(build).getAllByText("Too few games").length).toBeGreaterThan(0);
-    expect(within(build).getByText("Stronk imports the most played options, except where another one is clearly better.")).toBeInTheDocument();
+    expect(within(build).getByText(/Stronk imports the most played options, except where another one is clearly better\./)).toBeInTheDocument();
     // Sundered Sky, the pick at slot 2: 640 of 1,790 picks, +2.1% against Black Cleaver.
     const pick = within(build).getAllByText("Stronk's pick").map((el) => el.closest("li")?.textContent ?? "");
     expect(pick.some((t) => t.includes("Sundered Sky") && t.includes("36% · 640 games") && t.includes("+2.1% win"))).toBe(true);
@@ -86,6 +86,45 @@ describe("App with MockBackend", () => {
       { champion: "Graves", role: "JUNGLE" },
       { champion: "LeeSin", role: "JUNGLE" },
     ]);
+  });
+
+  it("imports the option the player clicks instead of Stronk's, until reset", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    for (let i = 0; i < 3; i++) await next(); // Lee Sin, locked in
+    const build = screen.getByLabelText("Build");
+    const cleaver = within(build).getByRole("button", { name: /^Black Cleaver/ }); // slot 2
+    await fireEvent.click(cleaver);
+    expect(cleaver).toHaveAttribute("aria-pressed", "true");
+    expect(within(cleaver).getByText("Your pick")).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    const sent = () => backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
+    expect(sent()).toEqual([{ items: [{ slot: 2, item: 3071 }] }]);
+    expect(await screen.findByRole("status")).toHaveTextContent("Imported: Rune page, Item set, Spells.");
+
+    // Changing a pick after the import says so; Stronk's picks come back with one click.
+    const smiteIgnite = within(build).getByRole("button", { name: /^Smite · Ignite/ });
+    await fireEvent.click(smiteIgnite);
+    expect(screen.getByRole("status")).toHaveTextContent("Your picks changed since: import again to use them.");
+    await fireEvent.click(screen.getByRole("button", { name: "Use Stronk's picks" }));
+    expect(smiteIgnite).toHaveAttribute("aria-pressed", "false");
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(sent().at(-1)).toEqual({});
+  });
+
+  it("shows every option on request, and marks an item picked for two slots", async () => {
+    const { app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    const build = screen.getByLabelText("Build");
+    await fireEvent.click(within(build).getByRole("button", { name: "Show 2 more options, each played less" }));
+    expect(within(build).getByText("Press the Attack · Precision + Inspiration")).toBeInTheDocument();
+    const deathsDance = () => within(build).getAllByRole("button", { name: /^Death's Dance/ });
+    await fireEvent.click(deathsDance()[0] as HTMLElement); // slot 2
+    await fireEvent.click(deathsDance()[1] as HTMLElement); // slot 3
+    expect(within(build).getByText("Also in item 3")).toBeInTheDocument();
+    expect(within(build).getByText("Also in item 2")).toBeInTheDocument();
   });
 
   it("says when nothing beats the most played build", async () => {

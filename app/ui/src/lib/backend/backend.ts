@@ -43,7 +43,9 @@ export type Label =
       ci: [number, number] | null;
       /** Games (or picks) with this option. */
       games: number;
-    };
+    }
+  /** The player picked this published option instead of Stronk's choice (ADR-050). */
+  | { label: "picked" };
 export type Choice<T> = { value: T } & Label;
 
 export interface Page {
@@ -76,6 +78,14 @@ export interface Imported {
 }
 
 export type PlanParams = BuildGetParams;
+
+/** The player's picks for `build.import`, each a published option; Stronk's choice elsewhere. */
+export interface ImportParams {
+  runes?: Page;
+  /** The pair in any order; Flash still goes on the player's key. */
+  spells?: [number, number];
+  items?: { slot: number; item: number }[];
+}
 
 export interface ChampSelectState {
   session: ChampSelect | null;
@@ -125,7 +135,7 @@ export interface BuildGetParams {
 
 export interface Commands {
   "build.get": { params: BuildGetParams; result: Build };
-  "build.import": { params: Record<string, never>; result: Imported };
+  "build.import": { params: ImportParams; result: Imported };
   "build.plan": { params: PlanParams; result: Plan };
   "champselect.state": { params: Record<string, never>; result: ChampSelectState };
   "data.status": { params: Record<string, never>; result: DataStatus };
