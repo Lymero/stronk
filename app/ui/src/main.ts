@@ -1,10 +1,12 @@
 // Entry point: picks the backend and polls champion select. Inside the desktop app
 // (`just app`) that is TauriBackend; in a plain browser (`just app-mock`) MockBackend, with
-// `?scenario=ranked-jungle|pages-full|no-client|bad-data`.
+// `?scenario=ranked-jungle|pages-full|no-client|bad-data`, or with `?backend=core` the real core
+// through tools/lcu_mock/core_bridge.py (`just e2e`).
 
 import { mount } from "svelte";
 import App from "./App.svelte";
 import type { Backend } from "./lib/backend/backend.ts";
+import { CoreBackend } from "./lib/backend/core.ts";
 import { MockBackend, type ScenarioName, scenarios } from "./lib/backend/mock.ts";
 import { inTauri, TauriBackend } from "./lib/backend/tauri.ts";
 import { createApp } from "./lib/state/app.svelte.ts";
@@ -20,8 +22,9 @@ function mock(): MockBackend {
   return new MockBackend(scenarios[name]);
 }
 
-const mocked = inTauri() ? null : mock();
-const backend: Backend = mocked ?? new TauriBackend();
+const viaCore = !inTauri() && new URLSearchParams(location.search).get("backend") === "core";
+const mocked = inTauri() || viaCore ? null : mock();
+const backend: Backend = mocked ?? (viaCore ? new CoreBackend() : new TauriBackend());
 const app = createApp(backend);
 const target = document.getElementById("app");
 

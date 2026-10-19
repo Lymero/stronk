@@ -191,6 +191,7 @@ Data for the likely champions is loaded when champion select starts and on hover
 |---|---|
 | `TauriBackend` | Desktop app, generated typed bindings |
 | `MockBackend` | Scripted scenarios in a plain browser |
+| `CoreBackend` | The real core in a plain browser, through a local test bridge (Playwright, ADR-048) |
 | `HttpBackend` | Read-only web build viewer, reading the published data directly |
 
 ### League client mock
@@ -260,7 +261,7 @@ A floor can be raised, never lowered without an entry in `docs/decisions.md`. CI
 | Adapter | pytest, cargo test | against recorded responses, `lcu-mock`, `serve-data` |
 | Contract | codegen check, schema validation, signature tests | generated types current; published data valid and verifiable; tampered data rejected |
 | Component | Vitest + Testing Library | UI against `MockBackend` |
-| End to end | Playwright + `lcu-mock` | replayed lobby leads to the correct import; screenshots |
+| End to end | Playwright + `lcu-mock` (`just e2e`) | the UI in Chromium against `MockBackend` scenarios, and against the real core through `CoreBackend` and `tools/lcu_mock/core_bridge.py`: a replayed lobby leads to the correct import, auto-import writes once, restore puts the sets back; screenshots in `runs/e2e/screenshots/` (ADR-048) |
 | Performance | `just bench` | budgets in `perf/budgets.toml` |
 
 ### Test corpus

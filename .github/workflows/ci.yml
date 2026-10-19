@@ -36,6 +36,7 @@ jobs:
       - run: just corpus crawl-ci-16.20
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - run: pnpm --filter @stronk/ui exec playwright install --with-deps chromium
       - run: just check
 
   # The Tauri shell needs WebKitGTK, so it builds here rather than in `just check` (ADR-040).

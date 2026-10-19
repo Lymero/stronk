@@ -51,7 +51,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `stronk-core watch-champselect [--events N]` | Follow champion select over the client's websocket, one JSON line per state |
 | `stronk-core record-champselect --out <file>` | Record one champion select from the real client, scrubbed (on Windows: docs/windows.md) |
 | `just core <command-id> <params>` | Run an app command from the terminal |
-| `just e2e` | Playwright end-to-end tests |
+| `just e2e` | Playwright: the UI against `MockBackend` and against the real core on lcu-mock; screenshots in `runs/e2e/screenshots/` (in `just check`) |
 | `just bench` | Performance scenarios against `perf/budgets.toml` |
 
 ## Rules

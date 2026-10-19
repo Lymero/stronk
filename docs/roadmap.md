@@ -43,7 +43,8 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] Champion-select detection with preloading; import runes, item set and spells (ADR-043, ADR-044; checked on the real client 2026-10-19)
 - [x] UI from the real-client check: names instead of raw rune, spell and item IDs; readable champion-select phase; tell the player when all rune pages are used (ADR-047)
 - [x] Settings: auto-import toggle and item set restore from a chosen backup, after a confirmation
-- [ ] Playwright end-to-end tests; `just bench`; enforce the lock-in budget once met
+- [x] Playwright end-to-end tests: the UI against `MockBackend` and against the real core on lcu-mock, with screenshots (ADR-048)
+- [ ] `just bench` lock-in scenario; enforce the lock-in budget once met
 
 **Milestone: usable in your own lobbies, with data served from your machine.**
 

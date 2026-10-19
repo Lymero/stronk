@@ -34,7 +34,7 @@ setup:
     if (git rev-parse --git-dir 2>$null) { uv run pre-commit install --hook-type pre-commit --hook-type commit-msg }
 
 # Format, lint, typecheck, architecture rules, tests, codegen drift, floors, budgets
-check: fmt-check lint typecheck arch test core-e2e gen-check floors bench budgets
+check: fmt-check lint typecheck arch test core-e2e e2e gen-check floors bench budgets
     @echo "check: all green"
 
 # Format all code in place
@@ -219,6 +219,15 @@ fixture-data:
 core-e2e:
     cargo build {{ core_rs }} --locked --quiet -p stronk-cli
     STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" uv run pytest -q tools/lcu_mock/tests/test_core_against_mock.py tools/lcu_mock/tests/test_record_against_mock.py tools/lcu_mock/tests/test_import_against_mock.py tools/lcu_mock/tests/test_watch_against_mock.py
+
+# Playwright: the UI in Chromium against MockBackend and against the real core on lcu-mock
+# (tools/lcu_mock/core_bridge.py); screenshots in runs/e2e/screenshots/. Needs a Chromium:
+# `pnpm --filter @stronk/ui exec playwright install chromium`, or STRONK_CHROMIUM=<path>
+[unix]
+e2e *args:
+    cargo build {{ core_rs }} --locked --quiet -p stronk-cli
+    rm -rf runs/e2e
+    STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" pnpm --filter @stronk/ui exec playwright test {{ args }}
 
 # Fake League client replaying a session: just lcu-mock tools/lcu_mock/sessions/<file>.json
 lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":

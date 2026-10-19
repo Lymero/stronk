@@ -75,3 +75,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: check the names on the real client; tauri-specta bindings (Windows).
 - 2026-10-19: settings panel: auto-import moved there, item set backups listed newest first with their dates (`item_sets.backups` now returns `{location, saved_at_ms}`), and a restore after an inline confirmation.
   Open: undo for rune pages and spells; check the restore button on the real client.
+- 2026-10-19: Playwright end to end (ADR-048): `just e2e` (in `just check`) runs the UI in Chromium against MockBackend scenarios and against the real core through `CoreBackend` and `tools/lcu_mock/core_bridge.py` (replayed lobby to import, auto-import once, restore); screenshots in `runs/e2e/screenshots/`; CI installs Chromium first.
+  Open: the CI `check` job's first run with Playwright; on Windows `just e2e` is unix-only for now.
