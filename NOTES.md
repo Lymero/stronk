@@ -69,3 +69,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the UI shows raw rune, spell and item IDs and the raw phase (`BAN_PICK`); check that a full rune page inventory (20/20) is reported in the UI, not only skipped.
 - 2026-10-19: `HttpSource` and cache (ADR-046): new `index.v1` contract (`/index.json`, written by `LocalPublisher`), manifests revalidated by ETag at most every 5 minutes, builds cached by hash, last verified cache used offline or on bad data, no rollback through the index; `STRONK_DATA_DIR` takes a URL (`just serve-data`), `just core-e2e` covers it online then offline.
   Open: data-fetch scenario in `just bench`; cache pruning; a settings screen for the source; the CDN URL and real public key (M4).
+- 2026-10-19: docs caught up with today's work: README and AGENTS link docs/windows.md and the production key draft; gaps record the real-client check of imports; architecture describes Riot's CA trust (ADR-042), the Windows and app-shell CI jobs and the Windows clone (ADR-045).
+  Open: roadmap items for the UI fixes from the real-client check and tauri-specta bindings, now unblocked on Windows.

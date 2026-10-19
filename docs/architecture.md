@@ -152,7 +152,7 @@ Defined in [wpa-method.md](wpa-method.md). Each estimator version (v1 adjusted, 
 |---|---|
 | `domain` | Pure logic: choose a build for champion, role and matchup; map it to rune pages, item sets and spells |
 | `service` | Command registry and use cases, over traits `LeagueClient`, `BuildSource`, `Settings`, `Clock` |
-| `lcu` | Lockfile discovery, HTTPS with the client certificate pinned, websocket events decoded into typed models |
+| `lcu` | Lockfile discovery, HTTPS trusting Riot's client CA through an explicit verifier, a pinned certificate as fallback (ADR-042), websocket events decoded into typed models |
 | `data` | `DirectorySource` and `HttpSource` (ETag), local cache, offline fallback, signature verification |
 | `cli` | `stronk-core` dev CLI over the command registry |
 | `src-tauri` | Thin shell: exposes commands and events, window, tray, hotkeys, auto-start |
@@ -283,7 +283,8 @@ A floor can be raised, never lowered without an entry in `docs/decisions.md`. CI
 
 - mise (toolchains), just (tasks), uv, pnpm, cargo.
 - pre-commit hooks, Conventional Commits, generated changelog.
-- CI (GitHub Actions) runs `just check`; Renovate keeps dependencies current.
+- CI (GitHub Actions) runs `just check`, builds and lints the Tauri shell (`app-shell`) and builds and tests the app on Windows (`windows`); Renovate keeps dependencies current.
+- The pipeline runs on Linux or WSL; app work against the real League client happens in a native Windows clone, where `just` runs the app recipes in PowerShell (ADR-045, [windows.md](windows.md)).
 
 ## 9. Operations
 

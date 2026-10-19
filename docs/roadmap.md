@@ -37,10 +37,11 @@ Build a thin version end to end first, then improve each part. Structure is set 
 
 - [x] Tauri 2 + Svelte scaffold; Cargo workspace (`domain`, `service`, `lcu`, `data`, `cli`, `src-tauri`) (ADR-040, ADR-041)
 - [x] Command registry in `service`; `stronk-core` CLI; command fuzzing test
-- [ ] Typed IPC with tauri-specta; `Backend` port with `TauriBackend` and `MockBackend`; single serializable state (port, both backends and state done; tauri-specta bindings once the shell builds locally)
+- [ ] Typed IPC with tauri-specta; `Backend` port with `TauriBackend` and `MockBackend`; single serializable state (port, both backends and state done; tauri-specta bindings next: the shell builds and runs on Windows, ADR-045)
 - [x] `data`: `DirectorySource`, `HttpSource`, cache, signature verification (ADR-046)
 - [x] `tools/lcu_mock` with one recorded champion-select session (`custom-2026-10-19.json`, recorded on Windows, scrubbed; ADR-042)
 - [x] Champion-select detection with preloading; import runes, item set and spells (ADR-043, ADR-044; checked on the real client 2026-10-19)
+- [ ] UI from the real-client check: names instead of raw rune, spell and item IDs; readable champion-select phase; tell the player when all rune pages are used
 - [ ] Playwright end-to-end tests; `just bench`; enforce the lock-in budget once met
 
 **Milestone: usable in your own lobbies, with data served from your machine.**
@@ -50,7 +51,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [ ] All champions and roles, elo filters, several regions
 - [ ] `R2Publisher`; scheduled pipeline on a VPS
 - [ ] Web build viewer (`HttpBackend`), also hosting riot.txt
-- [ ] Production key application
+- [ ] Production key application (drafted: [production-key.md](production-key.md))
 - [ ] Privacy note, Riot legal notice, `ATTRIBUTION.md` complete
 - [ ] Signed installers and app auto-update
 
