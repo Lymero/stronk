@@ -205,7 +205,9 @@ impl LcuClient {
             .http
             .get(format!("{}{path}", self.base))
             .header(AUTHORIZATION, &self.auth)
-            .header(ACCEPT, "image/*")
+            // The client answers 406 to anything narrower, even `image/png`; the bytes are
+            // checked below instead.
+            .header(ACCEPT, "*/*")
             .send()
             .map_err(unavailable)?;
         match response.status() {

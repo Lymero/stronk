@@ -305,6 +305,11 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
                 return
             time.sleep(latency)
             if self.path in replay.icons():
+                # Like the real client: an image only for `*/*` or no Accept at all; anything
+                # narrower, even `image/png`, gets 406 (seen on Windows, 2026-10-19).
+                if self.headers.get("Accept", "*/*") != "*/*":
+                    self._send(HTTPStatus.NOT_ACCEPTABLE, {"message": "Not Acceptable"})
+                    return
                 self._send_image(placeholder_png(self.path))
                 return
             self._send(*self._read())

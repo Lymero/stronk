@@ -68,10 +68,10 @@ def test_serves_the_champion_summary(mock: Mock) -> None:
     assert lee_sin["squarePortraitPath"] == "/lol-game-data/assets/v1/champion-icons/64.png"
 
 
-def get_bytes(mock: Mock, path: str) -> tuple[int, str, bytes]:
+def get_bytes(mock: Mock, path: str, accept: str = "*/*") -> tuple[int, str, bytes]:
     _, _, port, secret, _ = mock.lockfile.read_text().split(":")
     context = ssl.create_default_context(cafile=str(mock.root))
-    request = urllib.request.Request(f"https://127.0.0.1:{port}{path}")
+    request = urllib.request.Request(f"https://127.0.0.1:{port}{path}", headers={"Accept": accept})
     token = base64.b64encode(f"riot:{secret}".encode()).decode()
     request.add_header("Authorization", f"Basic {token}")
     try:
@@ -91,6 +91,9 @@ def test_serves_a_placeholder_at_every_icon_path(mock: Mock) -> None:
     assert champion[0] == 200
     assert champion[2] != png  # a colour per path
     assert get_bytes(mock, "/lol-game-data/assets/v1/champion-icons/99999.png")[0] == 404
+    # The real client refuses any narrower Accept than `*/*` for its images.
+    for narrower in ("image/*", "image/png"):
+        assert get_bytes(mock, "/lol-game-data/assets/v1/champion-icons/64.png", narrower)[0] == 406
 
 
 def test_records_what_the_app_writes(mock: Mock) -> None:
