@@ -1,7 +1,8 @@
 use minisign_verify::{PublicKey, Signature};
 use sha2::{Digest, Sha256};
+use stronk_contracts::build_v1::Build;
 use stronk_contracts::manifest_v1::{FileEntry, Manifest};
-use stronk_domain::Patch;
+use stronk_domain::{BuildKey, Patch};
 use stronk_service::ports::PortError;
 
 /// The public key the app trusts for published data.
@@ -79,6 +80,20 @@ impl VerifiedManifest {
             )));
         }
         Ok(data)
+    }
+
+    /// The build `data` holds, if it is the file the manifest lists for `key` and describes
+    /// that champion on this patch.
+    pub fn parse_build(&self, key: &BuildKey, data: &[u8]) -> Result<Build, PortError> {
+        let (patch, path) = (self.patch, key.path());
+        let build: Build = serde_json::from_slice(self.check_file(&path, data)?)
+            .map_err(|e| PortError::Invalid(format!("{patch} {path}: not a build.v1 ({e})")))?;
+        if build.champion.as_str() != key.champion || build.patch.as_str() != patch.to_string() {
+            return Err(PortError::Invalid(format!(
+                "{patch} {path}: describes another build"
+            )));
+        }
+        Ok(build)
     }
 }
 

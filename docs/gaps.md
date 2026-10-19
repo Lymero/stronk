@@ -33,6 +33,6 @@ Status: **missing** · **partial** · **done**
 | Capability | Reference | Status |
 |---|---|---|
 | Lightweight install and memory use | none (Electron competitors) | missing |
-| Works offline with cached data | none | missing |
+| Works offline with cached data | none | done (ADR-046: verified disk cache, used when the data source can't be reached) |
 | Web build viewer for preparation | Coachless | missing |
 | Auto-update (app and data) | Blitz | missing |

@@ -59,14 +59,7 @@ impl BuildSource for DirectorySource {
             return Err(PortError::NotFound(format!("{patch} {path}")));
         }
         let data = read(&self.root.join(patch.to_string()).join(&path))?;
-        let build: Build = serde_json::from_slice(verified.check_file(&path, &data)?)
-            .map_err(|e| PortError::Invalid(format!("{patch} {path}: not a build.v1 ({e})")))?;
-        if build.champion.as_str() != key.champion || build.patch.as_str() != patch.to_string() {
-            return Err(PortError::Invalid(format!(
-                "{patch} {path}: describes another build"
-            )));
-        }
-        Ok(build)
+        verified.parse_build(key, &data)
     }
 }
 

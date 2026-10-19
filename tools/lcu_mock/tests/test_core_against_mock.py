@@ -7,12 +7,14 @@ Needs the binary: `just core-e2e` builds it and sets STRONK_CORE_BIN (part of `j
 import json
 import os
 import subprocess
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 from lcu_mock import Mock, start
+from serve_data import server
 
 ROOT = Path(__file__).resolve().parents[3]
 SESSION = ROOT / "tools/lcu_mock/sessions/ranked-jungle-leesin.json"
@@ -28,13 +30,16 @@ def mock(tmp_path: Path) -> Iterator[Mock]:
     running.server.shutdown()
 
 
-def core(mock: Mock, command: str, params: object = None) -> tuple[int, Any]:
+def core(
+    mock: Mock, command: str, params: object = None, data: dict[str, str] | None = None
+) -> tuple[int, Any]:
     env = {
         **os.environ,
         "STRONK_LCU_LOCKFILE": str(mock.lockfile),
         "STRONK_LCU_CERT": str(mock.root),
         "STRONK_DATA_DIR": str(ROOT / "fixtures/data"),
         "STRONK_DATA_KEY": str(ROOT / "fixtures/data.pub"),
+        **(data or {}),
     }
     done = subprocess.run(  # noqa: S603 (our own binary)
         [str(BINARY), "run", command, "--params", json.dumps(params or {})],
@@ -103,3 +108,25 @@ def test_follows_a_recorded_champion_select(tmp_path: Path) -> None:
         ("Diana", "BOTTOM", True),
         ("Diana", "BOTTOM", True),
     ]
+
+
+def test_data_over_http_from_serve_data_then_offline_from_the_cache(
+    mock: Mock, tmp_path: Path
+) -> None:
+    httpd = server(ROOT / "fixtures/data", "127.0.0.1", 0)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    data = {
+        "STRONK_DATA_DIR": f"http://127.0.0.1:{httpd.server_port}",
+        "STRONK_CACHE_DIR": str(tmp_path / "cache"),
+    }
+    leesin = {"champion": "LeeSin", "role": "JUNGLE"}
+    try:
+        status, online = core(mock, "data.status", data=data)
+        assert (status, online["patch"]) == (0, "16.20")
+        assert core(mock, "build.get", leesin, data=data)[0] == 0
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+    assert core(mock, "data.status", data=data) == (0, online)
+    status, build = core(mock, "build.get", leesin, data=data)
+    assert (status, build["champion"], build["patch"]) == (0, "LeeSin", "16.20")

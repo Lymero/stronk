@@ -1,23 +1,29 @@
 """Publisher on a local directory with the CDN's layout (`dist/data/` by default, ADR-017).
 
 A patch is replaced as a whole: the new files go to a hidden sibling directory, which then takes
-the patch directory's place. Readers see the old patch or the new one, never a mix.
+the patch directory's place. Readers see the old patch or the new one, never a mix. Then
+`index.json` (index.v1) is rewritten to list every patch directory with a manifest, so a client
+over HTTP can find the newest one; it is replaced in one rename too.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import secrets
 import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
+from stronk_contracts.index_v1 import Index
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.ports import StoreError
 
 PATCH = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}")
 PATH = re.compile(r"[A-Za-z0-9_+-][A-Za-z0-9._+-]*(/[A-Za-z0-9_+-][A-Za-z0-9._+-]*)*")
 """As manifest.v1's FileEntry.path: no segment starts with '.', so no '..' and no hidden files."""
+MANIFEST = "manifest.json"
+INDEX = "index.json"
 
 
 class LocalPublisher:
@@ -47,4 +53,30 @@ class LocalPublisher:
                 retired.rename(target)  # put the previous patch back
             return Err(StoreError("invalid", f"cannot publish {patch} to {self._root}: {e}"))
         shutil.rmtree(retired, ignore_errors=True)
-        return Ok(sorted(str(target / p) for p in files))
+        try:
+            index = self._write_index()
+        except OSError as e:
+            return Err(StoreError("invalid", f"cannot write the index in {self._root}: {e}"))
+        return Ok(sorted([*(str(target / p) for p in files), str(index)]))
+
+    def _write_index(self) -> Path:
+        patches = sorted(
+            (
+                d.name
+                for d in self._root.iterdir()
+                if PATCH.fullmatch(d.name) and (d / MANIFEST).is_file()
+            ),
+            key=lambda p: tuple(int(n) for n in p.split(".")),
+        )
+        index = Index.model_validate({"schemaVersion": 1, "patches": patches})
+        data = json.dumps(
+            index.model_dump(mode="json", by_alias=True), sort_keys=True, separators=(",", ":")
+        )
+        target = self._root / INDEX
+        staging = self._root / f".{INDEX}.new-{secrets.token_hex(4)}"
+        try:
+            staging.write_text(data + "\n", encoding="utf-8")
+            staging.replace(target)
+        finally:
+            staging.unlink(missing_ok=True)
+        return target

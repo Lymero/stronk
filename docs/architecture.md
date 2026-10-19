@@ -174,7 +174,7 @@ Chosen by one setting:
 | `data.source = "http://localhost:8787"` | `just serve-data`: local static server with ETag, mimics the CDN |
 | `data.source = "https://…"` | CDN (public release) |
 
-Signatures are verified for every source, including local ones, so the code path never changes.
+Signatures are verified for every source, including local ones, so the code path never changes. For now the setting is `STRONK_DATA_DIR` (a directory, `dir:…` or a URL). Over HTTP the app reads `/index.json` for the patches, revalidates the newest patch's manifest with its ETag at most every five minutes, and caches verified manifests and builds on disk (`STRONK_CACHE_DIR`, else the platform's cache folder); a cached build that still matches the manifest's hash needs no request, and when the source can't be reached the cache serves (ADR-046).
 
 ### Lock-in path
 
