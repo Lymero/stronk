@@ -1,6 +1,7 @@
 // The alternatives behind each import choice, as `build.plan` ranks them (ADR-049): the core
 // decides the order and the confidence by the same rule that picks what to import; here they
-// only get a key, the player's pick and their wording.
+// only get a key, the player's pick and their wording. Every option comes back; the view lists
+// the core's short list and the player's pick, and the rest on request (ADR-051).
 
 import type { Choice, Page, Plan, Ranked, Row } from "../../backend/backend.ts";
 import { noPicks, type Picks, samePage, samePair } from "../../state/picks.ts";
@@ -9,11 +10,14 @@ export interface Shown<T> extends Row<T> {
   key: string;
   /** What the import writes: the player's pick, else Stronk's choice. */
   selected: boolean;
+  /** Listed before the player asks for every option: on the core's short list, or picked. */
+  shown: boolean;
 }
 
 export interface Slot<T> {
+  /** Every option, most played first. */
   rows: Shown<T>[];
-  /** Options played less, not listed. */
+  /** Options listed only on request. */
   more: number;
 }
 
@@ -24,10 +28,11 @@ export interface Options {
 }
 
 function slot<T>(ranked: Ranked<T>, key: (value: T) => string, picked: ((value: T) => boolean) | null): Slot<T> {
-  return {
-    rows: ranked.rows.map((r) => ({ ...r, key: key(r.value), selected: picked ? picked(r.value) : r.chosen })),
-    more: ranked.more,
-  };
+  const rows = ranked.rows.map((r) => {
+    const selected = picked ? picked(r.value) : r.chosen;
+    return { ...r, key: key(r.value), selected, shown: r.listed || selected };
+  });
+  return { rows, more: rows.filter((r) => !r.shown).length };
 }
 
 /** The plan's alternatives with the player's picks marked. */

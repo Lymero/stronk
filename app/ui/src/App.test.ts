@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import App from "./App.svelte";
 import { MockBackend, scenarios } from "./lib/backend/mock.ts";
 import { createApp, type Settings, type SettingsStore } from "./lib/state/app.svelte.ts";
+import type { PicksStore, SavedPicks } from "./lib/state/picks.ts";
 
 function memory(initial: Settings | null = null): SettingsStore & { saved: Settings | null } {
   return {
@@ -16,9 +17,22 @@ function memory(initial: Settings | null = null): SettingsStore & { saved: Setti
   };
 }
 
-function setup(name: keyof typeof scenarios, store = memory()) {
+/** Picks kept between runs, in memory: what a restart would read back. */
+function memoryPicks(initial: SavedPicks = {}): PicksStore & { saved: SavedPicks } {
+  return {
+    saved: initial,
+    load() {
+      return JSON.parse(JSON.stringify(this.saved)) as SavedPicks;
+    },
+    save(saved) {
+      this.saved = JSON.parse(JSON.stringify(saved)) as SavedPicks;
+    },
+  };
+}
+
+function setup(name: keyof typeof scenarios, store = memory(), picks = memoryPicks()) {
   const backend = new MockBackend(scenarios[name]);
-  const app = createApp(backend, store);
+  const app = createApp(backend, store, picks);
   const next = async () => {
     backend.step();
     await app.refresh();
@@ -122,6 +136,62 @@ describe("App with MockBackend", () => {
     await fireEvent.click(deathsDance()[1] as HTMLElement); // slot 3
     expect(within(build).getByText("Also in item 3")).toBeInTheDocument();
     expect(within(build).getByText("Also in item 2")).toBeInTheDocument();
+  });
+
+  it("lists every option on request, and imports one past the short list", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    for (let i = 0; i < 3; i++) await next();
+    const build = screen.getByLabelText("Build");
+    expect(within(build).queryByRole("button", { name: /^The Collector/ })).toBeNull();
+    const slot1 = within(build).getAllByRole("button", { name: "1 more option, each played less" })[0] as HTMLElement;
+    expect(slot1).toHaveAttribute("aria-expanded", "false");
+    await fireEvent.click(slot1);
+    const collector = within(build).getByRole("button", { name: /^The Collector/ });
+    expect(collector).toHaveTextContent("Too few games");
+    await fireEvent.click(collector);
+    // Picked, it joins the short list: nothing is left out of that slot any more.
+    expect(collector).toHaveAttribute("aria-pressed", "true");
+    expect(within(build).getAllByRole("button", { name: "1 more option, each played less" })).toHaveLength(2);
+    expect(within(build).queryByRole("button", { name: "Fewer options" })).toBeNull();
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    const sent = backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
+    expect(sent).toEqual([{ items: [{ slot: 1, item: 6676 }] }]);
+  });
+
+  it("keeps picks across restarts, per champion and role, until the patch changes", async () => {
+    const saved = memoryPicks();
+    const lockIn = async (store: PicksStore) => {
+      const backend = new MockBackend(scenarios["ranked-jungle"]);
+      const app = createApp(backend, memory(), store);
+      await app.refresh();
+      for (let i = 0; i < 3; i++) {
+        backend.step();
+        await app.refresh();
+      }
+      return { app, backend };
+    };
+    const first = await lockIn(saved);
+    first.app.pick({ slot: 1, item: 6676 });
+    first.app.pick({ spells: [14, 11] });
+    expect(saved.saved).toEqual({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: { 1: 6676 }, spells: [14, 11] } } });
+
+    // A restart: the same picks, and the import sends them.
+    const second = await lockIn(saved);
+    expect(second.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 1: 6676 }, spells: [14, 11] } });
+    await second.app.importBuild();
+    expect(second.backend.calls.find((c) => c.id === "build.import")?.params).toEqual({
+      spells: [14, 11],
+      items: [{ slot: 1, item: 6676 }],
+    });
+    second.app.resetPicks();
+    expect(saved.saved).toEqual({});
+
+    // Picks from another patch, or no longer among the options, are dropped.
+    const old = await lockIn(memoryPicks({ "LeeSin/JUNGLE": { patch: "16.19", picks: { items: { 1: 6676 } } } }));
+    expect(old.app.state.picks).toBeNull();
+    const gone = await lockIn(memoryPicks({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: { 1: 9999, 2: 6676 } } } }));
+    expect(gone.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 2: 6676 } } });
   });
 
   it("says when nothing beats the most played build", async () => {

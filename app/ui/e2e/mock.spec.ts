@@ -39,6 +39,29 @@ test("imports the options the player clicks", async ({ page }) => {
   await expect(page.getByRole("status")).toHaveText(/Your picks changed since/);
 });
 
+test("lists every option on request, and keeps picks after a restart", async ({ page }) => {
+  await page.goto("/?scenario=ranked-jungle");
+  for (let i = 0; i < 3; i++) await next(page);
+  const build = page.getByLabel("Build");
+  await build.getByRole("button", { name: "2 more options, each played less" }).click();
+  await build.getByRole("button", { name: /^Press the Attack/ }).click();
+  await build.getByRole("button", { name: "1 more option, each played less" }).first().click();
+  await build.getByRole("button", { name: /^The Collector/ }).click();
+  await expect(build.getByRole("button", { name: /^The Collector/ })).toHaveAttribute("aria-pressed", "true");
+  await screenshot(page, "mock-all-options");
+
+  await page.reload(); // the app starts again
+  for (let i = 0; i < 3; i++) await next(page);
+  await expect(build.getByRole("button", { name: /^The Collector/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(build.getByRole("button", { name: /^Press the Attack/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(build.locator(".page").getByText("Press the Attack · Triumph · Legend: Alacrity · Coup de Grace")).toBeVisible();
+  await screenshot(page, "mock-picks-restored");
+  await page.getByRole("button", { name: "Use Stronk's picks" }).click();
+  await page.reload();
+  for (let i = 0; i < 3; i++) await next(page);
+  await expect(build.getByRole("button", { name: /^The Collector/ })).toHaveCount(0);
+});
+
 test("warns when every rune page is in use", async ({ page }) => {
   await page.goto("/?scenario=pages-full");
   for (let i = 0; i < 3; i++) await next(page);

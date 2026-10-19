@@ -99,11 +99,16 @@ function row<T>(value: T, played: number, total: number, rest: Partial<Row<T>> =
     confidence: "no_clear_difference",
     fragile: false,
     chosen: false,
+    listed: true,
     ...rest,
   };
 }
 
-/** Lee Sin's alternatives: several options per slot, one clearly better item at slot 2 (the
+/** An option past the short list: played less, shown when the player asks for every option. */
+const rare = <T>(value: T, played: number, total: number, rest: Partial<Row<T>> = {}): Row<T> =>
+  row(value, played, total, { confidence: "too_few_games", listed: false, ...rest });
+
+/** Lee Sin's alternatives: several options per slot, some past the short list, one clearly better item at slot 2 (the
  * plan's choice), one clearly worse, one fragile, and rare options with too few games. */
 const leeSinAlternatives: Alternatives = {
   runes: {
@@ -118,6 +123,8 @@ const leeSinAlternatives: Alternatives = {
       row({ primary_style: 8300, sub_style: 8000, perks: [8369, 8304, 8345, 8347, 8009, 9104, 5005, 5008, 5001] }, 180, 1740, {
         confidence: "too_few_games",
       }),
+      rare({ primary_style: 8000, sub_style: 8400, perks: [8005, 9111, 9104, 8014, 8429, 8451, 5005, 5008, 5001] }, 80, 1740),
+      rare({ primary_style: 8100, sub_style: 8300, perks: [8112, 8143, 8138, 8135, 8304, 8347, 5005, 5008, 5001] }, 50, 1740),
     ],
     more: 2,
   },
@@ -135,6 +142,7 @@ const leeSinAlternatives: Alternatives = {
         row(6692, 1120, 1840, { wpa: 0.003, ci: [-0.005, 0.011], confidence: "most_played", chosen: true }),
         row(6631, 410, 1840, { wpa: -0.004, ci: [-0.018, 0.01], versus: "most_played" }),
         row(6698, 210, 1840, { confidence: "too_few_games" }),
+        rare(6676, 100, 1840),
       ],
       more: 1,
     },
@@ -144,6 +152,7 @@ const leeSinAlternatives: Alternatives = {
         row(3071, 900, 1790, { wpa: 0.001, ci: [-0.008, 0.01], confidence: "most_played" }),
         row(6610, 640, 1790, { wpa: 0.021, ci: [0.008, 0.034], versus: "most_played", confidence: "clearly_better", chosen: true }),
         row(6333, 180, 1790, { wpa: -0.004, ci: [-0.02, 0.012], versus: "most_played" }),
+        rare(6676, 70, 1790),
       ],
       more: 1,
     },
@@ -153,6 +162,7 @@ const leeSinAlternatives: Alternatives = {
         row(3053, 610, 1280, { wpa: 0.006, ci: [-0.004, 0.016], confidence: "most_played", chosen: true }),
         row(6333, 420, 1280, { wpa: -0.018, ci: [-0.033, -0.004], versus: "most_played", confidence: "clearly_worse" }),
         row(3026, 160, 1280, { wpa: 0.005, ci: [-0.01, 0.02], versus: "most_played", fragile: true }),
+        rare(6694, 90, 1280),
       ],
       more: 1,
     },

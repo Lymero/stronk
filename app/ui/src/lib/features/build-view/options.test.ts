@@ -15,6 +15,7 @@ const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   confidence: "most_played",
   fragile: false,
   chosen: false,
+  listed: true,
   ...rest,
 });
 
@@ -31,7 +32,13 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
   alternatives: {
     runes: { rows: [row({ primary_style: 8000, sub_style: 8300, perks: [8010, 2, 3] }, { chosen: true })], more: 0 },
     spells: { rows: [row<[number, number]>([11, 4], { chosen: true }), row<[number, number]>([14, 11])], more: 0 },
-    items: [{ slot: 4, rows: [row(10, { chosen: true }), row(20), row(50)], more: 2 }],
+    items: [
+      {
+        slot: 4,
+        rows: [row(10, { chosen: true }), row(20), row(50), row(60, { listed: false }), row(70, { listed: false })],
+        more: 2,
+      },
+    ],
   },
   ...over,
 });
@@ -45,6 +52,19 @@ describe("options", () => {
       ["11,14", false],
     ]);
     expect(o.items[0]).toMatchObject({ slot: 4, more: 2 });
+    expect(o.items[0]?.rows.map((r) => r.shown)).toEqual([true, true, true, false, false]);
+  });
+
+  it("lists a pick from past the short list, and counts one fewer left out", () => {
+    const o = options(plan(), { items: { 4: 70 } });
+    expect(o.items[0]?.rows.map((r) => [r.value, r.selected, r.shown])).toEqual([
+      [10, false, true],
+      [20, false, true],
+      [50, false, true],
+      [60, false, false],
+      [70, true, true],
+    ]);
+    expect(o.items[0]?.more).toBe(1);
   });
 
   it("selects the player's pick instead, Stronk's choice still marked", () => {
@@ -53,6 +73,8 @@ describe("options", () => {
       [10, true, false],
       [20, false, false],
       [50, false, true],
+      [60, false, false],
+      [70, false, false],
     ]);
     expect(o.spells.rows.map((r) => r.selected)).toEqual([true, false]); // same pair, other keys
   });

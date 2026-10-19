@@ -14,7 +14,17 @@ import type {
   Plan,
   Restored,
 } from "../backend/backend.ts";
-import { noPicks, type Pick, type Picks, samePage, samePair } from "./picks.ts";
+import {
+  browserPicks,
+  isEmpty,
+  noPicks,
+  type Pick,
+  type Picks,
+  type PicksStore,
+  published,
+  samePage,
+  samePair,
+} from "./picks.ts";
 
 export interface Settings {
   /** Import on lock-in without asking (ADR-043); off by default. */
@@ -29,7 +39,8 @@ export interface AppState {
   /** What an import would write for the champion picked or hovered, and each slot's
    * alternatives; loaded as soon as known. */
   plan: { key: string; value: Plan } | null;
-  /** The player's picks instead of Stronk's choices, for one champion and role (ADR-050). */
+  /** The player's picks instead of Stronk's choices, for one champion and role (ADR-050);
+   * kept between runs until the patch changes (ADR-051). */
   picks: { key: string; value: Picks } | null;
   /** The last import, for which champion and role, and with which picks. */
   imported: { key: string; value: Imported; picks: Picks } | null;
@@ -70,7 +81,11 @@ export const browserSettings: SettingsStore = {
   },
 };
 
-export function createApp(backend: Backend, store: SettingsStore = browserSettings) {
+export function createApp(
+  backend: Backend,
+  store: SettingsStore = browserSettings,
+  picksStore: PicksStore = browserPicks,
+) {
   const state = $state<AppState>({
     data: null,
     champSelect: null,
@@ -139,6 +154,7 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
       }
       state.plan = { key, value: plan.value }; // hovered earlier: lock-in is a cache hit
       state.error = null;
+      restorePicks(key, plan.value);
     }
     if (session?.locked && state.settings.autoImport && state.imported?.key !== key) {
       await importBuild();
@@ -148,6 +164,22 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
   /** The picks for the champion and role on screen; none for any other. */
   function currentPicks(): Picks {
     return state.picks && state.picks.key === state.plan?.key ? state.picks.value : noPicks();
+  }
+
+  /** The picks saved for this champion and role on this patch, among the plan's options. */
+  function restorePicks(key: string, plan: Plan): void {
+    const saved = picksStore.load()[key];
+    const picks = saved && saved.patch === plan.patch ? published(plan, saved.picks) : noPicks();
+    state.picks = isEmpty(picks) ? null : { key, value: picks };
+  }
+
+  /** Saves this champion and role's picks; picks made on another patch are dropped. */
+  function savePicks(key: string, plan: Plan, picks: Picks): void {
+    const saved = Object.fromEntries(
+      Object.entries(picksStore.load()).filter(([k, v]) => k !== key && v.patch === plan.patch),
+    );
+    if (!isEmpty(picks)) saved[key] = { patch: plan.patch, picks: $state.snapshot(picks) };
+    picksStore.save(saved);
   }
 
   /** Picks an option for a slot; picking Stronk's choice again drops the pick. */
@@ -167,10 +199,12 @@ export function createApp(backend: Backend, store: SettingsStore = browserSettin
       else picks.items[choice.slot] = choice.item;
     }
     state.picks = { key: plan.key, value: picks };
+    savePicks(plan.key, plan.value, picks);
   }
 
   /** Back to Stronk's choices everywhere. */
   function resetPicks(): void {
+    if (state.plan) savePicks(state.plan.key, state.plan.value, noPicks());
     state.picks = null;
   }
 

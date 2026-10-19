@@ -35,6 +35,10 @@
     not_estimated: { text: "Not estimated", title: "No win impact is published for this yet" },
   };
 
+  /** Every option, after the player asked for them; the short list otherwise. */
+  let all = $state(false);
+  const rows = $derived(all ? slot.rows : slot.rows.filter((r) => r.shown));
+
   const impactTitle = (r: Shown<T>) => {
     const against = r.versus === "most_played" ? "against the most played option" : "against the alternatives";
     const interval = r.ci ? `, 95% interval ${percent(r.ci[0])} to ${percent(r.ci[1])}` : "";
@@ -43,7 +47,7 @@
 </script>
 
 <ol class="options">
-  {#each slot.rows as row (row.key)}
+  {#each rows as row (row.key)}
     {@const more = detail?.(row.value)}
     <li>
       <button
@@ -80,7 +84,9 @@
   {/each}
 </ol>
 {#if slot.more > 0}
-  <p class="more">{slot.more} more {slot.more === 1 ? "option" : "options"}, each played less</p>
+  <button type="button" class="more" aria-expanded={all} onclick={() => (all = !all)}>
+    {all ? "Fewer options" : `${slot.more} more ${slot.more === 1 ? "option" : "options"}, each played less`}
+  </button>
 {/if}
 
 <style>
@@ -190,7 +196,19 @@
   .more {
     margin: var(--space-1) var(--space-2) 0;
     padding: 0 var(--space-1);
-    color: var(--color-muted);
+    border: none;
+    background: none;
+    color: var(--color-accent);
+    font: inherit;
     font-size: var(--text-sm);
+    text-align: left;
+    cursor: pointer;
+  }
+  .more:hover {
+    text-decoration: underline;
+  }
+  .more:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
   }
 </style>

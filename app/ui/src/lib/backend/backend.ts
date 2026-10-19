@@ -87,12 +87,14 @@ export interface Row<T> {
   fragile: boolean;
   /** Stronk's choice. */
   chosen: boolean;
+  /** On the short list: one of the three most played, or Stronk's choice (ADR-051). */
+  listed: boolean;
 }
 
-/** A slot's options: the three most played, plus Stronk's choice when it is rarer. */
+/** Every option of a slot, most played first; the player can pick any of them. */
 export interface Ranked<T> {
   rows: Row<T>[];
-  /** Options played less, not listed. */
+  /** Options played less, off the short list. */
   more: number;
 }
 
