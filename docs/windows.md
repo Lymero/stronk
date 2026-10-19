@@ -23,7 +23,7 @@ On Windows, `just` runs recipes in Windows PowerShell (`windows-shell` in the `j
 | `just test` | Rust (contracts, core) and UI tests; the Python tests run in WSL |
 | `just lcu-mock [session]` | Fake League client, writes `runs\lcu-mock\lockfile` and `root.pem` |
 | `just app` | Desktop app on the fixture data, talking to `just lcu-mock` |
-| `just app-real` | Desktop app on the fixture data, talking to the real League client |
+| `just app-real [data] [key]` | Desktop app on real data (default `runs\real\data`, from `just data-real` in WSL), talking to the real League client |
 | `just app-mock` | UI in the browser against `MockBackend` |
 | `just core <command-id> [params]` | Run an app command from the terminal |
 
@@ -86,13 +86,20 @@ Send that line. The fallback is to pin that certificate: `--lcu-pin <sha256>` (o
 
 ## Run the desktop app against the real client
 
+`just app-real` reads real data from `runs\real\data` with its public key `runs\real\data.pub`. Build them once in WSL from the full corpus (22,954 games), signed with your own key (`~/.config/stronk/signing.key`, created if missing), then copy them to this clone:
+
+```bash
+just data-real
+mkdir -p /mnt/c/src/stronk/runs/real && cp -r runs/real/data runs/real/data.pub /mnt/c/src/stronk/runs/real/
+```
+
 Start League, then:
 
 ```powershell
 just app-real
 ```
 
-Then enter a champion select: the app shows the champion and role and, when the fixture data has that champion and role, its build. Without the variables, the app reports which setting is missing instead of starting blind.
+Then enter a champion select: the app shows the champion and role and, when the data has that champion and role, its build and the alternatives per slot. Other sources: `just app-real fixtures/data fixtures/data.pub` for the test data, or `just serve-data runs/real/data` in WSL and `just app-real http://127.0.0.1:8787 runs\real\data.pub` to fetch over HTTP (WSL2 forwards localhost to Windows). Without the variables, the app reports which setting is missing instead of starting blind.
 
 ## Run the tests
 

@@ -83,3 +83,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: nothing new.
 - 2026-10-19: champion select view redesign (ADR-049): a champion banner, then runes, spells and each item slot as cards listing the top alternatives from `build.get` (share of games, win impact, games, confidence marker: clearly better or worse, no clear difference, too few games, fragile), Stronk's pick highlighted, and a line saying when the import falls back to the most played build; MockBackend's Lee Sin has a richer build file to show it.
   Open: importing an alternative instead of Stronk's pick; champion and item icons from the client; check the view on the real client.
+- 2026-10-19: real data for the app: `just data-real` (WSL) builds and signs `runs/real/data` from the full corpus in about 8 minutes (727 files; Lee Sin jungle from 4,190 games); `just app-real` now defaults to it and takes a folder or a `serve-data` URL, on Windows too.
+  Open: `build.plan` picks items slot by slot, so the same item can fill several slots (Lee Sin: Guardian Angel at 4, 5 and 6); a hosted data location (M4).

@@ -102,6 +102,7 @@
     color: var(--color-surface);
     font-size: var(--text-xs);
     font-weight: 600;
+    white-space: nowrap;
   }
   .confidence {
     margin-left: auto;

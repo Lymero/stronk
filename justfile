@@ -113,6 +113,23 @@ publish estimates crawl key="~/.config/stronk/signing.key" out="dist/data":
     crawls=$(printf '%s' "{{ crawl }}" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().split(",")))')
     uv run stronk-pipeline run publish --params '{"estimates": "{{ estimates }}", "crawl": '"$crawls"', "key": "'"$(eval echo {{ key }})"'", "out": "{{ out }}"}'
 
+# Real data for the app from the full corpus (crawl-all-16.20), signed with your key (created if
+# missing): runs/real/data and its public key runs/real/data.pub, for `just app-real`
+[unix]
+data-real key="~/.config/stronk/signing.key" out="runs/real":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    key=$(eval echo {{ key }})
+    [ -f "$key" ] || just keygen "$key" > /dev/null
+    just corpus {{ full_corpus }}
+    just extract corpus/{{ full_corpus }} {{ out }}/extract > /dev/null
+    just winprob {{ out }}/extract/frames.parquet {{ out }}/winprob > /dev/null
+    uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}/extract/decisions.parquet", "winprob": "{{ out }}/winprob/model.json", "out": "{{ out }}/estimates.json"}' > {{ out }}/wpa.json
+    rm -rf {{ out }}/data
+    just publish {{ out }}/estimates.json corpus/{{ full_corpus }} "$key" {{ out }}/data > /dev/null
+    cp "$key.pub" {{ out }}/data.pub
+    echo "real data: {{ out }}/data, public key {{ out }}/data.pub"
+
 # Win probability model on frames: just winprob runs/extract/euw1/frames.parquet runs/winprob/euw1
 winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
     uv run stronk-pipeline run winprob.train --params '{"frames": "{{ frames }}", "out": "{{ out }}"}'
@@ -259,16 +276,26 @@ app:
     $env:STRONK_LCU_LOCKFILE = "$PWD/runs/lcu-mock/lockfile"; $env:STRONK_LCU_CERT = "$PWD/runs/lcu-mock/root.pem"; \
     $env:TAURI_APP_PATH = "$PWD/app/core/src-tauri"; pnpm --filter @stronk/ui exec tauri dev
 
-# Desktop app on the fixture data, talking to the real League client (start League first)
+# Desktop app on real data, talking to the real League client (start League first). Data is a
+# folder or a `just serve-data` URL; default runs/real from `just data-real`, or fixtures/data
 [unix]
-app-real:
-    STRONK_DATA_DIR="$PWD/fixtures/data" STRONK_DATA_KEY="$PWD/fixtures/data.pub" \
+app-real data="runs/real/data" key="runs/real/data.pub":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    data="{{ data }}"; key="{{ key }}"
+    case "$data" in http://*|https://*|/*) ;; *) data="$PWD/$data" ;; esac
+    case "$key" in /*) ;; *) key="$PWD/$key" ;; esac
+    if [ ! -f "$key" ]; then echo "no $key: run \`just data-real\` first, or \`just app-real fixtures/data fixtures/data.pub\` for the test data" >&2; exit 1; fi
+    STRONK_DATA_DIR="$data" STRONK_DATA_KEY="$key" \
     pnpm --filter @stronk/ui exec tauri dev --config ../core/src-tauri/tauri.conf.json
 
-# Desktop app on the fixture data, talking to the real League client (start League first)
+# Desktop app on real data, talking to the real League client (Windows PowerShell)
 [windows]
-app-real:
-    $env:STRONK_DATA_DIR = "$PWD/fixtures/data"; $env:STRONK_DATA_KEY = "$PWD/fixtures/data.pub"; \
+app-real data="runs/real/data" key="runs/real/data.pub":
+    $data = '{{ data }}'; $key = '{{ key }}'; \
+    if (-not (Test-Path $key)) { Write-Error "no ${key}: copy runs/real from WSL after ``just data-real``, or run ``just app-real fixtures/data fixtures/data.pub`` for the test data"; exit 1 }; \
+    if ($data -notmatch '^https?://') { $data = (Resolve-Path $data).Path }; \
+    $env:STRONK_DATA_DIR = $data; $env:STRONK_DATA_KEY = (Resolve-Path $key).Path; \
     $env:TAURI_APP_PATH = "$PWD/app/core/src-tauri"; pnpm --filter @stronk/ui exec tauri dev
 
 # Build and lint the Tauri shell (needs WebKitGTK on Linux; CI's app-shell job)
