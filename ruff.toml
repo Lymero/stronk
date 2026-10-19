@@ -25,4 +25,4 @@ ignore = [
 "contracts/codegen.py" = ["T20", "S603"]
 
 [lint.isort]
-known-first-party = ["stronk_pipeline", "stronk_synth", "stronk_contracts"]
+known-first-party = ["stronk_pipeline", "stronk_synth", "stronk_contracts", "corpus"]
