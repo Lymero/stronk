@@ -43,7 +43,7 @@ pub struct SlotRanked {
     pub ranked: Ranked<i64>,
 }
 
-/// Each slot's options as the view lists them: the most played and the chosen one.
+/// Every option of each slot, the most played and the chosen one marked as listed.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Alternatives {
     pub runes: Ranked<Page>,

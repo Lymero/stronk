@@ -229,13 +229,13 @@ fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
         json!([{"slot": 1, "more": 0, "rows": [
             {"value": 6672, "played": 6100, "share": 6100.0 / 8540.0, "wpa": 0.008,
              "ci": [0.001, 0.015], "versus": "alternatives", "confidence": "most_played",
-             "fragile": false, "chosen": false},
+             "fragile": false, "chosen": false, "listed": true},
             {"value": 6693, "played": 2300, "share": 2300.0 / 8540.0, "wpa": 0.021,
              "ci": [0.008, 0.034], "versus": "most_played", "confidence": "clearly_better",
-             "fragile": false, "chosen": true},
+             "fragile": false, "chosen": true, "listed": true},
             {"value": 6692, "played": 140, "share": 140.0 / 8540.0, "wpa": null, "ci": null,
              "versus": "alternatives", "confidence": "too_few_games", "fragile": false,
-             "chosen": false}
+             "chosen": false, "listed": true}
         ]}])
     );
     let spells = &alternatives["spells"]["rows"][0];

@@ -147,21 +147,24 @@ pub struct Row<T> {
     pub fragile: bool,
     /// Stronk's choice for the slot.
     pub chosen: bool,
+    /// Listed before the player asks for every option: one of the [`SHOWN`] most played, or
+    /// Stronk's choice.
+    pub listed: bool,
 }
 
-/// A slot's options worth listing, and how many others are left out.
+/// Every option of a slot, and how many of them are left out of the short list.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Ranked<T> {
     pub rows: Vec<Row<T>>,
-    /// Options played less, not listed.
+    /// Options played less, not listed until the player asks for every option.
     pub more: usize,
 }
 
 /// Options listed per slot: the most played, plus the chosen one when it is rarer.
 pub const SHOWN: usize = 3;
 
-/// A slot's options in popularity order with their share, win impact and confidence: the
-/// [`SHOWN`] most played, plus `chosen` when it is rarer. "Clearly better/worse" comes from the
+/// Every option of a slot in popularity order with its share, win impact and confidence, the
+/// [`SHOWN`] most played and `chosen` marked `listed`. "Clearly better/worse" comes from the
 /// published flags by the rule [`choose`] uses, with no threshold of its own.
 pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T>) -> Ranked<T> {
     let mut sorted: Vec<&Candidate<T>> = candidates.iter().collect();
@@ -172,7 +175,6 @@ pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T
     let rows: Vec<Row<T>> = sorted
         .iter()
         .enumerate()
-        .filter(|(i, c)| *i < SHOWN || is_chosen(c))
         .map(|(i, c)| {
             let most_played = i == 0;
             let compared = c.comparison.filter(|k| k.versus == popular && !most_played);
@@ -199,11 +201,12 @@ pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T
                 confidence,
                 fragile: c.fragile,
                 chosen: is_chosen(c),
+                listed: i < SHOWN || is_chosen(c),
             }
         })
         .collect();
     Ranked {
-        more: sorted.len() - rows.len(),
+        more: rows.iter().filter(|r| !r.listed).count(),
         rows,
     }
 }
@@ -539,6 +542,7 @@ mod tests {
                 (Confidence::TooFewGames, false),
                 (Confidence::NoClearDifference, true),
                 (Confidence::NoClearDifference, false),
+                (Confidence::NotEstimated, false),
             ]
         );
         let mut alone = candidate(40, 100, None);
@@ -548,15 +552,31 @@ mod tests {
     }
 
     #[test]
-    fn rank_shows_the_most_played_and_the_chosen_one_when_rarer() {
+    fn rank_lists_the_most_played_and_the_chosen_one_when_rarer() {
         let c: Vec<Candidate<i64>> = [(10, 500), (20, 400), (30, 300), (40, 200), (50, 100)]
             .into_iter()
             .map(|(id, played)| candidate(id, played, None))
             .collect();
         let ranked = rank(&c, Some(&50));
-        let shown: Vec<(i64, bool)> = ranked.rows.iter().map(|r| (r.value, r.chosen)).collect();
-        assert_eq!(shown, [(10, false), (20, false), (30, false), (50, true)]);
+        let rows: Vec<(i64, bool, bool)> = ranked
+            .rows
+            .iter()
+            .map(|r| (r.value, r.chosen, r.listed))
+            .collect();
+        // Every option comes back, so the player can pick any of them; the rest are counted.
+        assert_eq!(
+            rows,
+            [
+                (10, false, true),
+                (20, false, true),
+                (30, false, true),
+                (40, false, false),
+                (50, true, true)
+            ]
+        );
         assert_eq!(ranked.more, 1);
         assert_eq!(rank(&c, Some(&20)).more, 2);
+        // A rare option keeps its numbers and confidence like the listed ones.
+        assert_eq!(ranked.rows[3].confidence, Confidence::NoClearDifference);
     }
 }
