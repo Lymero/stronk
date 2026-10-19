@@ -29,6 +29,8 @@ just pipeline       # pipeline on fixture data
 just app-mock       # UI in the browser against mock data
 ```
 
+On Windows, the app is built and run from a native clone while the pipeline stays in WSL: see [Windows](docs/windows.md).
+
 ## Documentation
 
 - [Project brief](docs/project-brief.md): goals, principles, product decisions
@@ -38,6 +40,8 @@ just app-mock       # UI in the browser against mock data
 - [Decisions](docs/decisions.md): architecture decision log
 - [Roadmap](docs/roadmap.md): milestones and current focus
 - [Gaps](docs/gaps.md): what's missing compared with other tools
+- [Windows](docs/windows.md): building and running on Windows, real-client testing
+- [Production key](docs/production-key.md): draft of the Riot production API key application
 - [AGENTS.md](AGENTS.md): working rules for contributors and AI agents
 
 ## Legal

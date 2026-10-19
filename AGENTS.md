@@ -20,7 +20,7 @@ Working guide for AI agents and contributors. Read this first.
 
 ## Commands
 
-All tasks go through `just`. Everything runs offline. Recipes arrive with their milestone; `just --list` shows what exists today.
+All tasks go through `just`. Everything runs offline. Recipes arrive with their milestone; `just --list` shows what exists today. On Windows, `just` runs the app recipes in PowerShell; the pipeline recipes run in WSL ([docs/windows.md](docs/windows.md)).
 
 | Command | Does |
 |---|---|
