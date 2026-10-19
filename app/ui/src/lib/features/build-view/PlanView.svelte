@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Choice, GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
-  import { elo, games, name, region, runePage } from "../../ui/labels.ts";
+  import Icon from "../../ui/Icon.svelte";
+  import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
   import OptionList from "./OptionList.svelte";
   import type { Pick, Picks } from "../../state/picks.ts";
   import { allPopular, options as ranked } from "./options.ts";
@@ -8,6 +9,7 @@
   let {
     plan,
     names,
+    icons,
     picks,
     imported,
     changed,
@@ -17,6 +19,7 @@
   }: {
     plan: Plan;
     names: GameNames | null;
+    icons: Icons;
     picks: Picks;
     imported: Imported | null;
     /** The picks changed since that import. */
@@ -61,6 +64,23 @@
   };
   const spells = (pair: [number, number]) => pair.map((id) => name(names, "spells", id)).join(" · ");
   const item = (id: number) => name(names, "items", id);
+  const shown = (kind: "rune_styles" | "runes" | "spells" | "items", id: number) => ({
+    src: icon(icons, kind, id),
+    name: name(names, kind, id),
+  });
+  /** A page's keystone and secondary tree. */
+  const pageIcons = (p: Page) => [
+    ...(p.perks[0] !== undefined ? [shown("runes", p.perks[0])] : []),
+    shown("rune_styles", p.sub_style),
+  ];
+  const spellIcons = (pair: [number, number]) => pair.map((id) => shown("spells", id));
+  const itemIcons = (id: number) => [shown("items", id)];
+  /** The icons of a page summary's lines: each tree's, then each rune's. */
+  const lineIcons = (p: Page) => [
+    { tree: shown("rune_styles", p.primary_style), runes: p.perks.slice(0, 4).map((id) => shown("runes", id)) },
+    { tree: shown("rune_styles", p.sub_style), runes: p.perks.slice(4, 6).map((id) => shown("runes", id)) },
+    { tree: null, runes: p.perks.slice(6).map((id) => shown("runes", id)) },
+  ];
   const itemSlot = (slot: number) => options.items.find((s) => s.slot === slot);
 
   const parts = $derived(
@@ -125,13 +145,26 @@
           {@render label(picks.runes ? { value: null, label: "picked" } : plan.runes)}
         </header>
         <div class="page">
-          {#each runePage(names, shownPage ?? plan.runes.value) as line (line.title)}
-            <p><span class="tree">{line.title}</span> {line.runes.join(" · ")}</p>
+          {#each runePage(names, shownPage ?? plan.runes.value) as line, n (line.title)}
+            {@const lineIcon = lineIcons(shownPage ?? plan.runes.value)[n]}
+            <div class="tree-line">
+              <span class="icons" aria-hidden="true">
+                {#if lineIcon?.tree}<Icon src={lineIcon.tree.src} name={lineIcon.tree.name} />{/if}
+                {#each lineIcon?.runes ?? [] as r, k (k)}<Icon src={r.src} name={r.name} size={k === 0 && n === 0 ? "md" : "sm"} />{/each}
+              </span>
+              <p><span class="tree">{line.title}</span> {line.runes.join(" · ")}</p>
+            </div>
           {/each}
         </div>
         {#if options.runes.rows.length}
           <h4>Pages played</h4>
-          <OptionList slot={options.runes} label={page} detail={pageDetail} onpick={(p) => onpick({ runes: p })} />
+          <OptionList
+            slot={options.runes}
+            label={page}
+            detail={pageDetail}
+            icons={pageIcons}
+            onpick={(p) => onpick({ runes: p })}
+          />
         {/if}
       </article>
     {/if}
@@ -143,9 +176,17 @@
           {@render label(picks.spells ? { value: null, label: "picked" } : plan.spells)}
         </header>
         {#if options.spells.rows.length}
-          <OptionList slot={options.spells} label={spells} onpick={(pair) => onpick({ spells: pair })} />
+          <OptionList
+            slot={options.spells}
+            label={spells}
+            icons={spellIcons}
+            onpick={(pair) => onpick({ spells: pair })}
+          />
         {:else}
-          <p class="value">{spells(plan.spells.value)}</p>
+          <p class="value">
+            {#each spellIcons(plan.spells.value) as i, n (n)}<Icon src={i.src} name={i.name} />{/each}
+            {spells(plan.spells.value)}
+          </p>
         {/if}
       </article>
     {/if}
@@ -162,10 +203,11 @@
               slot={alts}
               label={item}
               detail={alsoIn(choice.slot)}
+              icons={itemIcons}
               onpick={(id) => onpick({ slot: choice.slot, item: id })}
             />
           {:else}
-            <p class="value">{item(choice.value)}</p>
+            <p class="value"><Icon src={icon(icons, "items", choice.value)} name={item(choice.value)} /> {item(choice.value)}</p>
           {/if}
         </article>
       {/each}
@@ -234,13 +276,30 @@
     grid-column: 1 / -1;
   }
   .page {
+    display: grid;
+    gap: var(--space-2);
     padding: 0 var(--space-1);
+  }
+  .tree-line {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+  }
+  .icons {
+    display: flex;
+    flex: 0 0 auto;
+    gap: var(--space-1);
+    align-items: center;
+    min-width: calc(var(--icon-md) * 2 + var(--icon-sm) * 3 + var(--space-1) * 4);
   }
   .page p,
   .value {
     margin: 0;
   }
   .value {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
     padding: 0 var(--space-1);
   }
   .tree {

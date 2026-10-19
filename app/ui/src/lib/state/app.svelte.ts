@@ -8,7 +8,9 @@ import type {
   ChampSelectState,
   CommandError,
   DataStatus,
+  GameKind,
   GameNames,
+  IconParams,
   Imported,
   ImportParams,
   Plan,
@@ -36,6 +38,9 @@ export interface AppState {
   champSelect: ChampSelectState | null;
   /** Names for the ids on screen, from the client; ids show until they load. */
   names: GameNames | null;
+  /** Icons for the ids on screen, as `data:` URLs from the client; `null` for an id the client
+   * has none for. Stand-ins show until they load. */
+  icons: Record<GameKind, Record<string, string | null>>;
   /** What an import would write for the champion picked or hovered, and each slot's
    * alternatives; loaded as soon as known. */
   plan: { key: string; value: Plan } | null;
@@ -90,6 +95,7 @@ export function createApp(
     data: null,
     champSelect: null,
     names: null,
+    icons: { champions: {}, rune_styles: {}, runes: {}, spells: {}, items: {} },
     plan: null,
     picks: null,
     imported: null,
@@ -118,7 +124,60 @@ export function createApp(
     }
   }
 
+  /** Every id on screen: the champion, and each option of the plan. */
+  function shownIds(): Record<GameKind, number[]> {
+    const ids: Record<GameKind, Set<number>> = {
+      champions: new Set(),
+      rune_styles: new Set(),
+      runes: new Set(),
+      spells: new Set(),
+      items: new Set(),
+    };
+    const championId = state.champSelect?.session?.champion_id ?? 0;
+    if (championId > 0) ids.champions.add(championId);
+    const plan = state.plan?.value;
+    if (plan) {
+      const { runes, spells, items } = plan.alternatives;
+      for (const page of [...runes.rows.map((r) => r.value), ...(plan.runes ? [plan.runes.value] : [])]) {
+        ids.rune_styles.add(page.primary_style).add(page.sub_style);
+        for (const perk of page.perks) ids.runes.add(perk);
+      }
+      for (const pair of [...spells.rows.map((r) => r.value), ...(plan.spells ? [plan.spells.value] : [])]) {
+        for (const spell of pair) ids.spells.add(spell);
+      }
+      for (const id of [...items.flatMap((s) => s.rows.map((r) => r.value)), ...plan.items.map((i) => i.value)]) {
+        ids.items.add(id);
+      }
+    }
+    return Object.fromEntries(Object.entries(ids).map(([k, v]) => [k, [...v]])) as Record<GameKind, number[]>;
+  }
+
+  /** Fetches the icons on screen not asked for yet. Cosmetic like names: on failure the
+   * stand-ins stay and the next refresh asks again. */
+  async function loadIcons(): Promise<void> {
+    const kinds = Object.keys(state.icons) as GameKind[];
+    const shown = shownIds();
+    const wanted: IconParams = {};
+    for (const kind of kinds) {
+      const missing = shown[kind].filter((id) => !(String(id) in state.icons[kind]));
+      if (missing.length) wanted[kind] = missing;
+    }
+    if (!Object.keys(wanted).length) return;
+    const icons = await backend.run("icons.get", wanted);
+    if (!icons.ok) return;
+    for (const kind of kinds) {
+      const known = { ...state.icons[kind] };
+      for (const id of wanted[kind] ?? []) known[String(id)] = icons.value[kind][String(id)] ?? null;
+      state.icons[kind] = known;
+    }
+  }
+
   async function refresh(): Promise<void> {
+    await refreshSelect();
+    if (state.champSelect?.session) await loadIcons(); // after any auto-import: icons never delay it
+  }
+
+  async function refreshSelect(): Promise<void> {
     if (state.data === null) {
       const data = await backend.run("data.status", {});
       if (!data.ok) {

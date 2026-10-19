@@ -214,6 +214,43 @@ describe("App with MockBackend", () => {
     expect(screen.getByText("Sundered Sky")).toBeInTheDocument();
   });
 
+  it("asks the client for each icon on screen once", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    for (let i = 0; i < 3; i++) await next();
+    const asked = backend.calls.filter((c) => c.id === "icons.get").map((c) => c.params as Record<string, number[]>);
+    const ids = (kind: string) => asked.flatMap((p) => p[kind] ?? []);
+    expect(ids("champions")).toEqual([104, 64]); // Graves, then Lee Sin
+    expect(ids("items")).toContain(6610);
+    expect(ids("runes")).toContain(8010);
+    expect(new Set(ids("items")).size).toBe(ids("items").length); // never twice
+    const lee = screen.getByLabelText("Champion select").querySelector("img");
+    expect(lee?.getAttribute("src")).toMatch(/^data:image\/svg\+xml,/);
+  });
+
+  it("loads icons only after an auto-import, so they never delay it", async () => {
+    const locked = scenarios["ranked-jungle"].steps.at(-1);
+    const backend = new MockBackend({ ...scenarios["ranked-jungle"], steps: locked ? [locked] : [] });
+    const app = createApp(backend, memory({ autoImport: true }));
+    await app.refresh();
+    expect(backend.calls.map((c) => c.id).slice(-2)).toEqual(["build.import", "icons.get"]);
+  });
+
+  it("shows stand-ins with the name's first letter when the client gives no icons", async () => {
+    const backend = new MockBackend({ ...scenarios["ranked-jungle"], icons: false });
+    const app = createApp(backend, memory());
+    render(App, { app });
+    await app.refresh();
+    backend.step();
+    backend.step();
+    await app.refresh();
+    expect(await screen.findByRole("heading", { name: "Lee Sin" })).toBeInTheDocument();
+    expect(document.querySelectorAll("img")).toHaveLength(0);
+    const avatar = screen.getByLabelText("Champion select").querySelector(".stand-in");
+    expect(avatar?.textContent).toBe("L");
+    expect(app.state.error).toBeNull(); // cosmetic: never reported
+  });
+
   it("says when every rune page is in use and the rune page was skipped", async () => {
     const { app, next } = setup("pages-full");
     await app.refresh();

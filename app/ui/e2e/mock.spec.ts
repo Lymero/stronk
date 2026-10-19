@@ -16,6 +16,7 @@ test("follows champion select and shows the plan by name", async ({ page }) => {
   await expect(page.getByText("Conqueror · Triumph · Legend: Alacrity · Coup de Grace")).toBeVisible();
   await expect(page.getByText("Smite · Flash")).toBeVisible();
   await expect(page.getByText("Clearly better · +2.1% win")).toBeVisible();
+  await expect(page.getByLabel("Champion select").locator("img")).toHaveAttribute("src", /^data:image\/svg\+xml,/);
   await screenshot(page, "mock-hovering");
   await next(page);
   await expect(page.getByText("Jungle · Locked in · Final changes")).toBeVisible();

@@ -1,4 +1,5 @@
 <script lang="ts" generics="T">
+  import Icon from "../../ui/Icon.svelte";
   import { games } from "../../ui/labels.ts";
   import type { Confidence } from "../../backend/backend.ts";
   import { percent, type Shown, type Slot, share } from "./options.ts";
@@ -7,10 +8,14 @@
     slot,
     label,
     detail,
+    icons,
     onpick,
   }: {
     slot: Slot<T>;
     label: (value: T) => string;
+    /** The option's icons, before its name (an item's, a spell pair's, a page's keystone and
+     * secondary tree). */
+    icons?: (value: T) => { src: string | null; name: string }[];
     /** A second, quieter line for an option (the rest of a rune page); none when empty. */
     detail?: (value: T) => string;
     /** The player clicked an option: import it instead of Stronk's choice. */
@@ -59,6 +64,7 @@
         onclick={() => onpick(row.value)}
       >
         <span class="line">
+          {#each icons?.(row.value) ?? [] as i, n (n)}<Icon src={i.src} name={i.name} />{/each}
           <span class="name">{label(row.value)}</span>
           {#if row.chosen}<span class="pick">Stronk's pick</span>{/if}
           {#if row.selected && !row.chosen}<span class="pick yours">Your pick</span>{/if}

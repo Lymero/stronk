@@ -12,6 +12,8 @@ import {
   type Commands,
   type DataStatus,
   err,
+  type GameIcons,
+  type GameKind,
   type GameNames,
   type Imported,
   ok,
@@ -22,12 +24,35 @@ import {
   type Row,
 } from "./backend.ts";
 
+const KINDS: GameKind[] = ["champions", "rune_styles", "runes", "spells", "items"];
+
+/** A stand-in icon: a square in a colour taken from the id, with the name's initials. */
+export function placeholderIcon(kind: GameKind, id: number, name: string): string {
+  let hash = 0;
+  for (const c of `${kind}/${id}`) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  const initials = name
+    .split(/[\s:'-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join("");
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">` +
+    `<rect width="32" height="32" fill="hsl(${hash % 360} 45% 42%)"/>` +
+    `<text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">${initials}</text>` +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 export interface Scenario {
   steps: (ChampSelectState | CommandError)[];
   plans: Record<string, Plan | CommandError>;
   status: DataStatus | CommandError;
   /** The client's game data names; without them the UI shows ids. */
   names?: GameNames | CommandError;
+  /** `false`: the client serves no icons (stand-ins show); otherwise a placeholder for every
+   * id it has a name for. */
+  icons?: false;
   /** What importing the rune page does; imported by default. */
   runes?: Outcome;
   /** The item set backups on this machine, newest first; restoring one adds a backup. */
@@ -302,6 +327,22 @@ export class MockBackend implements Backend {
       }
       case "names.get":
         return result(this.scenario.names ?? { code: "unavailable", message: "no names" }) as Out;
+      case "icons.get": {
+        // Like the client: an icon for every id it has a name for, none for the others.
+        const names = this.scenario.names;
+        if (!names || isError(names) || this.scenario.icons === false) {
+          return err("unavailable", "no icons") as Out;
+        }
+        const asked = params as Commands["icons.get"]["params"];
+        const icons = Object.fromEntries(KINDS.map((k) => [k, {}])) as GameIcons;
+        for (const kind of KINDS) {
+          for (const id of asked[kind] ?? []) {
+            const name = names[kind][String(id)];
+            if (name) icons[kind][String(id)] = placeholderIcon(kind, id, name);
+          }
+        }
+        return ok(icons) as Out;
+      }
       case "build.plan": {
         const { champion, role } = params as Commands["build.plan"]["params"];
         const plan = this.scenario.plans[`${champion}/${role}`];

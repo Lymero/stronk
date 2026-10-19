@@ -25,11 +25,12 @@
     <p class="error" role="alert">{state.error.message}</p>
   {/if}
 
-  <ChampSelect select={state.champSelect} names={state.names} />
+  <ChampSelect select={state.champSelect} names={state.names} icons={state.icons} />
   {#if state.plan && state.champSelect?.champion}
     <PlanView
       plan={state.plan.value}
       names={state.names}
+      icons={state.icons}
       {picks}
       {imported}
       {changed}

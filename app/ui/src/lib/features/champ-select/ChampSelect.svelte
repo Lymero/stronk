@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { ChampSelectState, GameNames } from "../../backend/backend.ts";
-  import { phase, role } from "../../ui/labels.ts";
+  import Icon from "../../ui/Icon.svelte";
+  import { type Icons, icon, phase, role } from "../../ui/labels.ts";
 
-  let { select, names }: { select: ChampSelectState | null; names: GameNames | null } = $props();
+  let { select, names, icons }: { select: ChampSelectState | null; names: GameNames | null; icons: Icons } =
+    $props();
 
   /** The champion's name in the client's language, else its key in the data (`LeeSin`). */
   const champion = $derived(
@@ -12,7 +14,7 @@
 
 <section class="champ-select" class:locked={select?.session?.locked} aria-label="Champion select">
   {#if select?.session}
-    <span class="avatar" aria-hidden="true">{(champion ?? "?").charAt(0)}</span>
+    <Icon src={icon(icons, "champions", select.session.champion_id)} name={champion ?? "?"} size="lg" round />
     <div>
       <h2>{champion ?? "No champion yet"}</h2>
       <p class="meta">
@@ -39,21 +41,11 @@
   .champ-select.locked {
     border-left-color: var(--color-accent);
   }
-  .avatar {
-    display: grid;
-    flex: 0 0 auto;
-    place-items: center;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--color-accent-bg);
-    color: var(--color-accent);
-    font-size: var(--text-xl);
-    font-weight: 700;
-  }
   .avatar.idle {
+    flex: 0 0 auto;
     width: 40px;
     height: 40px;
+    border-radius: 50%;
     background: var(--color-track);
   }
   h2 {

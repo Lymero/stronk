@@ -1,6 +1,7 @@
 // What the player reads instead of the client's codes and ids: champion-select phases, roles,
 // and rune, spell and item names from the client's game data (`names.get`). An id without a
-// name (no client yet, or one it doesn't know) shows as the id.
+// name (no client yet, or one it doesn't know) shows as the id. Icons (`icons.get`) are looked
+// up the same way; without one, a stand-in shows.
 
 import type { GameNames, Page, Role } from "../backend/backend.ts";
 
@@ -34,6 +35,13 @@ export type Kind = keyof GameNames;
 /** The name of `id` in `kind`, or the id itself. */
 export const name = (names: GameNames | null, kind: Kind, id: number): string =>
   names?.[kind][String(id)] ?? String(id);
+
+/** Icons by kind and id, as the app state keeps them (`null`: the client has none). */
+export type Icons = Record<Kind, Record<string, string | null>>;
+
+/** The icon of `id` in `kind`, if loaded. */
+export const icon = (icons: Icons | null, kind: Kind, id: number): string | null =>
+  icons?.[kind][String(id)] ?? null;
 
 /** A rune page as three lines: the primary tree and its four runes, the secondary tree and
  * its two, then the three stat shards. */

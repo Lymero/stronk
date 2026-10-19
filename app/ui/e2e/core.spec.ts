@@ -39,6 +39,10 @@ test("a replayed lobby leads to the Lee Sin jungle import", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible(); // the client's name
   await expect(page.getByText("Jungle · Hovering · Bans and picks")).toBeVisible();
   await expect(page.getByLabel("Build").getByText("Precision", { exact: true })).toBeVisible();
+  // Icons from the client's game data, as PNG data URLs through the core.
+  const portrait = page.getByLabel("Champion select").locator("img");
+  await expect(portrait).toHaveAttribute("src", /^data:image\/png;base64,/);
+  await expect(page.getByLabel("Build").locator("img").first()).toHaveAttribute("src", /^data:image\/png;base64,/);
   await step(page);
   await expect(page.getByText("Jungle · Locked in · Final changes")).toBeVisible();
   expect(await recorded(page)).toEqual([]); // nothing written before the player asks

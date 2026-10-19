@@ -164,6 +164,16 @@ export interface GameNames {
   items: Record<string, string>;
 }
 
+/** What a name or icon is of. */
+export type GameKind = keyof GameNames;
+
+/** The ids to fetch icons for (`icons.get`), at most 200 in all. */
+export type IconParams = Partial<Record<GameKind, number[]>>;
+
+/** Icons by id (as a string) as `data:` URLs, from the League client's game data
+ * (`icons.get`); ids the client has no icon for are left out. */
+export type GameIcons = Record<GameKind, Record<string, string>>;
+
 /** A local backup of the player's item sets (`item_sets.backups`). */
 export interface Backup {
   location: string;
@@ -194,6 +204,7 @@ export interface Commands {
   "build.plan": { params: PlanParams; result: Plan };
   "champselect.state": { params: Record<string, never>; result: ChampSelectState };
   "data.status": { params: Record<string, never>; result: DataStatus };
+  "icons.get": { params: IconParams; result: GameIcons };
   "item_sets.backups": { params: Record<string, never>; result: { backups: Backup[] } };
   "item_sets.restore": { params: { backup: string }; result: Restored };
   "names.get": { params: Record<string, never>; result: GameNames };
