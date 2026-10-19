@@ -1,13 +1,12 @@
 <script lang="ts">
-  import type { Build, Choice, GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
+  import type { Choice, GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import { elo, games, name, region, runePage } from "../../ui/labels.ts";
   import OptionList from "./OptionList.svelte";
   import type { Pick, Picks } from "../../state/picks.ts";
-  import { allPopular, alternatives } from "./options.ts";
+  import { allPopular, options as ranked } from "./options.ts";
 
   let {
     plan,
-    build,
     names,
     picks,
     imported,
@@ -17,8 +16,6 @@
     onreset,
   }: {
     plan: Plan;
-    /** The build file behind the plan, for the alternatives; the choices alone without it. */
-    build: Build | null;
     names: GameNames | null;
     picks: Picks;
     imported: Imported | null;
@@ -41,10 +38,8 @@
     return `Win impact ${percent(c.wpa)} against the most played option${interval}, from ${c.games.toLocaleString("en-US")} games`;
   };
 
-  const source = $derived(
-    [`Patch ${plan.patch}`, ...(build ? [games(build.games), elo(build.elo), region(build.region)] : [])].join(" · "),
-  );
-  const options = $derived(build ? alternatives(build, plan, picks) : null);
+  const source = $derived([`Patch ${plan.patch}`, games(plan.games), elo(plan.elo), region(plan.region)].join(" · "));
+  const options = $derived(ranked(plan, picks));
   const picked = $derived(picks.runes !== undefined || picks.spells !== undefined || Object.keys(picks.items).length > 0);
   const shownPage = $derived(picks.runes ?? plan.runes?.value);
   /** The item each slot imports: the player's pick, else Stronk's. */
@@ -66,7 +61,7 @@
   };
   const spells = (pair: [number, number]) => pair.map((id) => name(names, "spells", id)).join(" · ");
   const item = (id: number) => name(names, "items", id);
-  const itemSlot = (slot: number) => options?.items.find((s) => s.slot === slot);
+  const itemSlot = (slot: number) => options.items.find((s) => s.slot === slot);
 
   const parts = $derived(
     imported
@@ -108,7 +103,7 @@
     {:else}
       Stronk imports the most played options, except where another one is clearly better.
     {/if}
-    {#if options}Click any option to import it instead.{/if}
+    Click any option to import it instead.
   </p>
 
   {#if imported}
@@ -134,7 +129,7 @@
             <p><span class="tree">{line.title}</span> {line.runes.join(" · ")}</p>
           {/each}
         </div>
-        {#if options?.runes.rows.length}
+        {#if options.runes.rows.length}
           <h4>Pages played</h4>
           <OptionList slot={options.runes} label={page} detail={pageDetail} onpick={(p) => onpick({ runes: p })} />
         {/if}
@@ -147,7 +142,7 @@
           <h3>Spells</h3>
           {@render label(picks.spells ? { value: null, label: "picked" } : plan.spells)}
         </header>
-        {#if options?.spells.rows.length}
+        {#if options.spells.rows.length}
           <OptionList slot={options.spells} label={spells} onpick={(pair) => onpick({ spells: pair })} />
         {:else}
           <p class="value">{spells(plan.spells.value)}</p>

@@ -12,7 +12,6 @@
   );
   const picks = $derived(state.picks && state.picks.key === state.plan?.key ? state.picks.value : noPicks());
   const changed = $derived(!!imported && JSON.stringify(state.imported?.picks) !== JSON.stringify(picks));
-  const build = $derived(state.build && state.build.key === state.plan?.key ? state.build.value : null);
 </script>
 
 <main>
@@ -30,7 +29,6 @@
   {#if state.plan && state.champSelect?.champion}
     <PlanView
       plan={state.plan.value}
-      {build}
       names={state.names}
       {picks}
       {imported}

@@ -168,6 +168,41 @@ fn plan_takes_the_popular_combination_unless_one_is_clearly_better() {
 }
 
 #[test]
+fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
+    let out = run(
+        &ctx(NoClient),
+        "build.plan",
+        json!({"champion": "Viego", "role": "JUNGLE"}),
+    )
+    .unwrap();
+    assert_eq!(
+        (&out["games"], &out["elo"], &out["region"]),
+        (&json!(18432), &json!("diamond_plus"), &json!("euw1"))
+    );
+    let alternatives = &out["alternatives"];
+    assert_eq!(
+        alternatives["items"],
+        json!([{"slot": 1, "more": 0, "rows": [
+            {"value": 6672, "played": 6100, "share": 6100.0 / 8540.0, "wpa": 0.008,
+             "ci": [0.001, 0.015], "versus": "alternatives", "confidence": "most_played",
+             "fragile": false, "chosen": false},
+            {"value": 6693, "played": 2300, "share": 2300.0 / 8540.0, "wpa": 0.021,
+             "ci": [0.008, 0.034], "versus": "most_played", "confidence": "clearly_better",
+             "fragile": false, "chosen": true},
+            {"value": 6692, "played": 140, "share": 140.0 / 8540.0, "wpa": null, "ci": null,
+             "versus": "alternatives", "confidence": "too_few_games", "fragile": false,
+             "chosen": false}
+        ]}])
+    );
+    let spells = &alternatives["spells"]["rows"][0];
+    assert_eq!(
+        (&spells["value"], &spells["confidence"], &spells["chosen"]),
+        (&json!([4, 11]), &json!("most_played"), &json!(true))
+    );
+    assert_eq!(alternatives["runes"]["rows"][0]["chosen"], true);
+}
+
+#[test]
 fn import_writes_a_full_stronk_page_and_leaves_the_players_alone() {
     let (out, client) = import(FakeClient::new(Some(viego((4, 14)))));
     assert_eq!(out["runes"]["status"], "imported");

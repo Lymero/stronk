@@ -40,11 +40,30 @@ pub struct Candidate<T> {
     pub id: i64,
     /// Games (or picks) with exactly this option: popularity.
     pub played: u64,
-    /// Has a number and is neither `low_sample` nor `low_overlap`.
-    pub claimable: bool,
+    /// Its own win impact against the alternatives at this decision; `None` when not estimated.
+    pub wpa: Option<f64>,
+    pub ci: Option<(f64, f64)>,
+    /// Flagged `low_sample` or `low_overlap`: too few comparable games.
+    pub too_few: bool,
     /// Flagged `no_clear_difference`.
     pub unclear: bool,
+    /// Flagged `fragile`: a modest hidden confounder could overturn it.
+    pub fragile: bool,
     pub comparison: Option<Comparison>,
+}
+
+impl<T> Candidate<T> {
+    /// Has a number and is neither `low_sample` nor `low_overlap`.
+    pub fn claimable(&self) -> bool {
+        self.wpa.is_some() && !self.too_few
+    }
+
+    /// Its comparison with `popular` when the published flags make the difference clear:
+    /// claimable and not `no_clear_difference`. The one rule behind [`choose`] and [`rank`].
+    fn clear_against(&self, popular: i64) -> Option<Comparison> {
+        self.comparison
+            .filter(|k| k.versus == popular && self.claimable() && !self.unclear)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -54,20 +73,19 @@ pub struct Choice<T> {
     pub label: Label,
 }
 
+/// Popularity order: most played first, ties to the smallest id.
+fn by_popularity<T>(a: &Candidate<T>, b: &Candidate<T>) -> std::cmp::Ordering {
+    b.played.cmp(&a.played).then(a.id.cmp(&b.id))
+}
+
 /// The popular candidate (most played; ties to the smallest id), or the clearly better one
 /// with the largest win impact against it. `None` without candidates.
 pub fn choose<T: Clone>(candidates: &[Candidate<T>]) -> Option<Choice<T>> {
-    let popular = candidates
-        .iter()
-        .min_by_key(|c| (std::cmp::Reverse(c.played), c.id))?;
+    let popular = candidates.iter().min_by(|a, b| by_popularity(a, b))?;
     let better = candidates
         .iter()
-        .filter_map(|c| match c.comparison {
-            Some(k) if c.claimable && !c.unclear && k.versus == popular.id && k.wpa > 0.0 => {
-                Some((c, k))
-            }
-            _ => None,
-        })
+        .filter_map(|c| c.clear_against(popular.id).map(|k| (c, k)))
+        .filter(|(_, k)| k.wpa > 0.0)
         .max_by(|(a, x), (b, y)| x.wpa.total_cmp(&y.wpa).then(b.id.cmp(&a.id)));
     Some(match better {
         Some((c, k)) => Choice {
@@ -83,6 +101,120 @@ pub fn choose<T: Clone>(candidates: &[Candidate<T>]) -> Option<Choice<T>> {
             label: Label::Popular,
         },
     })
+}
+
+/// How far an option's numbers can be trusted (docs/wpa-method.md, section 7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Confidence {
+    /// Beats the most played option head to head, by the rule [`choose`] uses.
+    ClearlyBetter,
+    /// Loses to the most played option head to head, by the same rule.
+    ClearlyWorse,
+    /// The most played option: what the others are compared with.
+    MostPlayed,
+    /// Has a number, but isn't distinguishable from the most played option.
+    NoClearDifference,
+    /// `low_sample` or `low_overlap`: too few comparable games for a number to mean much.
+    TooFewGames,
+    /// No estimate is published for it (spells have none yet).
+    NotEstimated,
+}
+
+/// What a row's win impact is measured against.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Versus {
+    /// Head to head with the slot's most played option.
+    MostPlayed,
+    /// The alternatives at this decision point: the option's own estimate.
+    Alternatives,
+}
+
+/// One option of a slot, as the champion select view shows it (ADR-049).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Row<T> {
+    pub value: T,
+    /// Games (or picks) with this option.
+    pub played: u64,
+    /// Its share of the slot's games, 0 to 1.
+    pub share: f64,
+    /// Win probability added, against what `versus` says.
+    pub wpa: Option<f64>,
+    pub ci: Option<(f64, f64)>,
+    pub versus: Versus,
+    pub confidence: Confidence,
+    pub fragile: bool,
+    /// Stronk's choice for the slot.
+    pub chosen: bool,
+}
+
+/// A slot's options worth listing, and how many others are left out.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Ranked<T> {
+    pub rows: Vec<Row<T>>,
+    /// Options played less, not listed.
+    pub more: usize,
+}
+
+/// Options listed per slot: the most played, plus the chosen one when it is rarer.
+pub const SHOWN: usize = 3;
+
+/// A slot's options in popularity order with their share, win impact and confidence: the
+/// [`SHOWN`] most played, plus `chosen` when it is rarer. "Clearly better/worse" comes from the
+/// published flags by the rule [`choose`] uses, with no threshold of its own.
+pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T>) -> Ranked<T> {
+    let mut sorted: Vec<&Candidate<T>> = candidates.iter().collect();
+    sorted.sort_by(|a, b| by_popularity(a, b));
+    let popular = sorted.first().map_or(0, |c| c.id);
+    let total: u64 = sorted.iter().map(|c| c.played).sum();
+    let is_chosen = |c: &Candidate<T>| chosen.is_some_and(|v| *v == c.value);
+    let rows: Vec<Row<T>> = sorted
+        .iter()
+        .enumerate()
+        .filter(|(i, c)| *i < SHOWN || is_chosen(c))
+        .map(|(i, c)| {
+            let most_played = i == 0;
+            let compared = c.comparison.filter(|k| k.versus == popular && !most_played);
+            let clear = c.clear_against(popular).filter(|_| !most_played);
+            let confidence = match clear {
+                _ if c.too_few => Confidence::TooFewGames,
+                Some(k) if k.wpa > 0.0 => Confidence::ClearlyBetter,
+                Some(k) if k.wpa < 0.0 => Confidence::ClearlyWorse,
+                _ if most_played => Confidence::MostPlayed,
+                _ if c.wpa.is_none() => Confidence::NotEstimated,
+                _ => Confidence::NoClearDifference,
+            };
+            Row {
+                value: c.value.clone(),
+                played: c.played,
+                share: share(c.played, total),
+                wpa: compared.map_or(c.wpa, |k| Some(k.wpa)),
+                ci: compared.map_or(c.ci, |k| k.ci),
+                versus: if compared.is_some() {
+                    Versus::MostPlayed
+                } else {
+                    Versus::Alternatives
+                },
+                confidence,
+                fragile: c.fragile,
+                chosen: is_chosen(c),
+            }
+        })
+        .collect();
+    Ranked {
+        more: sorted.len() - rows.len(),
+        rows,
+    }
+}
+
+#[allow(clippy::cast_precision_loss)] // game counts stay far below 2^52
+fn share(played: u64, total: u64) -> f64 {
+    if total == 0 {
+        0.0
+    } else {
+        played as f64 / total as f64
+    }
 }
 
 /// One choice per item slot, in slot order, never repeating an item: an item chosen for an
@@ -180,8 +312,11 @@ mod tests {
             value: id,
             id,
             played,
-            claimable: true,
+            wpa: Some(0.01),
+            ci: Some((-0.01, 0.03)),
+            too_few: false,
             unclear: false,
+            fragile: false,
             comparison,
         }
     }
@@ -229,7 +364,7 @@ mod tests {
         let worse = [candidate(2, 30, None), candidate(3, 20, Some((2, -0.03)))];
         let elsewhere = [candidate(2, 30, None), candidate(3, 20, Some((9, 0.03)))];
         let mut low_sample = [candidate(2, 30, None), candidate(3, 20, Some((2, 0.03)))];
-        low_sample[1].claimable = false;
+        low_sample[1].too_few = true;
         for c in [&worse[..], &elsewhere[..], &low_sample[..]] {
             assert_eq!(choose(c).map(|c| c.label), Some(Label::Popular));
         }
@@ -310,5 +445,118 @@ mod tests {
         assert_eq!(plan_rune_page(&full, 2), None);
         assert_eq!(plan_rune_page(&full, 3), Some(PagePlan { delete: vec![] }));
         assert!(!is_ours("Stronk Ahri") && is_ours("Stronk: Ahri"));
+    }
+
+    fn compared(mut c: Candidate<i64>, versus: i64, wpa: f64) -> Candidate<i64> {
+        c.comparison = Some(Comparison {
+            versus,
+            wpa,
+            ci: Some((wpa - 0.01, wpa + 0.01)),
+        });
+        c
+    }
+
+    #[test]
+    fn rank_lists_a_slot_by_popularity_with_shares() {
+        let c = [
+            candidate(30, 100, None),
+            candidate(10, 600, None),
+            candidate(20, 300, None),
+        ];
+        let ranked = rank(&c, Some(&10));
+        let rows: Vec<(i64, f64, bool)> = ranked
+            .rows
+            .iter()
+            .map(|r| (r.value, r.share, r.chosen))
+            .collect();
+        assert_eq!(rows, [(10, 0.6, true), (20, 0.3, false), (30, 0.1, false)]);
+        assert_eq!(ranked.rows[0].confidence, Confidence::MostPlayed);
+        assert_eq!(ranked.rows[1].versus, Versus::Alternatives); // its own estimate
+        assert_eq!(ranked.rows[1].wpa, Some(0.01));
+        assert_eq!(ranked.more, 0);
+        assert_eq!(rank::<i64>(&[], None).rows, []);
+    }
+
+    #[test]
+    fn rank_calls_a_difference_clear_only_as_choose_would() {
+        let c = [
+            candidate(10, 500, None),
+            compared(candidate(20, 300, None), 10, 0.02),
+            compared(candidate(30, 150, None), 10, -0.02),
+        ];
+        let rows = rank(&c, None).rows;
+        let confidence: Vec<Confidence> = rows.iter().map(|r| r.confidence).collect();
+        assert_eq!(
+            confidence,
+            [
+                Confidence::MostPlayed,
+                Confidence::ClearlyBetter,
+                Confidence::ClearlyWorse
+            ]
+        );
+        assert_eq!(
+            (rows[1].wpa, rows[1].ci, rows[1].versus),
+            (Some(0.02), Some((0.01, 0.03)), Versus::MostPlayed)
+        );
+        assert_eq!(rows[2].wpa, Some(-0.02));
+        // The same rule picks the clearly better option.
+        assert_eq!(choose(&c).map(|c| c.value), Some(20));
+
+        // Compared with another option: its own estimate, no claim.
+        let elsewhere = [
+            candidate(10, 500, None),
+            compared(candidate(40, 50, None), 99, 0.05),
+        ];
+        let row = &rank(&elsewhere, None).rows[1];
+        assert_eq!(
+            (row.confidence, row.versus, row.wpa),
+            (
+                Confidence::NoClearDifference,
+                Versus::Alternatives,
+                Some(0.01)
+            )
+        );
+    }
+
+    #[test]
+    fn rank_flags_too_few_games_unclear_and_fragile_options() {
+        let mut rare = candidate(10, 500, None);
+        rare.too_few = true;
+        rare.wpa = None;
+        let mut fragile = compared(candidate(20, 300, None), 10, 0.01);
+        fragile.unclear = true;
+        fragile.fragile = true;
+        let mut unclear = compared(candidate(30, 200, None), 10, 0.03);
+        unclear.unclear = true;
+        let mut spell = candidate(40, 100, None);
+        spell.wpa = None;
+        let rows = rank(&[rare, fragile, unclear, spell], None).rows;
+        let seen: Vec<(Confidence, bool)> =
+            rows.iter().map(|r| (r.confidence, r.fragile)).collect();
+        assert_eq!(
+            seen,
+            [
+                (Confidence::TooFewGames, false),
+                (Confidence::NoClearDifference, true),
+                (Confidence::NoClearDifference, false),
+            ]
+        );
+        let mut alone = candidate(40, 100, None);
+        alone.wpa = None;
+        let rows = rank(&[candidate(1, 900, None), alone], None).rows;
+        assert_eq!(rows[1].confidence, Confidence::NotEstimated);
+    }
+
+    #[test]
+    fn rank_shows_the_most_played_and_the_chosen_one_when_rarer() {
+        let c: Vec<Candidate<i64>> = [(10, 500), (20, 400), (30, 300), (40, 200), (50, 100)]
+            .into_iter()
+            .map(|(id, played)| candidate(id, played, None))
+            .collect();
+        let ranked = rank(&c, Some(&50));
+        let shown: Vec<(i64, bool)> = ranked.rows.iter().map(|r| (r.value, r.chosen)).collect();
+        assert_eq!(shown, [(10, false), (20, false), (30, false), (50, true)]);
+        assert_eq!(ranked.more, 1);
+        assert_eq!(rank(&c, Some(&20)).more, 2);
     }
 }

@@ -81,11 +81,8 @@ describe("App with MockBackend", () => {
     // Sundered Sky, the pick at slot 2: 640 of 1,790 picks, +2.1% against Black Cleaver.
     const pick = within(build).getAllByText("Stronk's pick").map((el) => el.closest("li")?.textContent ?? "");
     expect(pick.some((t) => t.includes("Sundered Sky") && t.includes("36% · 640 games") && t.includes("+2.1% win"))).toBe(true);
-    const asked = backend.calls.filter((c) => c.id === "build.get").map((c) => c.params);
-    expect(asked).toEqual([
-      { champion: "Graves", role: "JUNGLE" },
-      { champion: "LeeSin", role: "JUNGLE" },
-    ]);
+    // The rows come with the plan: nothing else is asked for them.
+    expect(backend.calls.filter((c) => c.id === "build.get")).toEqual([]);
   });
 
   it("imports the option the player clicks instead of Stronk's, until reset", async () => {
@@ -112,14 +109,14 @@ describe("App with MockBackend", () => {
     expect(sent().at(-1)).toEqual({});
   });
 
-  it("shows every option on request, and marks an item picked for two slots", async () => {
+  it("counts the options left out, and marks an item picked for two slots", async () => {
     const { app, next } = setup("ranked-jungle");
     await app.refresh();
     await next();
     await next();
     const build = screen.getByLabelText("Build");
-    await fireEvent.click(within(build).getByRole("button", { name: "Show 2 more options, each played less" }));
-    expect(within(build).getByText("Press the Attack · Precision + Inspiration")).toBeInTheDocument();
+    expect(within(build).getByText("2 more options, each played less")).toBeInTheDocument(); // rune pages
+    expect(within(build).getAllByText("1 more option, each played less")).toHaveLength(3); // items
     const deathsDance = () => within(build).getAllByRole("button", { name: /^Death's Dance/ });
     await fireEvent.click(deathsDance()[0] as HTMLElement); // slot 2
     await fireEvent.click(deathsDance()[1] as HTMLElement); // slot 3

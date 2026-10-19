@@ -1,10 +1,11 @@
 //! `build.plan`: what an import would write for a champion and role, each choice labelled
-//! "popular" or "clearly better" (ADR-043). Writes nothing.
+//! "popular" or "clearly better" (ADR-043), and each slot's alternatives ranked by the same
+//! rule (ADR-049). Writes nothing.
 
 use serde::{Deserialize, Serialize};
-use stronk_contracts::build_v1::{Build, Comparison, Flag};
+use stronk_contracts::build_v1::{Build, Comparison, Flag, Interval};
 use stronk_domain::Role;
-use stronk_domain::select::{self, Candidate, Choice, choose, choose_items};
+use stronk_domain::select::{self, Candidate, Choice, Ranked, choose, choose_items, rank};
 
 use crate::commands::build_get;
 use crate::registry::Command;
@@ -36,20 +37,40 @@ pub struct SlotChoice {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct SlotRanked {
+    pub slot: u64,
+    #[serde(flatten)]
+    pub ranked: Ranked<i64>,
+}
+
+/// Each slot's options as the view lists them: the most played and the chosen one.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Alternatives {
+    pub runes: Ranked<Page>,
+    pub spells: Ranked<(i64, i64)>,
+    pub items: Vec<SlotRanked>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Plan {
     pub champion: String,
     pub role: Role,
     pub patch: String,
+    /// Games behind the build file, and its elo bracket and region.
+    pub games: u64,
+    pub elo: String,
+    pub region: String,
     pub runes: Option<Choice<Page>>,
     /// D then F, in the pair's usual order; the import moves Flash to the player's key.
     pub spells: Option<Choice<(i64, i64)>>,
     pub items: Vec<SlotChoice>,
+    pub alternatives: Alternatives,
 }
 
 pub fn command() -> Command {
     Command::new(
         "build.plan",
-        "What an import would write, each choice labelled",
+        "What an import would write, each choice labelled, and each slot's alternatives",
         run,
     )
 }
@@ -66,7 +87,7 @@ fn run(ctx: &Context, params: Params) -> Result<Plan, CommandError> {
     Ok(plan(&build, params.role))
 }
 
-/// The choice for every decision of `build`.
+/// The choice for every decision of `build`, and the alternatives behind it.
 pub fn plan(build: &Build, role: Role) -> Plan {
     let runes: Vec<Candidate<Page>> = build
         .runes
@@ -79,11 +100,15 @@ pub fn plan(build: &Build, role: Role) -> Plan {
             },
             id: o.page.perks.first().map_or(0, |k| to_i64(*k)),
             played: o.games.unwrap_or(o.n),
-            claimable: claimable(o.wpa, &o.flags),
+            wpa: o.wpa,
+            ci: o.ci.as_ref().map(interval),
+            too_few: too_few(&o.flags),
             unclear: o.flags.contains(&Flag::NoClearDifference),
+            fragile: o.flags.contains(&Flag::Fragile),
             comparison: o.comparison.as_ref().map(compared),
         })
         .collect();
+    // Spells have no WPA yet, so never a claim: always the popular pair.
     let spells: Vec<Candidate<(i64, i64)>> = build
         .spells
         .iter()
@@ -93,8 +118,11 @@ pub fn plan(build: &Build, role: Role) -> Plan {
                 value: (d, f),
                 id: d.min(f) * 1_000 + d.max(f),
                 played: o.games.unwrap_or(o.n),
-                claimable: false, // spells have no WPA yet: always the popular pair
-                unclear: true,
+                wpa: o.wpa,
+                ci: o.ci.as_ref().map(interval),
+                too_few: too_few(&o.flags),
+                unclear: o.flags.contains(&Flag::NoClearDifference),
+                fragile: o.flags.contains(&Flag::Fragile),
                 comparison: None,
             }
         })
@@ -113,43 +141,67 @@ pub fn plan(build: &Build, role: Role) -> Plan {
                     value: to_i64(o.item.get()),
                     id: to_i64(o.item.get()),
                     played: o.picks.unwrap_or(o.n),
-                    claimable: claimable(o.wpa, &o.flags),
+                    wpa: o.wpa,
+                    ci: o.ci.as_ref().map(interval),
+                    too_few: too_few(&o.flags),
                     unclear: o.flags.contains(&Flag::NoClearDifference),
+                    fragile: o.flags.contains(&Flag::Fragile),
                     comparison: o.comparison.as_ref().map(compared),
                 })
                 .collect();
             (slot, candidates)
         })
         .collect();
-    let items = choose_items(&candidates)
+    let items: Vec<SlotChoice> = choose_items(&candidates)
         .into_iter()
         .map(|(slot, choice)| SlotChoice { slot, choice })
         .collect();
+    let runes_choice = choose(&runes);
+    let spells_choice = choose(&spells);
+    let alternatives = Alternatives {
+        runes: rank(&runes, runes_choice.as_ref().map(|c| &c.value)),
+        spells: rank(&spells, spells_choice.as_ref().map(|c| &c.value)),
+        items: candidates
+            .iter()
+            .map(|(slot, options)| {
+                let chosen = items.iter().find(|c| c.slot == *slot);
+                SlotRanked {
+                    slot: *slot,
+                    ranked: rank(options, chosen.map(|c| &c.choice.value)),
+                }
+            })
+            .collect(),
+    };
     Plan {
         champion: build.champion.to_string(),
         role,
         patch: build.patch.to_string(),
-        runes: choose(&runes),
-        spells: choose(&spells),
+        games: build.games,
+        elo: build.elo.to_string(),
+        region: build.region.to_string(),
+        runes: runes_choice,
+        spells: spells_choice,
         items,
+        alternatives,
     }
 }
 
-fn claimable(wpa: Option<f64>, flags: &[Flag]) -> bool {
-    wpa.is_some()
-        && !flags
-            .iter()
-            .any(|f| matches!(f, Flag::LowSample | Flag::LowOverlap))
+fn too_few(flags: &[Flag]) -> bool {
+    flags
+        .iter()
+        .any(|f| matches!(f, Flag::LowSample | Flag::LowOverlap))
+}
+
+fn interval(i: &Interval) -> (f64, f64) {
+    let [low, high] = i.0;
+    (low, high)
 }
 
 fn compared(c: &Comparison) -> select::Comparison {
     select::Comparison {
         versus: to_i64(c.versus),
         wpa: c.wpa,
-        ci: c.ci.as_ref().map(|i| {
-            let [low, high] = i.0;
-            (low, high)
-        }),
+        ci: c.ci.as_ref().map(interval),
     }
 }
 

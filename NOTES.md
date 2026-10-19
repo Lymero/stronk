@@ -87,3 +87,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: `build.plan` picks items slot by slot, so the same item can fill several slots (Lee Sin: Guardian Angel at 4, 5 and 6); a hosted data location (M4).
 - 2026-10-19: pick an alternative (ADR-050): clicking an option in runes, spells or an item slot imports it instead of Stronk's pick ("Use Stronk's picks" resets; all options on request); `build.import` takes `runes`, `spells` and `items` picks, refusing anything not published; `build.plan` no longer repeats an item across slots (Lee Sin real data: Guardian Angel at 4, then Maw and others).
   Open: check picking and importing on the real client; picks are forgotten on restart.
+- 2026-10-19: one selection rule (ADR-049): `select::rank` next to `choose` ranks each slot's options from the published flags, `build.plan` returns them as `alternatives` (top 3 plus the chosen one, a `more` count) with the build's games, elo and region; the UI lost its own q threshold and the extra `build.get`, and the rule's cases moved to Rust.
+  Open: options past the top 3 are counted but can't be picked from the view any more.

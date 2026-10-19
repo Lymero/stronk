@@ -54,14 +54,67 @@ export interface Page {
   perks: number[];
 }
 
-/** What an import would write (`build.plan`). */
+/** How far an option's numbers can be trusted (docs/wpa-method.md, section 7); decided in the
+ * core by the rule that picks what to import (ADR-043, ADR-049). */
+export type Confidence =
+  /** Beats the most played option head to head; the published flags make it clear. */
+  | "clearly_better"
+  /** Loses to the most played option head to head, by the same rule. */
+  | "clearly_worse"
+  /** The most played option: what the others are compared with. */
+  | "most_played"
+  /** Has a number, but isn't distinguishable from the most played option. */
+  | "no_clear_difference"
+  /** `low_sample` or `low_overlap`: too few comparable games for a number to mean much. */
+  | "too_few_games"
+  /** No estimate is published for it (spells have none yet). */
+  | "not_estimated";
+
+/** One option of a slot, as `build.plan` ranks it. */
+export interface Row<T> {
+  value: T;
+  /** Games (or picks) with this option. */
+  played: number;
+  /** Its share of the slot's games, 0 to 1. */
+  share: number;
+  /** Win probability added: against the most played option when compared with it, else
+   * against the alternatives at this decision point. */
+  wpa: number | null;
+  ci: [number, number] | null;
+  versus: "most_played" | "alternatives";
+  confidence: Confidence;
+  /** A modest hidden confounder could overturn the result. */
+  fragile: boolean;
+  /** Stronk's choice. */
+  chosen: boolean;
+}
+
+/** A slot's options: the three most played, plus Stronk's choice when it is rarer. */
+export interface Ranked<T> {
+  rows: Row<T>[];
+  /** Options played less, not listed. */
+  more: number;
+}
+
+export interface Alternatives {
+  runes: Ranked<Page>;
+  spells: Ranked<[number, number]>;
+  items: ({ slot: number } & Ranked<number>)[];
+}
+
+/** What an import would write (`build.plan`), and each slot's alternatives. */
 export interface Plan {
   champion: string;
   role: Role;
   patch: string;
+  /** Games behind the build file, and its elo bracket and region. */
+  games: number;
+  elo: string;
+  region: string;
   runes: Choice<Page> | null;
   spells: Choice<[number, number]> | null;
   items: ({ slot: number } & Choice<number>)[];
+  alternatives: Alternatives;
 }
 
 export type Outcome = ({ status: "imported"; name: string } & Label) | { status: "skipped"; reason: string };

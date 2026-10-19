@@ -1,6 +1,7 @@
 <script lang="ts" generics="T">
   import { games } from "../../ui/labels.ts";
-  import type { Confidence, Row, Slot } from "./options.ts";
+  import type { Confidence } from "../../backend/backend.ts";
+  import { percent, type Shown, type Slot, share } from "./options.ts";
 
   let {
     slot,
@@ -15,9 +16,6 @@
     /** The player clicked an option: import it instead of Stronk's choice. */
     onpick: (value: T) => void;
   } = $props();
-
-  let all = $state(false);
-  const rows = $derived(all ? [...slot.rows, ...slot.rest] : slot.rows);
 
   const CONFIDENCE: Record<Confidence, { text: string; title: string }> = {
     clearly_better: {
@@ -37,9 +35,7 @@
     not_estimated: { text: "Not estimated", title: "No win impact is published for this yet" },
   };
 
-  const percent = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(1)}%`;
-  const share = (v: number) => `${Math.round(v * 100)}%`;
-  const impactTitle = (r: Row<T>) => {
+  const impactTitle = (r: Shown<T>) => {
     const against = r.versus === "most_played" ? "against the most played option" : "against the alternatives";
     const interval = r.ci ? `, 95% interval ${percent(r.ci[0])} to ${percent(r.ci[1])}` : "";
     return `Win probability added ${against}${interval}`;
@@ -47,7 +43,7 @@
 </script>
 
 <ol class="options">
-  {#each rows as row (row.key)}
+  {#each slot.rows as row (row.key)}
     {@const more = detail?.(row.value)}
     <li>
       <button
@@ -60,8 +56,8 @@
       >
         <span class="line">
           <span class="name">{label(row.value)}</span>
-          {#if row.stronk}<span class="pick">Stronk's pick</span>{/if}
-          {#if row.selected && !row.stronk}<span class="pick yours">Your pick</span>{/if}
+          {#if row.chosen}<span class="pick">Stronk's pick</span>{/if}
+          {#if row.selected && !row.chosen}<span class="pick yours">Your pick</span>{/if}
           <span class="confidence {row.confidence}" title={CONFIDENCE[row.confidence].title}>
             {CONFIDENCE[row.confidence].text}{#if row.fragile}<span title="A modest hidden factor could overturn this">{" · fragile"}</span>{/if}
           </span>
@@ -83,10 +79,8 @@
     </li>
   {/each}
 </ol>
-{#if slot.rest.length > 0}
-  <button type="button" class="more" onclick={() => (all = !all)}>
-    {all ? "Show fewer" : `Show ${slot.rest.length} more ${slot.rest.length === 1 ? "option" : "options"}, each played less`}
-  </button>
+{#if slot.more > 0}
+  <p class="more">{slot.more} more {slot.more === 1 ? "option" : "options"}, each played less</p>
 {/if}
 
 <style>
@@ -194,14 +188,9 @@
     color: var(--color-negative);
   }
   .more {
-    justify-self: start;
     margin: var(--space-1) var(--space-2) 0;
     padding: 0 var(--space-1);
-    border: 0;
-    background: none;
-    color: var(--color-accent);
-    font: inherit;
+    color: var(--color-muted);
     font-size: var(--text-sm);
-    cursor: pointer;
   }
 </style>
