@@ -18,6 +18,7 @@ pub use registry::{CommandInfo, Registry};
 pub struct Context {
     pub builds: Arc<dyn ports::BuildSource>,
     pub client: Arc<dyn ports::LeagueClient>,
+    pub backups: Arc<dyn ports::Backups>,
 }
 
 /// Every command the app has.

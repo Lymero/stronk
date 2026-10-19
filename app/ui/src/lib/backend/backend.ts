@@ -33,7 +33,17 @@ export interface ChampSelect {
 }
 
 /** Why a choice was made (ADR-043). */
-export type Label = { label: "popular" } | { label: "clearly_better"; wpa: number };
+export type Label =
+  | { label: "popular" }
+  | {
+      label: "clearly_better";
+      /** Win probability added against the most played option. */
+      wpa: number;
+      /** Its 95% interval, when published. */
+      ci: [number, number] | null;
+      /** Games (or picks) with this option. */
+      games: number;
+    };
 export type Choice<T> = { value: T } & Label;
 
 export interface Page {
@@ -60,6 +70,8 @@ export interface Imported {
   role: Role;
   runes: Outcome;
   item_set: Outcome;
+  /** Where the player's item sets were saved before Stronk wrote its own. */
+  item_set_backup: string | null;
   spells: Outcome;
 }
 

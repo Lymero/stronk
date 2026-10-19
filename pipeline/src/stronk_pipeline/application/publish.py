@@ -239,6 +239,7 @@ def _numbers(e: OptionEstimate) -> dict[str, object]:
             "versus": int(e.versus),
             "wpa": round(e.contrast, 5),
             "q": round(e.q, 5),
+            **({"ci": [round(v, 5) for v in e.contrast_ci]} if e.contrast_ci else {}),
         }
     return numbers
 

@@ -26,7 +26,7 @@
       "n": 2100,
       "flags": [],
       "picks": 2300,
-      "comparison": { "versus": 6672, "wpa": 0.021, "q": 0.012 }
+      "comparison": { "versus": 6672, "wpa": 0.021, "q": 0.012, "ci": [0.008, 0.034] }
     },
     { "slot": 1, "item": 6692, "wpa": null, "ci": null, "n": 140, "flags": ["low_sample", "low_overlap"], "picks": 140 }
   ],

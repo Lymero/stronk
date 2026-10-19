@@ -56,5 +56,7 @@ class OptionEstimate:
     """The point's most played eligible option, which `q` compares this one with."""
     contrast: float | None = None
     """Effect of this option against `versus` (head to head, the estimator's effect)."""
+    contrast_ci: tuple[float, float] | None = None
+    """Bootstrap interval of `contrast`, at the run's confidence."""
     chosen: int = 0
     """Decisions choosing this option at its point, inside the overlap or not (popularity)."""

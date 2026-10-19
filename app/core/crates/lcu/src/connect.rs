@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use serde_json::Value;
 use stronk_domain::select::PageInfo;
 use stronk_service::ports::{ChampSelect, LeagueClient, NewRunePage, PortError};
 
@@ -106,11 +105,11 @@ impl LeagueClient for Reconnecting {
         self.client()?.create_rune_page(page)
     }
 
-    fn item_sets(&self) -> Result<Value, PortError> {
+    fn item_sets(&self) -> Result<String, PortError> {
         self.client()?.item_sets()
     }
 
-    fn save_item_sets(&self, document: &Value) -> Result<(), PortError> {
+    fn save_item_sets(&self, document: &str) -> Result<(), PortError> {
         self.client()?.save_item_sets(document)
     }
 

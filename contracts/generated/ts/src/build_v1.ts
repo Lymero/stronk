@@ -16,6 +16,13 @@ export type Interval = [number, number];
  * Why an estimate should not be trusted at face value. See docs/wpa-method.md, section 7.
  */
 export type Flag = "low_sample" | "low_overlap" | "no_clear_difference" | "fragile";
+/**
+ * 95% interval [low, high] of the WPA estimate.
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Interval1 = [number, number];
 
 /**
  * Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json.
@@ -93,6 +100,7 @@ export interface Comparison {
    * False-discovery-adjusted p-value of no difference, across the patch.
    */
   q: number;
+  ci?: Interval1;
 }
 export interface ItemOption {
   slot: number;

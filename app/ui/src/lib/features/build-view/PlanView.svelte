@@ -7,8 +7,15 @@
     onimport,
   }: { plan: Plan; imported: Imported | null; onimport: () => void } = $props();
 
+  const percent = (v: number) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
   const why = (c: Choice<unknown>) =>
-    c.label === "popular" ? "Popular" : `Clearly better · ${c.wpa >= 0 ? "+" : ""}${(c.wpa * 100).toFixed(1)}% win`;
+    c.label === "popular" ? "Popular" : `Clearly better · ${percent(c.wpa)} win`;
+  /** The evidence behind "Clearly better": the interval and how many games it rests on. */
+  const evidence = (c: Choice<unknown>) => {
+    if (c.label === "popular") return "The most played option";
+    const interval = c.ci ? ` (95% interval ${percent(c.ci[0])} to ${percent(c.ci[1])})` : "";
+    return `Win impact ${percent(c.wpa)} against the most played option${interval}, from ${c.games.toLocaleString("en-US")} games`;
+  };
   const outcome = (part: string, o: Outcome) =>
     o.status === "imported" ? `${part} imported` : `${part} not imported: ${o.reason}`;
 </script>
@@ -23,7 +30,7 @@
     <h3>Runes</h3>
     <div class="row">
       <span class="mono">{plan.runes.value.perks.join(" · ")}</span>
-      <span class="label" class:better={plan.runes.label !== "popular"}>{why(plan.runes)}</span>
+      <span class="label" class:better={plan.runes.label !== "popular"} title={evidence(plan.runes)}>{why(plan.runes)}</span>
     </div>
   {/if}
 
@@ -31,7 +38,7 @@
     <h3>Spells</h3>
     <div class="row">
       <span class="mono">{plan.spells.value.join(" · ")}</span>
-      <span class="label" class:better={plan.spells.label !== "popular"}>{why(plan.spells)}</span>
+      <span class="label" class:better={plan.spells.label !== "popular"} title={evidence(plan.spells)}>{why(plan.spells)}</span>
     </div>
   {/if}
 
@@ -41,7 +48,7 @@
       <div class="row">
         <span class="slot">Item {item.slot}</span>
         <span class="mono">{item.value}</span>
-        <span class="label" class:better={item.label !== "popular"}>{why(item)}</span>
+        <span class="label" class:better={item.label !== "popular"} title={evidence(item)}>{why(item)}</span>
       </div>
     {/each}
   {/if}
@@ -49,6 +56,7 @@
   {#if imported}
     <p class="meta result" role="status">
       {outcome("Runes", imported.runes)} · {outcome("Item set", imported.item_set)} · {outcome("Spells", imported.spells)}
+      {#if imported.item_set_backup}<br /><span title={imported.item_set_backup}>Your item sets were backed up first.</span>{/if}
     </p>
   {/if}
 </section>

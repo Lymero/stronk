@@ -52,3 +52,7 @@ The client serves HTTPS on `127.0.0.1` with a certificate from Riot's own CA.
 - **Scope:** only `LcuClient` (reqwest with that verifier's rustls config) gets the exception, and it only connects to `127.0.0.1`. Every other TLS connection uses standard verification; `just arch` fails if TLS verification is loosened anywhere else, and `crates/lcu/tests/trust.rs` checks a standard client in the same process still rejects a certificate for another name.
 - **Tests** use `tools/lcu_mock`, which writes its own root and trusts nothing else, and the trust tests' own CA (rcgen).
 - **Recordings** (`stronk-core record-champselect`) keep an allowlist of fields, are checked for identifiers before saving, and committed sessions are checked again by `tools/lcu_mock/tests/test_sessions_scrubbed.py`.
+
+## Item set backups
+
+Before Stronk writes its item set, it saves the client's whole item set document locally, exactly as read (ADR-043). That document includes the player's account id, as the client sends it; the backups never leave the machine, live in the user's own data folder (`STRONK_BACKUP_DIR`, `%APPDATA%\stronk\backups`, or `~/.local/share/stronk/backups`), and only the newest 20 are kept.

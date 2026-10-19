@@ -7,7 +7,7 @@ mod common;
 
 use std::sync::Arc;
 
-use common::{ClientState, FakeBuilds, FakeClient, NoClient, viego};
+use common::{ClientState, FakeBackups, FakeClient, NoClient, THEIR_SET, context, viego};
 use serde_json::{Value, json};
 use stronk_domain::Role;
 use stronk_domain::select::PageInfo;
@@ -15,10 +15,7 @@ use stronk_service::ports::{ChampSelect, LeagueClient};
 use stronk_service::{Context, ErrorCode, registry};
 
 fn ctx(client: impl LeagueClient + 'static) -> Context {
-    Context {
-        builds: Arc::new(FakeBuilds),
-        client: Arc::new(client),
-    }
+    context(Arc::new(client), Arc::new(FakeBackups::default()))
 }
 
 fn run(ctx: &Context, id: &str, params: Value) -> Result<Value, stronk_service::CommandError> {
@@ -115,14 +112,17 @@ fn unknown_commands_are_named() {
 }
 
 fn import(client: FakeClient) -> (Value, FakeClient) {
-    let client = Arc::new(client);
-    let ctx = Context {
-        builds: Arc::new(FakeBuilds),
-        client: client.clone(),
-    };
+    let (out, client, _) = import_with(client, FakeBackups::default());
+    (out, client)
+}
+
+fn import_with(client: FakeClient, backups: FakeBackups) -> (Value, FakeClient, FakeBackups) {
+    let (client, backups) = (Arc::new(client), Arc::new(backups));
+    let ctx = context(client.clone(), backups.clone());
     let out = registry().run(&ctx, "build.import", json!({})).unwrap();
     drop(ctx);
-    (out, Arc::try_unwrap(client).ok().unwrap())
+    let unwrap = |a| Arc::try_unwrap(a).ok().unwrap();
+    (out, unwrap(client), Arc::try_unwrap(backups).ok().unwrap())
 }
 
 #[test]
@@ -139,7 +139,8 @@ fn plan_takes_the_popular_combination_unless_one_is_clearly_better() {
     // Item 6693 beats the most picked 6672 head to head and survives FDR.
     assert_eq!(
         out["items"],
-        json!([{"slot": 1, "value": 6693, "label": "clearly_better", "wpa": 0.021}])
+        json!([{"slot": 1, "value": 6693, "label": "clearly_better", "wpa": 0.021,
+                "ci": [0.008, 0.034], "games": 2300}])
     );
 }
 
@@ -214,28 +215,88 @@ fn import_keeps_flash_on_the_players_key() {
 }
 
 #[test]
-fn import_adds_a_stronk_item_set_and_keeps_the_players() {
+fn import_adds_a_stronk_item_set_and_keeps_the_players_byte_for_byte() {
     let (out, client) = import(FakeClient::new(Some(viego((4, 14)))));
     assert_eq!(out["item_set"]["label"], "clearly_better");
-    let sets = client.state().item_sets;
-    assert_eq!(sets["accountId"], 99);
+    let written = client.state().item_sets.unwrap();
+    // The player's set, with its unknown fields, odd spacing, `2.50` and `\u00e9`, is copied as
+    // the client sent it; so are the other members and their order.
+    let prefix = format!(r#"{{"accountId":99,"itemSets":[{THEIR_SET},"#);
+    assert!(written.starts_with(&prefix), "{written}");
+    assert!(written.ends_with(r#"],"timestamp":1}"#), "{written}");
+    let ours: Value = serde_json::from_str(&written).unwrap();
+    assert_eq!(ours["itemSets"][1]["title"], "Stronk: Viego JUNGLE");
     assert_eq!(
-        sets["itemSets"][0],
-        json!({"title": "My set", "blocks": []})
-    );
-    assert_eq!(sets["itemSets"][1]["title"], "Stronk: Viego JUNGLE");
-    assert_eq!(
-        sets["itemSets"][1]["blocks"][0]["items"],
+        ours["itemSets"][1]["blocks"][0]["items"],
         json!([{"id": "6693", "count": 1}])
     );
 }
 
 #[test]
-fn import_needs_a_champion_select() {
-    let ctx = Context {
-        builds: Arc::new(FakeBuilds),
-        client: Arc::new(FakeClient::new(None)),
+fn the_players_item_sets_are_backed_up_before_the_write() {
+    let original = ClientState::default().item_sets.unwrap();
+    let (out, client, backups) = import_with(
+        FakeClient::new(Some(viego((4, 14)))),
+        FakeBackups::default(),
+    );
+    assert_eq!(out["item_set_backup"], "backup-1");
+    let saved = backups.saved.lock().unwrap().clone();
+    assert_eq!(saved, [("item-sets".to_owned(), original.into_bytes())]);
+    assert_eq!(client.state().item_set_writes.len(), 1);
+}
+
+#[test]
+fn nothing_is_written_when_reading_the_item_sets_fails() {
+    let state = ClientState {
+        item_sets: None,
+        ..ClientState::default()
     };
-    let err = run(&ctx, "build.import", json!({})).unwrap_err();
+    let (out, client, backups) = import_with(
+        FakeClient::with(Some(viego((4, 14))), state),
+        FakeBackups::default(),
+    );
+    assert_eq!(out["item_set"]["status"], "skipped");
+    assert!(
+        out["item_set"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("nothing written")
+    );
+    assert!(client.state().item_set_writes.is_empty());
+    assert!(backups.saved.lock().unwrap().is_empty());
+    assert_eq!(out["runes"]["status"], "imported"); // the rest of the import still happens
+}
+
+#[test]
+fn nothing_is_written_when_the_backup_fails() {
+    let backups = FakeBackups {
+        fail: true,
+        ..FakeBackups::default()
+    };
+    let (out, client, _) = import_with(FakeClient::new(Some(viego((4, 14)))), backups);
+    assert_eq!(out["item_set"]["status"], "skipped");
+    assert!(
+        out["item_set"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("could not back up")
+    );
+    assert!(client.state().item_set_writes.is_empty());
+}
+
+#[test]
+fn nothing_is_written_when_the_item_sets_are_not_what_the_client_sends() {
+    let state = ClientState {
+        item_sets: Some(r#"{"itemSets": "?"}"#.into()),
+        ..ClientState::default()
+    };
+    let (out, client) = import(FakeClient::with(Some(viego((4, 14))), state));
+    assert_eq!(out["item_set"]["status"], "skipped");
+    assert!(client.state().item_set_writes.is_empty());
+}
+
+#[test]
+fn import_needs_a_champion_select() {
+    let err = run(&ctx(FakeClient::new(None)), "build.import", json!({})).unwrap_err();
     assert_eq!(err.code, ErrorCode::InvalidParams);
 }

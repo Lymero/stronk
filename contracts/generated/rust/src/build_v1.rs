@@ -224,6 +224,9 @@ impl<'de> ::serde::Deserialize<'de> for BuildSchemaVersion {
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Comparison {
+    #[doc = "95% interval of `wpa`."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ci: ::std::option::Option<Interval>,
     #[doc = "False-discovery-adjusted p-value of no difference, across the patch."]
     pub q: f64,
     #[doc = "The most played option compared with: keystone id for runes, item id for items."]

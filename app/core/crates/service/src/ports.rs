@@ -2,7 +2,6 @@
 //! (`stronk-data`, `stronk-lcu`); tests use in-memory fakes.
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use stronk_contracts::build_v1::Build;
 use stronk_domain::select::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
@@ -84,10 +83,16 @@ pub trait LeagueClient: Send + Sync {
     fn delete_rune_page(&self, id: i64) -> Result<(), PortError>;
     /// Creates the page and makes it the current one.
     fn create_rune_page(&self, page: &NewRunePage) -> Result<(), PortError>;
-    /// The client's item set document, kept whole so everything but Stronk's set goes back
-    /// unchanged.
-    fn item_sets(&self) -> Result<Value, PortError>;
-    fn save_item_sets(&self, document: &Value) -> Result<(), PortError>;
+    /// The client's item set document, as the raw JSON text it sent: the player's sets go back
+    /// byte for byte, never decoded and re-encoded (ADR-043).
+    fn item_sets(&self) -> Result<String, PortError>;
+    fn save_item_sets(&self, document: &str) -> Result<(), PortError>;
     /// Summoner spells for the current champion select, D then F.
     fn set_spells(&self, spells: (i64, i64)) -> Result<(), PortError>;
+}
+
+/// Local copies of what an import replaces, written before each write (ADR-043).
+pub trait Backups: Send + Sync {
+    /// Saves `data` as the newest backup of `kind` (for example `item-sets`); returns where.
+    fn save(&self, kind: &str, data: &[u8]) -> Result<String, PortError>;
 }

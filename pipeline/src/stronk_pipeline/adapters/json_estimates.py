@@ -28,6 +28,7 @@ class _Row(BaseModel):
     q: float | None = None
     versus: str | None = None
     contrast: float | None = None
+    contrast_ci: tuple[float, float] | None = None
     chosen: int = 0
 
 
@@ -56,6 +57,7 @@ class JsonEstimateStore:
                 q=e.q,
                 versus=e.versus,
                 contrast=e.contrast,
+                contrast_ci=e.contrast_ci,
                 chosen=e.chosen,
             )
             for e in estimates
@@ -89,6 +91,7 @@ class JsonEstimateStore:
                     r.q,
                     r.versus,
                     r.contrast,
+                    r.contrast_ci,
                     r.chosen,
                 )
                 for r in data.estimates

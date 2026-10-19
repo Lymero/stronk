@@ -80,6 +80,7 @@ class _Raw:
     """Can be claimed: a number, neither low_sample nor low_overlap. Depends on counts only."""
     contrast_p: float | None = None
     contrast: float | None = None
+    contrast_ci: tuple[float, float] | None = None
     """p-value of no difference with `versus`; None for the most played or an ineligible option."""
     versus: str | None = None
 
@@ -214,13 +215,14 @@ def _estimate_point(
         std_error = float(np.nanstd(boot, ddof=1))
         ci = (float(low), float(high))
         out.append(result(option, n_in, flags, wpa=point, ci=ci, std_error=std_error))
-    return _contrast_with_most_played(out, chosen, compare)
+    return _contrast_with_most_played(out, chosen, compare, 1.0 - settings.confidence)
 
 
 def _contrast_with_most_played(
     out: list[_Raw],
     chosen: NDArray[np.str_],
     compare: Callable[[Bools, Bools], tuple[float, Floats, Bools] | None],
+    alpha: float,
 ) -> list[_Raw]:
     """Head-to-head p-values of eligible options against the most played eligible one.
 
@@ -239,11 +241,15 @@ def _contrast_with_most_played(
             continue
         pair = (chosen == option) | (chosen == most_played)
         compared = compare(pair, chosen == option)
-        p, effect = 1.0, None
+        p, effect, interval = 1.0, None, None
         if compared is not None:
             point, boot, _ = compared
             p, effect = two_sided_p(point, float(np.nanstd(boot, ddof=1))), point
-        contrasted.append(replace(r, contrast_p=p, contrast=effect, versus=most_played))
+            low, high = np.nanpercentile(boot, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+            interval = (float(low), float(high))
+        contrasted.append(
+            replace(r, contrast_p=p, contrast=effect, contrast_ci=interval, versus=most_played)
+        )
     return contrasted
 
 
@@ -311,7 +317,16 @@ def _flag_unclear(raw: list[_Raw], settings: WpaSettings) -> list[OptionEstimate
         elif i in q_of:
             unclear = q_of[i] > settings.fdr
             flags = e.flags | {Flag.NO_CLEAR_DIFFERENCE} if unclear else e.flags
-            out.append(replace(e, q=q_of[i], versus=r.versus, contrast=r.contrast, flags=flags))
+            out.append(
+                replace(
+                    e,
+                    q=q_of[i],
+                    versus=r.versus,
+                    contrast=r.contrast,
+                    contrast_ci=r.contrast_ci,
+                    flags=flags,
+                )
+            )
         elif _point(e) in clear_points:
             out.append(e)  # the most played, and something differs clearly from it
         else:

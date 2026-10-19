@@ -59,3 +59,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: check imports on the real client (custom game, Windows); the websocket watcher; the production key draft.
 - 2026-10-19: champion-select websocket watcher (ADR-044): reconnecting with backoff, a trigger for `champselect.state`; the REST client reconnects too (Stronk can start before the client); `watch-champselect` CLI; the UI refreshes on `champselect-changed`; lcu-mock speaks websocket; e2e covers a whole champion select and a client started late.
   Open: real-client check of imports and the watcher (Windows, custom game); lock-in timing in `just bench`; production key draft.
+- 2026-10-19: item set safety (ADR-043): the player's sets pass through as raw JSON (byte-for-byte tests with unknown fields), no write when reading fails, a local backup before every write (and no write if it fails). "Clearly better" tooltips show the head-to-head interval (new `comparison.ci`) and the games behind it.
+  Open: the Windows real-client test of imports and the watcher.

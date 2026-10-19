@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use serde_json::Value;
-use stronk_data::{DirectorySource, TrustedKey};
+use stronk_data::{DirectorySource, FileBackups, TrustedKey, default_backup_dir};
 use stronk_service::{CommandError, Context, ErrorCode, Registry, registry};
 use tauri::Emitter;
 
@@ -48,6 +48,7 @@ fn context() -> Result<Context, CommandError> {
     Ok(Context {
         builds: Arc::new(DirectorySource::new(data, TrustedKey::decode(&key_text)?)),
         client: stronk_lcu::connect_or_absent(&lcu_options()),
+        backups: Arc::new(FileBackups::new(default_backup_dir())),
     })
 }
 

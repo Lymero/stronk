@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from lcu_mock import Mock, start
+from lcu_mock import THEIR_SET, Mock, start
 
 ROOT = Path(__file__).resolve().parents[3]
 SESSION = ROOT / "tools/lcu_mock/sessions/ranked-jungle-leesin.json"
@@ -34,9 +34,10 @@ def mock(tmp_path: Path) -> Iterator[Mock]:
     running.server.shutdown()
 
 
-def import_build(mock: Mock) -> dict[str, Any]:
+def import_build(mock: Mock, backups: Path | None = None) -> dict[str, Any]:
     env = {
         **os.environ,
+        "STRONK_BACKUP_DIR": str(backups or mock.lockfile.parent / "backups"),
         "STRONK_LCU_LOCKFILE": str(mock.lockfile),
         "STRONK_LCU_CERT": str(mock.root),
         "STRONK_DATA_DIR": str(ROOT / "fixtures/data"),
@@ -79,14 +80,42 @@ def test_replaces_an_existing_stronk_page(mock: Mock) -> None:
     assert deletes == ["/lol-perks/v1/pages/150"]
 
 
-def test_leaves_the_players_pages_and_item_sets_alone(mock: Mock) -> None:
+def test_leaves_the_players_pages_alone(mock: Mock) -> None:
     theirs = deepcopy(mock.replay.pages)
-    their_sets = deepcopy(mock.replay.item_sets["itemSets"])
     import_build(mock)
     assert [p for p in mock.replay.pages if p["id"] in (101, 102)] == theirs
-    sets = mock.replay.item_sets["itemSets"]
-    assert sets[: len(their_sets)] == their_sets
-    assert [s["title"] for s in sets[len(their_sets) :]] == ["Stronk: LeeSin JUNGLE"]
+
+
+def test_passes_the_players_item_sets_through_byte_for_byte(mock: Mock) -> None:
+    result = import_build(mock)
+    assert result["item_set"]["status"] == "imported"
+    written = str(mock.replay.item_sets)
+    # Unknown fields, spacing, `2.50` and the `\u00e9` escape arrive as the client sent them.
+    assert written.startswith(f'{{"accountId":1,"itemSets":[{THEIR_SET},')
+    assert written.endswith('],"timestamp":0}')
+    assert [s["title"] for s in json.loads(written)["itemSets"]] == [
+        "My Lee Sin",
+        "Stronk: LeeSin JUNGLE",
+    ]
+
+
+def test_backs_up_the_players_item_sets_before_writing(mock: Mock, tmp_path: Path) -> None:
+    original = str(mock.replay.item_sets)
+    result = import_build(mock, backups=tmp_path / "backups")
+    (backup,) = (tmp_path / "backups").glob("item-sets-*.json")
+    assert backup.read_text() == original
+    assert result["item_set_backup"] == str(backup)
+
+
+def test_writes_no_item_set_when_reading_them_fails(mock: Mock) -> None:
+    mock.replay.item_sets_fail = True
+    original = str(mock.replay.item_sets)
+    result = import_build(mock)
+    assert result["item_set"]["status"] == "skipped"
+    assert "nothing written" in result["item_set"]["reason"]
+    assert str(mock.replay.item_sets) == original
+    assert not [r for r in mock.replay.recorded if "/lol-item-sets/" in r["path"]]
+    assert result["runes"]["status"] == "imported"  # the rest of the import still happens
 
 
 def test_never_deletes_a_players_page_to_make_room(mock: Mock) -> None:

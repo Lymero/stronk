@@ -40,7 +40,7 @@ const leeSin: Plan = {
   spells: { value: [11, 4], label: "popular" },
   items: [
     { slot: 1, value: 6692, label: "popular" },
-    { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021 },
+    { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 2300 },
     { slot: 3, value: 3053, label: "popular" },
   ],
 };
@@ -119,6 +119,7 @@ export class MockBackend implements Backend {
           role: current.role,
           runes: { status: "imported", name, label: "popular" },
           item_set: { status: "imported", name, label: "popular" },
+          item_set_backup: "backups/item-sets-1.json",
           spells: { status: "imported", name: "4 11", label: "popular" },
         };
         return ok(imported) as Out;

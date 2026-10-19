@@ -75,12 +75,28 @@ impl LcuClient {
             .ok_or_else(|| PortError::NotFound(format!("League client: {path}")))
     }
 
+    /// A write of `body` exactly as given (no re-encoding).
+    fn write_raw(&self, method: Method, path: &str, body: &str) -> Result<(), PortError> {
+        self.send_text(method, path, Some(body.to_owned()))?
+            .map(|_| ())
+            .ok_or_else(|| PortError::NotFound(format!("League client: {path}")))
+    }
+
     /// The body of a successful response, `None` on 404.
     fn send(
         &self,
         method: Method,
         path: &str,
         body: Option<&Value>,
+    ) -> Result<Option<Vec<u8>>, PortError> {
+        self.send_text(method, path, body.map(Value::to_string))
+    }
+
+    fn send_text(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<String>,
     ) -> Result<Option<Vec<u8>>, PortError> {
         let unavailable =
             |e: reqwest::Error| PortError::Unavailable(format!("League client: {}", chain(&e)));
@@ -90,9 +106,7 @@ impl LcuClient {
             .header(AUTHORIZATION, &self.auth)
             .header(ACCEPT, "application/json");
         if let Some(body) = body {
-            request = request
-                .header(CONTENT_TYPE, "application/json")
-                .body(body.to_string());
+            request = request.header(CONTENT_TYPE, "application/json").body(body);
         }
         let response = request.send().map_err(unavailable)?;
         match response.status() {
@@ -181,15 +195,17 @@ impl LeagueClient for LcuClient {
         self.write(Method::POST, PAGES, Some(&body))
     }
 
-    fn item_sets(&self) -> Result<Value, PortError> {
+    fn item_sets(&self) -> Result<String, PortError> {
         let path = format!("/lol-item-sets/v1/item-sets/{}/sets", self.summoner_id()?);
-        self.get(&path)?
-            .ok_or_else(|| PortError::NotFound("item sets".into()))
+        let body = self
+            .send(Method::GET, &path, None)?
+            .ok_or_else(|| PortError::NotFound("item sets".into()))?;
+        String::from_utf8(body).map_err(|_| PortError::Invalid("item sets are not UTF-8".into()))
     }
 
-    fn save_item_sets(&self, document: &Value) -> Result<(), PortError> {
+    fn save_item_sets(&self, document: &str) -> Result<(), PortError> {
         let path = format!("/lol-item-sets/v1/item-sets/{}/sets", self.summoner_id()?);
-        self.write(Method::PUT, &path, Some(document))
+        self.write_raw(Method::PUT, &path, document)
     }
 
     fn set_spells(&self, (d, f): (i64, i64)) -> Result<(), PortError> {

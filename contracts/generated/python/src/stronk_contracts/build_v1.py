@@ -73,6 +73,10 @@ class Comparison(BaseModel):
     """
     False-discovery-adjusted p-value of no difference, across the patch.
     """
+    ci: Interval | None = None
+    """
+    95% interval of `wpa`.
+    """
 
 
 class RuneOption(BaseModel):

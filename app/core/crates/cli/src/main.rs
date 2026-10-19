@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
-use stronk_data::{DirectorySource, TrustedKey};
+use stronk_data::{DirectorySource, FileBackups, TrustedKey, default_backup_dir};
 use stronk_service::{CommandError, Context, ErrorCode, registry};
 
 #[derive(Parser)]
@@ -144,6 +144,7 @@ fn context(cli: &Cli) -> Result<Context, CommandError> {
     Ok(Context {
         builds: Arc::new(DirectorySource::new(expand(&cli.data), key)),
         client: stronk_lcu::connect_or_absent(&lcu_options(cli)),
+        backups: Arc::new(FileBackups::new(default_backup_dir())),
     })
 }
 

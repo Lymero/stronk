@@ -59,7 +59,11 @@ describe("App with MockBackend", () => {
     await next();
     await next();
     expect(await screen.findAllByText("Popular")).toHaveLength(4); // runes, spells, items 1 and 3
-    expect(screen.getByText("Clearly better · +2.1% win")).toBeInTheDocument();
+    const better = screen.getByText("Clearly better · +2.1% win");
+    expect(better).toHaveAttribute(
+      "title",
+      "Win impact +2.1% against the most played option (95% interval +0.8% to +3.4%), from 2,300 games",
+    );
   });
 
   it("imports only when asked, unless auto-import is on", async () => {

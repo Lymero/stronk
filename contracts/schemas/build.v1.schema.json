@@ -52,7 +52,8 @@
       "properties": {
         "versus": { "type": "integer", "minimum": 0, "description": "The most played option compared with: keystone id for runes, item id for items." },
         "wpa": { "type": "number", "description": "Win probability added by this option against `versus`." },
-        "q": { "type": "number", "minimum": 0, "maximum": 1, "description": "False-discovery-adjusted p-value of no difference, across the patch." }
+        "q": { "type": "number", "minimum": 0, "maximum": 1, "description": "False-discovery-adjusted p-value of no difference, across the patch." },
+        "ci": { "$ref": "#/$defs/Interval", "description": "95% interval of `wpa`." }
       }
     },
     "RuneOption": {

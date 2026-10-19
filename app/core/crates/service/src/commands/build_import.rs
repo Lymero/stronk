@@ -3,6 +3,7 @@
 //! on the player's key (ADR-043). The player's pages and item sets are never changed.
 
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 use serde_json::{Value, json};
 use stronk_domain::Role;
 use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, is_ours, plan_rune_page};
@@ -37,6 +38,8 @@ pub struct Imported {
     pub role: Role,
     pub runes: Outcome,
     pub item_set: Outcome,
+    /// Where the player's item sets were saved before Stronk wrote its own.
+    pub item_set_backup: Option<String>,
     pub spells: Outcome,
 }
 
@@ -63,9 +66,12 @@ fn run(ctx: &Context, _: Params) -> Result<Imported, CommandError> {
     let champion = client.champion_key(session.champion_id)?;
     let build = build_get::fetch(ctx, &champion, role, None, None, None)?;
     let plan = plan(&build, role);
+    let runes = runes(client, &plan)?;
+    let (item_set, item_set_backup) = item_set(ctx, &plan, session.champion_id);
     Ok(Imported {
-        runes: runes(client, &plan)?,
-        item_set: item_set(client, &plan, session.champion_id)?,
+        runes,
+        item_set,
+        item_set_backup,
         spells: spells(client, &plan, session.spells.unwrap_or((0, 0)))?,
         champion,
         role,
@@ -102,37 +108,58 @@ fn runes(client: &dyn LeagueClient, plan: &Plan) -> Result<Outcome, CommandError
     })
 }
 
-fn item_set(
-    client: &dyn LeagueClient,
-    plan: &Plan,
-    champion_id: i64,
-) -> Result<Outcome, CommandError> {
-    let Some(best) = plan
+/// Stronk's item set, written only after the player's current sets were read and backed up;
+/// any failure skips the item set and writes nothing (ADR-043).
+fn item_set(ctx: &Context, plan: &Plan, champion_id: i64) -> (Outcome, Option<String>) {
+    if plan.items.is_empty() {
+        return (skipped("no items published"), None);
+    }
+    let label = plan
         .items
         .iter()
-        .map(|s| &s.choice.label)
+        .map(|s| s.choice.label)
         .find(|l| matches!(l, Label::ClearlyBetter { .. }))
-    else {
-        return write_set(client, plan, champion_id, Label::Popular);
+        .unwrap_or(Label::Popular);
+    let name = title(plan);
+    let current = match ctx.client.item_sets() {
+        Ok(current) => current,
+        Err(e) => {
+            return (
+                skipped(&format!(
+                    "could not read your item sets ({e}); nothing written"
+                )),
+                None,
+            );
+        }
     };
-    write_set(client, plan, champion_id, *best)
+    let document = match merged_item_sets(&current, &item_set_json(plan, &name, champion_id)) {
+        Ok(document) => document,
+        Err(e) => return (skipped(&format!("{e}; nothing written")), None),
+    };
+    let backup = match ctx.backups.save("item-sets", current.as_bytes()) {
+        Ok(backup) => backup,
+        Err(e) => {
+            return (
+                skipped(&format!(
+                    "could not back up your item sets ({e}); nothing written"
+                )),
+                None,
+            );
+        }
+    };
+    match ctx.client.save_item_sets(&document) {
+        Ok(()) => (Outcome::Imported { name, label }, Some(backup)),
+        Err(e) => (
+            skipped(&format!("writing the item set failed ({e})")),
+            Some(backup),
+        ),
+    }
 }
 
-fn write_set(
-    client: &dyn LeagueClient,
-    plan: &Plan,
-    champion_id: i64,
-    label: Label,
-) -> Result<Outcome, CommandError> {
-    if plan.items.is_empty() {
-        return Ok(Outcome::Skipped {
-            reason: "no items published".into(),
-        });
+fn skipped(reason: &str) -> Outcome {
+    Outcome::Skipped {
+        reason: reason.to_owned(),
     }
-    let name = title(plan);
-    let document = merged_item_sets(client.item_sets()?, item_set_json(plan, &name, champion_id))?;
-    client.save_item_sets(&document)?;
-    Ok(Outcome::Imported { name, label })
 }
 
 /// Stronk's set: one block per slot, named with the slot and why the item was chosen.
@@ -143,7 +170,7 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
         .map(|s| {
             let why = match s.choice.label {
                 Label::Popular => "Popular".to_owned(),
-                Label::ClearlyBetter { wpa } => format!("Clearly better, {:+.1}% win", wpa * 100.0),
+                Label::ClearlyBetter { wpa, .. } => format!("Clearly better, {:+.1}% win", wpa * 100.0),
             };
             json!({"type": format!("Item {} · {why}", s.slot), "items": [{"id": s.choice.value.to_string(), "count": 1}]})
         })
@@ -162,26 +189,82 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
     })
 }
 
-/// The client's document with Stronk's sets replaced by `ours`; every other set, and every
-/// other field, exactly as read.
-fn merged_item_sets(mut document: Value, ours: Value) -> Result<Value, CommandError> {
-    let invalid = || {
+/// A JSON object's members in their order, each value as its raw text.
+struct Members(Vec<(String, Box<RawValue>)>);
+
+impl<'de> Deserialize<'de> for Members {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visit;
+        impl<'de> serde::de::Visitor<'de> for Visit {
+            type Value = Members;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a JSON object")
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<Members, A::Error> {
+                let mut members = Vec::new();
+                while let Some(member) = map.next_entry::<String, Box<RawValue>>()? {
+                    members.push(member);
+                }
+                Ok(Members(members))
+            }
+        }
+        deserializer.deserialize_map(Visit)
+    }
+}
+
+/// Only what tells Stronk's sets from the player's; every other field stays raw.
+#[derive(Deserialize)]
+struct Titled {
+    title: Option<String>,
+}
+
+/// The client's document with Stronk's sets replaced by `ours`. Only the outline is parsed:
+/// every set that isn't Stronk's is copied byte for byte, and the other top-level members keep
+/// their order and their values' raw text (only the whitespace between members is rewritten).
+fn merged_item_sets(current: &str, ours: &Value) -> Result<String, CommandError> {
+    let invalid = |what: &str| {
         CommandError::new(
             ErrorCode::InvalidData,
-            "the client's item sets have no `itemSets` list",
+            format!("the client's item sets {what}"),
         )
     };
-    let sets = document
-        .get_mut("itemSets")
-        .and_then(Value::as_array_mut)
-        .ok_or_else(invalid)?;
-    sets.retain(|set| {
-        !set.get("title")
-            .and_then(Value::as_str)
-            .is_some_and(is_ours)
-    });
-    sets.push(ours);
-    Ok(document)
+    let Members(members) = serde_json::from_str(current)
+        .map_err(|e| invalid(&format!("are not a JSON object ({e})")))?;
+    if !members.iter().any(|(key, _)| key == "itemSets") {
+        return Err(invalid("have no `itemSets` list"));
+    }
+    let mut out = String::from("{");
+    for (i, (key, value)) in members.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&serde_json::to_string(key).map_err(|e| invalid(&e.to_string()))?);
+        out.push(':');
+        if key != "itemSets" {
+            out.push_str(value.get());
+            continue;
+        }
+        let sets: Vec<Box<RawValue>> = serde_json::from_str(value.get())
+            .map_err(|e| invalid(&format!("`itemSets` is not a list ({e})")))?;
+        let mut kept = Vec::with_capacity(sets.len() + 1);
+        for set in &sets {
+            let titled: Titled = serde_json::from_str(set.get())
+                .map_err(|e| invalid(&format!("hold a set that is not an object ({e})")))?;
+            if !titled.title.as_deref().is_some_and(is_ours) {
+                kept.push(set.get());
+            }
+        }
+        let ours = ours.to_string();
+        kept.push(&ours);
+        out.push('[');
+        out.push_str(&kept.join(","));
+        out.push(']');
+    }
+    out.push('}');
+    Ok(out)
 }
 
 fn spells(
@@ -207,17 +290,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn merging_keeps_every_other_set_and_field() {
-        let theirs = json!({"title": "My Jinx", "blocks": [1]});
-        let old_ours = json!({"title": "Stronk: Jinx BOTTOM"});
-        let document =
-            json!({"accountId": 1, "timestamp": 5, "itemSets": [theirs.clone(), old_ours]});
-        let merged = merged_item_sets(document, json!({"title": "Stronk: Ahri MIDDLE"})).unwrap();
-        assert_eq!(merged["accountId"], 1);
-        assert_eq!(
-            merged["itemSets"],
-            json!([theirs, {"title": "Stronk: Ahri MIDDLE"}])
+    fn merging_copies_the_players_sets_and_fields_byte_for_byte() {
+        let theirs = r#"{"title": "My Jinx", "blocks":[ ],"x-future": {"n": 2.50, "s": "\u00e9"}}"#;
+        let current = format!(
+            r#"{{"timestamp":5,"itemSets":[{theirs}, {{"title":"Stronk: Jinx BOTTOM"}}],"accountId": 1}}"#
         );
-        assert!(merged_item_sets(json!({}), json!({})).is_err());
+        let merged = merged_item_sets(&current, &json!({"title": "Stronk: Ahri MIDDLE"})).unwrap();
+        assert_eq!(
+            merged,
+            format!(
+                r#"{{"timestamp":5,"itemSets":[{theirs},{{"title":"Stronk: Ahri MIDDLE"}}],"accountId":1}}"#
+            )
+        );
+    }
+
+    #[test]
+    fn a_document_without_a_set_list_is_refused() {
+        for bad in ["", "[]", "{}", r#"{"itemSets": 3}"#, r#"{"itemSets": [1]}"#] {
+            assert!(merged_item_sets(bad, &json!({})).is_err(), "{bad}");
+        }
     }
 }

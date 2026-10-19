@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{Build, Comparison, Flag};
 use stronk_domain::Role;
-use stronk_domain::select::{Candidate, Choice, choose};
+use stronk_domain::select::{self, Candidate, Choice, choose};
 
 use crate::commands::build_get;
 use crate::registry::Command;
@@ -137,8 +137,15 @@ fn claimable(wpa: Option<f64>, flags: &[Flag]) -> bool {
             .any(|f| matches!(f, Flag::LowSample | Flag::LowOverlap))
 }
 
-fn compared(c: &Comparison) -> (i64, f64) {
-    (to_i64(c.versus), c.wpa)
+fn compared(c: &Comparison) -> select::Comparison {
+    select::Comparison {
+        versus: to_i64(c.versus),
+        wpa: c.wpa,
+        ci: c.ci.as_ref().map(|i| {
+            let [low, high] = i.0;
+            (low, high)
+        }),
+    }
 }
 
 /// Ids are small positive integers; anything beyond i64 can't match a real id.

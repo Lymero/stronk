@@ -13,7 +13,21 @@ pub enum Label {
     ClearlyBetter {
         /// Win probability added against the popular option.
         wpa: f64,
+        /// Its 95% interval, when published.
+        ci: Option<(f64, f64)>,
+        /// Games (or picks) with this option.
+        games: u64,
     },
+}
+
+/// The head-to-head comparison of an option with the most played one.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Comparison {
+    /// The most played option's id.
+    pub versus: i64,
+    /// Win probability added against it.
+    pub wpa: f64,
+    pub ci: Option<(f64, f64)>,
 }
 
 /// One published option, reduced to what the choice needs.
@@ -28,8 +42,7 @@ pub struct Candidate<T> {
     pub claimable: bool,
     /// Flagged `no_clear_difference`.
     pub unclear: bool,
-    /// Head to head with the most played option: (that option's id, win probability added).
-    pub comparison: Option<(i64, f64)>,
+    pub comparison: Option<Comparison>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -48,18 +61,20 @@ pub fn choose<T: Clone>(candidates: &[Candidate<T>]) -> Option<Choice<T>> {
     let better = candidates
         .iter()
         .filter_map(|c| match c.comparison {
-            Some((versus, wpa))
-                if c.claimable && !c.unclear && versus == popular.id && wpa > 0.0 =>
-            {
-                Some((c, wpa))
+            Some(k) if c.claimable && !c.unclear && k.versus == popular.id && k.wpa > 0.0 => {
+                Some((c, k))
             }
             _ => None,
         })
-        .max_by(|(a, x), (b, y)| x.total_cmp(y).then(b.id.cmp(&a.id)));
+        .max_by(|(a, x), (b, y)| x.wpa.total_cmp(&y.wpa).then(b.id.cmp(&a.id)));
     Some(match better {
-        Some((c, wpa)) => Choice {
+        Some((c, k)) => Choice {
             value: c.value.clone(),
-            label: Label::ClearlyBetter { wpa },
+            label: Label::ClearlyBetter {
+                wpa: k.wpa,
+                ci: k.ci,
+                games: c.played,
+            },
         },
         None => Choice {
             value: popular.value.clone(),
@@ -132,6 +147,11 @@ mod tests {
     use super::*;
 
     fn candidate(id: i64, played: u64, comparison: Option<(i64, f64)>) -> Candidate<i64> {
+        let comparison = comparison.map(|(versus, wpa)| Comparison {
+            versus,
+            wpa,
+            ci: Some((0.01, 0.05)),
+        });
         Candidate {
             value: id,
             id,
@@ -171,7 +191,11 @@ mod tests {
             choose(&c),
             Some(Choice {
                 value: 3,
-                label: Label::ClearlyBetter { wpa: 0.03 }
+                label: Label::ClearlyBetter {
+                    wpa: 0.03,
+                    ci: Some((0.01, 0.05)),
+                    games: 20
+                }
             })
         );
     }

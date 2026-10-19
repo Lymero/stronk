@@ -3,14 +3,14 @@
 #![allow(dead_code, clippy::unwrap_used)]
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use serde_json::{Value, json};
 use stronk_contracts::build_v1::Build;
 use stronk_domain::select::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
+use stronk_service::Context;
 use stronk_service::ports::{
-    BuildSource, ChampSelect, DataStatus, LeagueClient, NewRunePage, PortError,
+    Backups, BuildSource, ChampSelect, DataStatus, LeagueClient, NewRunePage, PortError,
 };
 
 pub fn example_build() -> Build {
@@ -44,13 +44,21 @@ impl BuildSource for FakeBuilds {
     }
 }
 
+/// The player's item set as the client might send it: odd spacing, an escape, a number written
+/// `2.50`, and fields Stronk has never heard of.
+pub const THEIR_SET: &str =
+    r#"{"title": "My set", "blocks":[ ],"x-future": {"n": 2.50, "s": "é", "list": [1,  2]}}"#;
+
 /// What the fake client holds, readable by tests after a command ran.
 #[derive(Clone, Debug)]
 pub struct ClientState {
     /// Every page with what was written into it (`None` for pages the player made).
     pub pages: Vec<(PageInfo, Option<NewRunePage>)>,
     pub capacity: usize,
-    pub item_sets: Value,
+    /// The client's item set document, raw; `None` makes reading it fail.
+    pub item_sets: Option<String>,
+    /// Every document written, raw.
+    pub item_set_writes: Vec<String>,
     pub spells: Option<(i64, i64)>,
     pub deleted: Vec<i64>,
 }
@@ -67,7 +75,10 @@ impl Default for ClientState {
                 None,
             )],
             capacity: 2,
-            item_sets: json!({"accountId": 99, "timestamp": 1, "itemSets": [{"title": "My set", "blocks": []}]}),
+            item_sets: Some(format!(
+                r#"{{"accountId":99,"itemSets":[{THEIR_SET}],"timestamp":1}}"#
+            )),
+            item_set_writes: vec![],
             spells: None,
             deleted: vec![],
         }
@@ -158,12 +169,18 @@ impl LeagueClient for FakeClient {
         Ok(())
     }
 
-    fn item_sets(&self) -> Result<Value, PortError> {
-        Ok(self.state.lock().unwrap().item_sets.clone())
+    fn item_sets(&self) -> Result<String, PortError> {
+        let state = self.state.lock().unwrap();
+        state
+            .item_sets
+            .clone()
+            .ok_or_else(|| PortError::Unavailable("item sets: HTTP 500".into()))
     }
 
-    fn save_item_sets(&self, document: &Value) -> Result<(), PortError> {
-        self.state.lock().unwrap().item_sets = document.clone();
+    fn save_item_sets(&self, document: &str) -> Result<(), PortError> {
+        let mut state = self.state.lock().unwrap();
+        state.item_sets = Some(document.to_owned());
+        state.item_set_writes.push(document.to_owned());
         Ok(())
     }
 
@@ -201,13 +218,40 @@ impl LeagueClient for NoClient {
     fn create_rune_page(&self, _: &NewRunePage) -> Result<(), PortError> {
         down()
     }
-    fn item_sets(&self) -> Result<Value, PortError> {
+    fn item_sets(&self) -> Result<String, PortError> {
         down()
     }
-    fn save_item_sets(&self, _: &Value) -> Result<(), PortError> {
+    fn save_item_sets(&self, _: &str) -> Result<(), PortError> {
         down()
     }
     fn set_spells(&self, _: (i64, i64)) -> Result<(), PortError> {
         down()
+    }
+}
+
+/// Backups kept in memory; `fail` makes saving fail.
+#[derive(Default)]
+pub struct FakeBackups {
+    pub fail: bool,
+    pub saved: Mutex<Vec<(String, Vec<u8>)>>,
+}
+
+impl Backups for FakeBackups {
+    fn save(&self, kind: &str, data: &[u8]) -> Result<String, PortError> {
+        if self.fail {
+            return Err(PortError::Unavailable("disk full".into()));
+        }
+        let mut saved = self.saved.lock().unwrap();
+        saved.push((kind.to_owned(), data.to_vec()));
+        Ok(format!("backup-{}", saved.len()))
+    }
+}
+
+/// A context over these fakes.
+pub fn context(client: Arc<dyn LeagueClient>, backups: Arc<dyn Backups>) -> Context {
+    Context {
+        builds: Arc::new(FakeBuilds),
+        client,
+        backups,
     }
 }

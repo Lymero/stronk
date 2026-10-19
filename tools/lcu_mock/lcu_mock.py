@@ -106,8 +106,19 @@ def default_pages() -> list[dict[str, Any]]:
     return [mine, {"id": 102, "name": "Domination preset", "isEditable": False}]
 
 
-def default_item_sets() -> dict[str, Any]:
-    return {"accountId": 1, "timestamp": 0, "itemSets": [{"title": "My Lee Sin", "blocks": []}]}
+class Raw(str):
+    """JSON text served and stored exactly as given, never decoded and re-encoded."""
+
+
+THEIR_SET = (
+    '{"title": "My Lee Sin", "blocks":[ ],"x-future": {"n": 2.50, "s": "\\u00e9", "list": [1,  2]},'
+    ' "associatedChampions": [64]}'
+)
+"""The player's own item set: odd spacing, an escape, `2.50`, and a field nobody knows yet."""
+
+
+def default_item_sets() -> Raw:
+    return Raw(f'{{"accountId":1,"itemSets":[{THEIR_SET}],"timestamp":0}}')
 
 
 @dataclass
@@ -121,7 +132,10 @@ class Replay:
     lock: threading.Lock = field(default_factory=threading.Lock)
     pages: list[dict[str, Any]] = field(default_factory=default_pages)
     page_capacity: int = 3
-    item_sets: dict[str, Any] = field(default_factory=default_item_sets)
+    item_sets: Raw = field(default_factory=default_item_sets)
+    """The item set document, as raw text."""
+    item_sets_fail: bool = False
+    """Answer reads of the item sets with HTTP 500."""
     spells: tuple[int, int] | None = None
     """The spell selection, D then F, laid over the local player; `None` keeps the session's."""
     subscribers: list[Subscriber] = field(default_factory=list[Subscriber])
@@ -182,7 +196,12 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
             pass  # quiet: tests read /mock/recorded instead
 
         def _send(self, status: HTTPStatus, body: object | None = None) -> None:
-            data = b"" if body is None else json.dumps(body).encode()
+            if body is None:
+                data = b""
+            elif isinstance(body, Raw):
+                data = body.encode()
+            else:
+                data = json.dumps(body).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
@@ -195,13 +214,14 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
             self._send(HTTPStatus.UNAUTHORIZED, {"message": "bad credentials"})
             return False
 
-        def _body(self) -> object:
+        def _body(self) -> tuple[object, str]:
+            """The request body, parsed (or as text when it isn't JSON), and as raw text."""
             length = int(self.headers.get("Content-Length") or 0)
-            raw = self.rfile.read(length) if length else b""
+            raw = self.rfile.read(length).decode(errors="replace") if length else ""
             try:
-                return json.loads(raw) if raw else None
+                return (json.loads(raw) if raw else None), raw
             except json.JSONDecodeError:
-                return raw.decode(errors="replace")
+                return raw, raw
 
         def do_GET(self) -> None:
             if not self._authorised():
@@ -225,6 +245,8 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
                     SUMMONER: {"summonerId": SUMMONER_ID},
                     ITEM_SETS: replay.item_sets,
                 }
+            if self.path == ITEM_SETS and replay.item_sets_fail:
+                return HTTPStatus.INTERNAL_SERVER_ERROR, {"message": "item sets unavailable"}
             if self.path == SESSION:
                 session = replay.session()
                 if session is None:  # what the client answers outside champion select
@@ -274,10 +296,14 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
             if self.path == "/mock/step" and self.command == "POST":
                 self._send(HTTPStatus.OK, replay.advance())
                 return
-            body = self._body()
+            body, raw = self._body()
             with replay.lock:
                 replay.recorded.append({"method": self.command, "path": self.path, "body": body})
-                status, answer = self._apply(body)
+                if self.command == "PUT" and self.path == ITEM_SETS:
+                    replay.item_sets = Raw(raw)  # stored as sent, byte for byte
+                    status, answer = HTTPStatus.CREATED, None
+                else:
+                    status, answer = self._apply(body)
             self._send(status, answer)
 
         def _apply(self, body: Any) -> tuple[HTTPStatus, object]:
@@ -300,9 +326,6 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
                         return HTTPStatus.BAD_REQUEST, {"message": "page is not editable"}
                     replay.pages.remove(page)
                     return HTTPStatus.NO_CONTENT, None
-                case ("PUT", path) if path == ITEM_SETS:
-                    replay.item_sets = body
-                    return HTTPStatus.CREATED, None
                 case ("PATCH", path) if path == SELECTION:
                     replay.spells = (body["spell1Id"], body["spell2Id"])
                     return HTTPStatus.NO_CONTENT, None
