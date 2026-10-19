@@ -16,15 +16,16 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
-use stronk_data::{DirectorySource, FileBackups, TrustedKey, default_backup_dir};
+use stronk_data::{FileBackups, TrustedKey, default_backup_dir, default_cache_dir, open_source};
 use stronk_service::{CommandError, Context, ErrorCode, registry};
 
 #[derive(Parser)]
 #[command(name = "stronk-core", about = "Run Stronk app commands")]
 struct Cli {
-    /// Published data directory (`just publish`, `fixtures/data`).
+    /// Published data: a directory (`just publish`, `fixtures/data`; `dir:` prefix optional) or
+    /// an http(s) URL (`just serve-data`, the CDN), fetched into `STRONK_CACHE_DIR`.
     #[arg(long, env = "STRONK_DATA_DIR", default_value = "dist/data")]
-    data: PathBuf,
+    data: String,
     /// Public key the data must be signed with.
     #[arg(
         long,
@@ -162,7 +163,7 @@ fn context(cli: &Cli) -> Result<Context, CommandError> {
     })?;
     let key = TrustedKey::decode(&key_text)?;
     Ok(Context {
-        builds: Arc::new(DirectorySource::new(expand(&cli.data), key)),
+        builds: open_source(&data_setting(&cli.data), key, &default_cache_dir())?,
         client: stronk_lcu::connect_or_absent(&lcu_options(cli)),
         backups: Arc::new(FileBackups::new(default_backup_dir())),
     })
@@ -211,6 +212,15 @@ fn lcu_options(cli: &Cli) -> stronk_lcu::ConnectOptions {
         root: cli.lcu_cert.clone(),
         pin: cli.lcu_pin.clone(),
     }
+}
+
+/// A directory setting with `~` expanded; URLs as they are.
+fn data_setting(setting: &str) -> String {
+    if setting.starts_with("http://") || setting.starts_with("https://") {
+        return setting.to_owned();
+    }
+    let dir = setting.strip_prefix("dir:").unwrap_or(setting);
+    expand(std::path::Path::new(dir)).display().to_string()
 }
 
 fn expand(path: &std::path::Path) -> PathBuf {

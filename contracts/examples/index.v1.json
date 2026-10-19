@@ -1,0 +1,4 @@
+{
+  "schemaVersion": 1,
+  "patches": ["26.19", "26.20"]
+}

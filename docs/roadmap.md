@@ -38,7 +38,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] Tauri 2 + Svelte scaffold; Cargo workspace (`domain`, `service`, `lcu`, `data`, `cli`, `src-tauri`) (ADR-040, ADR-041)
 - [x] Command registry in `service`; `stronk-core` CLI; command fuzzing test
 - [ ] Typed IPC with tauri-specta; `Backend` port with `TauriBackend` and `MockBackend`; single serializable state (port, both backends and state done; tauri-specta bindings once the shell builds locally)
-- [ ] `data`: `DirectorySource`, `HttpSource`, cache, signature verification (`DirectorySource` with verification done)
+- [x] `data`: `DirectorySource`, `HttpSource`, cache, signature verification (ADR-046)
 - [x] `tools/lcu_mock` with one recorded champion-select session (`custom-2026-10-19.json`, recorded on Windows, scrubbed; ADR-042)
 - [x] Champion-select detection with preloading; import runes, item set and spells (ADR-043, ADR-044; checked on the real client 2026-10-19)
 - [ ] Playwright end-to-end tests; `just bench`; enforce the lock-in budget once met

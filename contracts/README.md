@@ -6,6 +6,7 @@ The published data contract shared by the pipeline (Python) and the app (Rust, T
 |---|---|
 | `schemas/build.v1.schema.json` | One champion and role: `/{patch}/{region}/{elo}/{champion}/{role}.json` |
 | `schemas/manifest.v1.schema.json` | Every file of one patch with its hash: `/{patch}/manifest.json` |
+| `schemas/index.v1.schema.json` | The published patches, oldest first: `/index.json` (unsigned, see below) |
 | `examples/` | One valid file per schema, checked by the contract tests |
 | `generated/python` | `stronk-contracts` pydantic models (datamodel-code-generator) |
 | `generated/ts` | `@stronk/contracts` types (json-schema-to-typescript) |
@@ -33,9 +34,10 @@ The app's `data` crate checks the numeric bounds it relies on after parsing. Sig
 
 ## Signed manifest
 
-Each patch directory has two files next to the data:
+Each patch directory has two files next to the data, and the root lists the patches:
 
 ```
+/index.json                     # index.v1: published patches; unsigned
 /{patch}/manifest.json          # manifest.v1: every file with sha256 and size
 /{patch}/manifest.json.minisig  # minisign signature of manifest.json's exact bytes
 /{patch}/{region}/{elo}/{champion}/{role}.json
@@ -55,6 +57,10 @@ Each patch directory has two files next to the data:
 3. Verify the signature and the trusted comment, then parse the manifest and check `schemaVersion` is supported.
 4. For every data file read: its path is listed, its size matches `bytes` and its sha256 matches `sha256`; only then parse it.
 5. Any failure rejects the whole patch and keeps the last valid cache.
+
+### The index
+
+`/index.json` is how a client over HTTP finds the newest patch (a directory can just be listed). It isn't signed: it only says where to look, and each patch it names is verified as above. A client never trusts it to go backwards: it keeps the newest patch it has verified even if the index stops listing it, and never replaces a cached manifest with an older run of the same patch (`generatedAt`). The publisher rewrites it after every patch it publishes.
 
 ### Keys
 

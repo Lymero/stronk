@@ -1,6 +1,6 @@
 [package]
 name = "stronk-data"
-description = "BuildSource adapters: published data from a directory, verified against its signature"
+description = "BuildSource adapters: published data from a directory or over HTTP with a local cache, verified against its signature"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,6 +9,9 @@ publish.workspace = true
 
 [dependencies]
 minisign-verify = "0.3.0"
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-platform-verifier = "0.7"
 serde_json = "1"
 sha2 = "0.10"
 stronk-contracts = { path = "../../../../contracts/generated/rust" }
@@ -16,6 +19,7 @@ stronk-domain = { path = "../domain" }
 stronk-service = { path = "../service" }
 
 [dev-dependencies]
+minisign = "0.7"
 tempfile = "3"
 
 [lints]

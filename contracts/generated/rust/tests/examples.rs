@@ -5,7 +5,7 @@
 #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
 
 use serde_json::{Value, json};
-use stronk_contracts::{build_v1::Build, manifest_v1::Manifest};
+use stronk_contracts::{build_v1::Build, index_v1::Index, manifest_v1::Manifest};
 
 fn example(name: &str) -> Value {
     let path = format!("{}/../../examples/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -70,6 +70,24 @@ fn manifest_rejects_invalid_values() {
         let value = with(example("manifest.v1.json"), pointer, bad);
         assert!(
             serde_json::from_value::<Manifest>(value).is_err(),
+            "accepted bad {pointer}"
+        );
+    }
+}
+
+#[test]
+fn index_example_parses_and_rejects_invalid_values() {
+    let index: Index = serde_json::from_value(example("index.v1.json")).unwrap();
+    assert_eq!(index.patches.len(), 2);
+    let cases = [
+        ("/schemaVersion", json!(2)),
+        ("/patches/0", json!("../26.19")),
+        ("/patches", json!("26.20")),
+    ];
+    for (pointer, bad) in cases {
+        let value = with(example("index.v1.json"), pointer, bad);
+        assert!(
+            serde_json::from_value::<Index>(value).is_err(),
             "accepted bad {pointer}"
         );
     }

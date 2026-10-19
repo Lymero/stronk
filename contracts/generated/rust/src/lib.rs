@@ -3,4 +3,6 @@
 #[allow(clippy::unwrap_used, clippy::all)]
 pub mod build_v1;
 #[allow(clippy::unwrap_used, clippy::all)]
+pub mod index_v1;
+#[allow(clippy::unwrap_used, clippy::all)]
 pub mod manifest_v1;

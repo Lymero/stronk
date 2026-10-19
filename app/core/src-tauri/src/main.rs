@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use serde_json::Value;
-use stronk_data::{DirectorySource, FileBackups, TrustedKey, default_backup_dir};
+use stronk_data::{FileBackups, TrustedKey, default_backup_dir, default_cache_dir, open_source};
 use stronk_service::{CommandError, Context, ErrorCode, Registry, registry};
 use tauri::Emitter;
 
@@ -36,7 +36,8 @@ async fn run(
 /// lcu-mock); a settings command replaces this with the setup screen.
 fn context() -> Result<Context, CommandError> {
     let var = |name: &str| std::env::var_os(name).map(PathBuf::from);
-    let data = var("STRONK_DATA_DIR").unwrap_or_else(|| PathBuf::from("dist/data"));
+    // A directory or an http(s) URL (`just serve-data`, the CDN), as for `stronk-core`.
+    let data = std::env::var("STRONK_DATA_DIR").unwrap_or_else(|_| "dist/data".to_owned());
     let key_path = var("STRONK_DATA_KEY")
         .ok_or_else(|| CommandError::new(ErrorCode::Unavailable, "STRONK_DATA_KEY is not set"))?;
     let key_text = std::fs::read_to_string(&key_path).map_err(|e| {
@@ -46,7 +47,7 @@ fn context() -> Result<Context, CommandError> {
         )
     })?;
     Ok(Context {
-        builds: Arc::new(DirectorySource::new(data, TrustedKey::decode(&key_text)?)),
+        builds: open_source(&data, TrustedKey::decode(&key_text)?, &default_cache_dir())?,
         client: stronk_lcu::connect_or_absent(&lcu_options()),
         backups: Arc::new(FileBackups::new(default_backup_dir())),
     })
