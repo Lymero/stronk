@@ -8,9 +8,33 @@ The League client runs on Windows, and WSL2 can't reach its `127.0.0.1`, so real
 2. **Rust** with rustup, MSVC toolchain: `rustup toolchain install 1.99.0` (the version in `.mise.toml`).
 3. **Node 24 and pnpm**: `winget install OpenJS.NodeJS.LTS`, then `corepack enable` (pnpm comes from `packageManager` in `package.json`).
 4. **WebView2**: preinstalled on Windows 10 and 11.
-5. Optional, for the mock tests only: **uv** (`winget install astral-sh.uv`).
+5. **uv** (`winget install astral-sh.uv`), for lcu-mock and its tests.
+6. **just** (`winget install Casey.Just`).
 
-Clone the repository on the Windows file system (for example `C:\src\stronk`), not under `\\wsl$`: builds there are slow and file watching breaks.
+Clone the repository on the Windows file system (for example `C:\src\stronk`), not under `\\wsl$`: builds there are slow and file watching breaks. App work happens in this clone; the pipeline stays in WSL.
+
+## With just
+
+On Windows, `just` runs recipes in Windows PowerShell (`windows-shell` in the `justfile`), because the `bash.exe` on the path is WSL's. The app recipes have Windows versions; the pipeline recipes are for WSL.
+
+| Command | Does |
+|---|---|
+| `just setup` | uv, pnpm and cargo dependencies, git hooks |
+| `just test` | Rust (contracts, core) and UI tests; the Python tests run in WSL |
+| `just lcu-mock [session]` | Fake League client, writes `runs\lcu-mock\lockfile` and `root.pem` |
+| `just app` | Desktop app on the fixture data, talking to `just lcu-mock` |
+| `just app-mock` | UI in the browser against `MockBackend` |
+| `just core <command-id> [params]` | Run an app command from the terminal |
+
+Run the app against the mock in two terminals: `just lcu-mock` in one, `just app` in the other. The mock moves to its next step on `POST /mock/step` (user `riot` with the lockfile's password, trusting `runs\lcu-mock\root.pem`; see `tools/lcu_mock/lcu_mock.py`), and the app follows it over the websocket.
+
+Windows PowerShell 5.1 drops double quotes inside arguments to programs, `just` included, so escape them in JSON parameters (PowerShell 7.3 and later don't need this):
+
+```powershell
+just core build.plan '{\"champion\": \"LeeSin\", \"role\": \"JUNGLE\"}'
+```
+
+`just core` reads the same `STRONK_*` variables as the app; set them in the terminal first (see "Run the desktop app against the real client").
 
 ## Build
 

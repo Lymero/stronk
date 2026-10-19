@@ -3,6 +3,9 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+# Windows: PowerShell instead (System32\bash.exe is WSL). App recipes only; the pipeline stays in WSL
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+
 contracts_rs := "--manifest-path contracts/generated/rust/Cargo.toml"
 core_rs := "--manifest-path app/core/Cargo.toml"
 ci_corpus := "crawl-ci-16.20"
@@ -13,12 +16,22 @@ default:
     @just --list
 
 # Install dependencies and git hooks
+[unix]
 setup:
     uv sync --all-packages --locked
     pnpm install --frozen-lockfile
     cargo fetch {{ contracts_rs }} --locked
     cargo fetch {{ core_rs }} --locked
     if git rev-parse --git-dir >/dev/null 2>&1; then uv run pre-commit install --hook-type pre-commit --hook-type commit-msg; fi
+
+# Install dependencies and git hooks (Windows: uv for lcu-mock, pnpm, cargo)
+[windows]
+setup:
+    uv sync --all-packages --locked
+    pnpm install --frozen-lockfile
+    cargo fetch {{ contracts_rs }} --locked
+    cargo fetch {{ core_rs }} --locked
+    if (git rev-parse --git-dir 2>$null) { uv run pre-commit install --hook-type pre-commit --hook-type commit-msg }
 
 # Format, lint, typecheck, architecture rules, tests, codegen drift, floors, budgets
 check: fmt-check lint typecheck arch test core-e2e gen-check floors bench budgets
@@ -52,8 +65,16 @@ arch:
     uv run python tools/checks/rust_layers.py
 
 # All tests
+[unix]
 test:
     uv run pytest
+    cargo test {{ contracts_rs }} --locked --quiet
+    cargo test {{ core_rs }} --locked --quiet
+    pnpm --filter @stronk/ui test
+
+# Rust and UI tests (Windows; the Python tests run in WSL)
+[windows]
+test:
     cargo test {{ contracts_rs }} --locked --quiet
     cargo test {{ core_rs }} --locked --quiet
     pnpm --filter @stronk/ui test
@@ -178,8 +199,14 @@ synth out="runs/synth/decisions.parquet":
     uv run stronk-pipeline run wpa.estimate --params '{"decisions": "{{ out }}"}'
 
 # Run an app command from the terminal: just core build.get '{"champion": "LeeSin", "role": "JUNGLE"}'
+[unix]
 core id params="{}":
     cargo run {{ core_rs }} --quiet -p stronk-cli -- run {{ id }} --params '{{ params }}'
+
+# Run an app command from the terminal (Windows PowerShell drops unescaped quotes passed to programs)
+[windows]
+core id params="{}":
+    cargo run {{ core_rs }} --quiet -p stronk-cli -- run {{ id }} --params '{{ replace(params, '"', '\"') }}'
 
 # Refresh fixtures/data (signed fixture pipeline output) and its throwaway public key
 fixture-data:
@@ -202,10 +229,18 @@ app-mock:
     pnpm --filter @stronk/ui dev
 
 # Desktop app on the fixture data, talking to `just lcu-mock` (needs WebKitGTK on Linux)
+[unix]
 app:
     STRONK_DATA_DIR="$PWD/fixtures/data" STRONK_DATA_KEY="$PWD/fixtures/data.pub" \
     STRONK_LCU_LOCKFILE="$PWD/runs/lcu-mock/lockfile" STRONK_LCU_CERT="$PWD/runs/lcu-mock/root.pem" \
     pnpm --filter @stronk/ui exec tauri dev --config ../core/src-tauri/tauri.conf.json
+
+# Desktop app on the fixture data, talking to `just lcu-mock`
+[windows]
+app:
+    $env:STRONK_DATA_DIR = "$PWD/fixtures/data"; $env:STRONK_DATA_KEY = "$PWD/fixtures/data.pub"; \
+    $env:STRONK_LCU_LOCKFILE = "$PWD/runs/lcu-mock/lockfile"; $env:STRONK_LCU_CERT = "$PWD/runs/lcu-mock/root.pem"; \
+    $env:TAURI_APP_PATH = "$PWD/app/core/src-tauri"; pnpm --filter @stronk/ui exec tauri dev
 
 # Build and lint the Tauri shell (needs WebKitGTK on Linux; CI's app-shell job)
 app-build:

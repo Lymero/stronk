@@ -63,3 +63,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the Windows real-client test of imports and the watcher.
 - 2026-10-19: `item_sets.restore` and `item_sets.backups` (CLI `restore-item-sets`): byte-for-byte restore, current sets backed up first, other accounts refused; production-key draft notes the local backups contain the account ID and never leave the machine.
   Open: a restore button in the app's settings; the Windows real-client test.
+- 2026-10-19: app work moves to a Windows clone (ADR-045): `just` runs PowerShell there, with Windows versions of `setup`, `test` (Rust and UI), `core` and `app` (`TAURI_APP_PATH`, since the Tauri CLI didn't find its config from `app/ui`); `just app` ran against `just lcu-mock` on Windows. docs/windows.md has a "With just" section.
+  Open: whether the `[unix]` `app` recipe has the same config lookup problem (untested, no WebKitGTK locally); the real-client check of imports and the watcher.
