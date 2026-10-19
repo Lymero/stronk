@@ -91,3 +91,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: options past the top 3 are counted but can't be picked from the view any more.
 - 2026-10-19: `HttpSource` takes plain `http://` only for the loopback literals `127.0.0.1` and `[::1]`, no longer `localhost` (ADR-046, docs/security.md); `just serve-data` and the app recipes already use `127.0.0.1`.
   Open: nothing new from this change.
+- 2026-10-19: docs caught up with the review fixes: architecture's `serve-data` source is `http://127.0.0.1:8787`; gaps and ADR-050 say the view lists only the top options from `build.plan` (the 2026-10-19 ADR-050 entry's "all options on request" no longer holds); roadmap lists M3's open items.
+  Open: tauri-specta bindings; the real-client check of names, restore, auto-import and picking; picking past the top 3; picks across restarts; icons.
