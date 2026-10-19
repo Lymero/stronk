@@ -43,9 +43,9 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [x] Champion-select detection with preloading; import runes, item set and spells (ADR-043, ADR-044; checked on the real client 2026-10-19)
 - [x] UI from the real-client check: names instead of raw rune, spell and item IDs; readable champion-select phase; tell the player when all rune pages are used (ADR-047)
 - [x] Champion select view: the top alternatives per slot with win impact, games and a confidence marker, falling back clearly to the most played build (ADR-049); click an option to import it instead (ADR-050)
-- [ ] Real-client check of names, restore, auto-import and picking (Windows, custom game)
+- [ ] Real-client check of names, icons, restore, auto-import and picking (Windows, custom game)
 - [x] Pick any option of a slot, not only the listed ones; keep picks across restarts until the patch changes (ADR-051)
-- [ ] Champion and item icons from the client
+- [x] Champion, rune, spell and item icons from the client (ADR-052)
 - [x] Settings: auto-import toggle and item set restore from a chosen backup, after a confirmation
 - [x] Playwright end-to-end tests: the UI against `MockBackend` and against the real core on lcu-mock, with screenshots (ADR-048)
 - [x] `just bench` lock-in scenario (`stronk-core serve` on lcu-mock, 200 replays); lock-in budget enforced (p50 55 ms, p95 67 ms)
