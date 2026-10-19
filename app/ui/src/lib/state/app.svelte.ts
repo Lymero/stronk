@@ -86,6 +86,9 @@ export const browserSettings: SettingsStore = {
   },
 };
 
+/** The most ids one `icons.get` takes. */
+export const ICONS_PER_CALL = 200;
+
 export function createApp(
   backend: Backend,
   store: SettingsStore = browserSettings,
@@ -152,23 +155,23 @@ export function createApp(
     return Object.fromEntries(Object.entries(ids).map(([k, v]) => [k, [...v]])) as Record<GameKind, number[]>;
   }
 
-  /** Fetches the icons on screen not asked for yet. Cosmetic like names: on failure the
-   * stand-ins stay and the next refresh asks again. */
+  /** Fetches the icons of every option not asked for yet, at most `ICONS_PER_CALL` ids per
+   * call. Cosmetic like names: on failure the stand-ins stay and the next refresh asks again. */
   async function loadIcons(): Promise<void> {
-    const kinds = Object.keys(state.icons) as GameKind[];
     const shown = shownIds();
-    const wanted: IconParams = {};
-    for (const kind of kinds) {
-      const missing = shown[kind].filter((id) => !(String(id) in state.icons[kind]));
-      if (missing.length) wanted[kind] = missing;
-    }
-    if (!Object.keys(wanted).length) return;
-    const icons = await backend.run("icons.get", wanted);
-    if (!icons.ok) return;
-    for (const kind of kinds) {
-      const known = { ...state.icons[kind] };
-      for (const id of wanted[kind] ?? []) known[String(id)] = icons.value[kind][String(id)] ?? null;
-      state.icons[kind] = known;
+    const missing = (Object.keys(shown) as GameKind[]).flatMap((kind) =>
+      shown[kind].filter((id) => !(String(id) in state.icons[kind])).map((id) => [kind, id] as const),
+    );
+    for (let start = 0; start < missing.length; start += ICONS_PER_CALL) {
+      const wanted: IconParams = {};
+      for (const [kind, id] of missing.slice(start, start + ICONS_PER_CALL)) (wanted[kind] ??= []).push(id);
+      const icons = await backend.run("icons.get", wanted);
+      if (!icons.ok) return;
+      for (const kind of Object.keys(wanted) as GameKind[]) {
+        const known = { ...state.icons[kind] };
+        for (const id of wanted[kind] ?? []) known[String(id)] = icons.value[kind][String(id)] ?? null;
+        state.icons[kind] = known;
+      }
     }
   }
 

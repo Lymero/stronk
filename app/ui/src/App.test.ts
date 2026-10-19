@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/svelte";
 import { describe, expect, it } from "vitest";
 import App from "./App.svelte";
 import { MockBackend, scenarios } from "./lib/backend/mock.ts";
-import { createApp, type Settings, type SettingsStore } from "./lib/state/app.svelte.ts";
+import { createApp, ICONS_PER_CALL, type Settings, type SettingsStore } from "./lib/state/app.svelte.ts";
 import type { PicksStore, SavedPicks } from "./lib/state/picks.ts";
 
 function memory(initial: Settings | null = null): SettingsStore & { saved: Settings | null } {
@@ -226,6 +226,26 @@ describe("App with MockBackend", () => {
     expect(new Set(ids("items")).size).toBe(ids("items").length); // never twice
     const lee = screen.getByLabelText("Champion select").querySelector("img");
     expect(lee?.getAttribute("src")).toMatch(/^data:image\/svg\+xml,/);
+  });
+
+  it("asks for many icons in calls of at most 200 ids", async () => {
+    const scenario = scenarios["ranked-jungle"];
+    const lee = scenario.plans["LeeSin/JUNGLE"];
+    const slot = lee.alternatives.items[0];
+    const first = slot?.rows[0];
+    const many = first ? Array.from({ length: 250 }, (_, i) => ({ ...first, value: 10000 + i })) : [];
+    const items = slot ? [{ ...slot, rows: [...slot.rows, ...many] }] : [];
+    const plan = { ...lee, alternatives: { ...lee.alternatives, items } };
+    const locked = scenario.steps.at(-1);
+    const backend = new MockBackend({ ...scenario, steps: locked ? [locked] : [], plans: { "LeeSin/JUNGLE": plan } });
+    const app = createApp(backend, memory());
+    await app.refresh();
+    const sizes = backend.calls
+      .filter((c) => c.id === "icons.get")
+      .map((c) => Object.values(c.params as Record<string, number[]>).flat().length);
+    expect(sizes.length).toBeGreaterThan(1);
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(ICONS_PER_CALL);
+    expect(app.state.icons.items["10249"]).toBeNull(); // asked; the client has none
   });
 
   it("loads icons only after an auto-import, so they never delay it", async () => {
