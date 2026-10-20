@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1145" height="500" viewBox="0 0 1145 500" role="img" aria-label="Deployment: the pipeline fetches from the Riot API and publishes signed files to a data store; the desktop app fetches them and writes builds into the League client.">
+<style>
+svg {
+  --bg: #f4f6f8; --panel: #ffffff; --zone: #e9edf1; --fg: #15202b; --muted: #586474; --line: #b9c3ce;
+  --accent: #0b7480; --accent-bg: #e1f1f2; --new: #a65f00; --new-bg: #fff2dc; --ext: #6a55c8; --ext-bg: #efecfb; --chg: #c0267a; --chg-bg: #fde6f0; --py: #2b5fab; --py-bg: #e7eef9; --rs: #b3412a; --rs-bg: #fbeae5; --ts: #2f7d3a; --ts-bg: #e5f2e4;
+   --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+svg text { font-family: var(--f-body); }
+@media (prefers-color-scheme: dark) { svg {
+  --bg: #0e1319; --panel: #18212b; --zone: #131a22; --fg: #e3e9ef; --muted: #95a3b2; --line: #3a4757;
+  --accent: #4fc1cb; --accent-bg: #12303a; --new: #f2b14c; --new-bg: #2e2412; --ext: #a998f0; --ext-bg: #211d36; --chg: #ff7ab8; --chg-bg: #3a1429; --py: #8db4ee; --py-bg: #182a44; --rs: #f08c72; --rs-bg: #3a1f18; --ts: #7fcf88; --ts-bg: #16301a;  } }
+.zn { fill: var(--zone); stroke: var(--line); }
+.zt { fill: var(--muted); font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.bx { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+.bx.acc { fill: var(--accent-bg); stroke: var(--accent); }
+.bx.py { fill: var(--py-bg); stroke: var(--py); }
+.bx.rs { fill: var(--rs-bg); stroke: var(--rs); }
+.bx.ts { fill: var(--ts-bg); stroke: var(--ts); }
+.ex { fill: var(--ext-bg); stroke: var(--ext); stroke-width: 1.2; }
+.pl { fill: var(--new-bg); stroke: var(--new); stroke-width: 1.3; stroke-dasharray: 5 3; }
+.fl { fill: var(--bg); stroke: var(--line); stroke-dasharray: 3 3; }
+.t { fill: var(--fg); font-size: 12.5px; }
+.tb { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.ts { fill: var(--muted); font-size: 11.5px; }
+.tm { fill: var(--fg); font: 11px var(--f-mono); }
+.tp { fill: var(--new); font: 11px var(--f-mono); }
+.el { fill: var(--muted); font-size: 11px; }
+.ed { stroke: var(--fg); stroke-width: 1.3; fill: none; }
+.ed.dash { stroke-dasharray: 4 3; }
+.ed.np { stroke: var(--new); stroke-dasharray: 5 3; }
+.ll { stroke: var(--line); stroke-dasharray: 3 4; }
+.ah { fill: var(--fg); }
+.ahn { fill: var(--new); }
+.fresh rect, rect.fresh { stroke: var(--chg); stroke-width: 2.6; stroke-dasharray: none; fill: var(--chg-bg); }
+.fresh .ed, path.fresh { stroke: var(--chg); stroke-width: 2.2; }
+.fresh .t, .fresh .ts, .fresh .tm, .fresh .zt, text.fresh { fill: var(--chg); font-weight: 600; }
+.mo path { fill: none; stroke: var(--fg); stroke-width: 1.2; stroke-dasharray: none; }
+.mon path { fill: none; stroke: var(--new); stroke-width: 1.2; stroke-dasharray: none; }
+.mt path { fill: var(--panel); stroke: var(--fg); stroke-width: 1.1; stroke-dasharray: none; }
+.mf path { fill: var(--fg); }
+.cir { fill: var(--panel); stroke: var(--muted); stroke-width: 1; }
+.face { fill: var(--line); opacity: .6; }
+.tmb { fill: var(--fg); font: 600 11.5px var(--f-mono); }
+.dot { fill: var(--fg); }
+.endo { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+.frag { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.fragtag { fill: var(--zone); stroke: var(--muted); stroke-width: 1.2; }
+.note { fill: var(--panel); stroke: var(--muted); stroke-width: 1.1; }
+.lane { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.dia { fill: var(--panel); stroke: var(--fg); stroke-width: 1.2; }
+</style>
+<rect width="100%" height="100%" style="fill:var(--panel)"/>
+      <defs>
+        <marker id="o1" class="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1,1 L9,5 L1,9"/></marker>
+        <marker id="on1" class="mon" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1,1 L9,5 L1,9"/></marker>
+      </defs>
+      <!-- nodes (UML 3D boxes) -->
+      <rect class="zn" x="10" y="40" width="175" height="450"/><path class="face" d="M10,40 L18,32 H193 L185,40 Z M185,40 L193,32 V482 L185,490 Z"/>
+      <text class="zt" x="22" y="62">Riot</text>
+      <rect class="zn" x="200" y="40" width="265" height="450"/><path class="face" d="M200,40 L208,32 H473 L465,40 Z M465,40 L473,32 V482 L465,490 Z"/>
+
+      <g class="fresh"><text class="zt" x="212" y="62">VPS, systemd timer</text></g>
+      <rect class="zn" x="502" y="40" width="233" height="450"/><path class="face" d="M502,40 L510,32 H743 L735,40 Z M735,40 L743,32 V482 L735,490 Z"/>
+
+      <g><text class="zt" x="514" y="62">Data on Cloudflare</text></g>
+      <rect class="zn" x="772" y="40" width="358" height="450"/><path class="face" d="M772,40 L780,32 H1138 L1130,40 Z M1130,40 L1138,32 V482 L1130,490 Z"/>
+      <g><text class="zt" x="784" y="62">Your PC, Windows</text></g>
+
+
+      <!-- Riot -->
+      <rect class="ex" x="20" y="150" width="145" height="50" rx="4"/>
+      <text class="tb" x="32" y="171">Riot API</text>
+
+      <g class="fresh"><text class="ts" x="32" y="189">production key</text></g>
+      <path class="ed" d="M211,175 H167" marker-end="url(#o1)"/>
+      <text class="el" x="175" y="168">fetch</text>
+
+      <!-- Pipeline -->
+      <rect class="bx py" x="212" y="150" width="240" height="160" rx="4"/>
+      <rect class="cir" x="435" y="157" width="10" height="12"/><rect class="cir" x="432" y="159" width="6" height="3"/><rect class="cir" x="432" y="164" width="6" height="3"/>
+      <text class="tb" x="224" y="172">Pipeline</text>
+      <text class="tm" x="224" y="192">crawl → extract → winprob</text>
+      <text class="tm" x="224" y="208">→ wpa → publish</text>
+      <text class="ts" x="224" y="234">Scope</text>
+
+      <g class="fresh"><text class="t" x="224" y="251">all champions, roles, elos, regions</text></g>
+      <text class="ts" x="224" y="276">Publisher</text>
+
+      <g><text class="tm" x="224" y="294">R2Publisher</text></g>
+
+      <rect class="bx" x="212" y="370" width="240" height="56" rx="4"/>
+      <text class="tb" x="224" y="391">Signing key</text>
+
+      <g class="fresh"><text class="tm" x="224" y="411">secret on the VPS only</text></g>
+      <path class="ed" d="M332,312 V368" marker-end="url(#o1)"/>
+      <text class="el" x="340" y="344">loads, to sign manifests</text>
+
+      <!-- Pipeline -> store -->
+
+      <g><path class="ed" d="M452,175 H515" marker-end="url(#o1)"/><text class="el" x="453" y="168">uploads</text></g>
+
+      <!-- Store A -->
+
+      <g>
+        <rect class="bx" x="517" y="150" width="205" height="46" rx="4"/>
+        <text class="tb" x="529" y="171">R2 bucket</text>
+        <text class="ts" x="529" y="188">same signed files</text>
+      </g>
+      <g><path class="ed" d="M619,245 V198" marker-end="url(#o1)"/>
+      <text class="el" x="627" y="226">reads</text></g>
+
+      <!-- Store B -->
+      <g>
+        <rect class="bx" x="517" y="245" width="205" height="40" rx="4"/>
+        <text class="tb" x="529" y="270">CDN</text>
+      </g>
+
+      <!-- Site -->
+      <rect class="bx" x="517" y="415" width="205" height="46" rx="4"/>
+      <text class="tb" x="529" y="436">Product site</text>
+
+
+      <!-- Release host -->
+
+
+      <!-- App -->
+      <rect class="zn" x="787" y="135" width="333" height="115" rx="4" style="fill:var(--bg)"/>
+      <g><text class="ts" x="799" y="153">Stronk desktop app, dev build</text></g>
+
+      <rect class="bx rs" x="807" y="165" width="115" height="72" rx="4"/>
+      <rect class="cir" x="906" y="170" width="10" height="12"/><rect class="cir" x="903" y="172" width="6" height="3"/><rect class="cir" x="903" y="177" width="6" height="3"/>
+      <text class="tb" x="817" y="186">Core</text>
+      <g><text class="ts" x="817" y="226">dev public key</text></g>
+
+      <rect class="bx ts" x="992" y="165" width="118" height="72" rx="4"/>
+      <rect class="cir" x="1094" y="170" width="10" height="12"/><rect class="cir" x="1091" y="172" width="6" height="3"/><rect class="cir" x="1091" y="177" width="6" height="3"/>
+      <text class="tb" x="1002" y="186">UI</text>
+      <path class="ed" d="M990,192 H925" marker-end="url(#o1)"/>
+      <text class="el" x="935" y="186">run</text>
+      <path class="ed" d="M924,218 H989" marker-end="url(#o1)"/>
+      <text class="el" x="929" y="232">event</text>
+
+      <!-- Store -> app -->
+
+      <g><path class="ed" d="M805,222 H777 V262 H724" marker-end="url(#o1)"/><text class="el" x="728" y="256">GET</text></g>
+
+      <!-- LCU -->
+      <rect class="ex" x="807" y="290" width="115" height="40" rx="4"/>
+      <text class="tb" x="817" y="315">League client</text>
+      <path class="ed" d="M864,239 V288" marker-end="url(#o1)"/>
+      <text class="el" x="872" y="272">HTTPS, websocket</text>
+
+      <!-- Viewer -->
+
+    </svg>

@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="275" viewBox="0 0 1060 275" role="img" aria-label="Activity diagram: crawl, extract, winprob, wpa and publish, with the files each writes and which later stages read them.">
+<style>
+svg {
+  --bg: #f4f6f8; --panel: #ffffff; --zone: #e9edf1; --fg: #15202b; --muted: #586474; --line: #b9c3ce;
+  --accent: #0b7480; --accent-bg: #e1f1f2; --new: #a65f00; --new-bg: #fff2dc; --ext: #6a55c8; --ext-bg: #efecfb; --chg: #c0267a; --chg-bg: #fde6f0; --py: #2b5fab; --py-bg: #e7eef9; --rs: #b3412a; --rs-bg: #fbeae5; --ts: #2f7d3a; --ts-bg: #e5f2e4;
+   --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+svg text { font-family: var(--f-body); }
+@media (prefers-color-scheme: dark) { svg {
+  --bg: #0e1319; --panel: #18212b; --zone: #131a22; --fg: #e3e9ef; --muted: #95a3b2; --line: #3a4757;
+  --accent: #4fc1cb; --accent-bg: #12303a; --new: #f2b14c; --new-bg: #2e2412; --ext: #a998f0; --ext-bg: #211d36; --chg: #ff7ab8; --chg-bg: #3a1429; --py: #8db4ee; --py-bg: #182a44; --rs: #f08c72; --rs-bg: #3a1f18; --ts: #7fcf88; --ts-bg: #16301a;  } }
+.zn { fill: var(--zone); stroke: var(--line); }
+.zt { fill: var(--muted); font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.bx { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+.bx.acc { fill: var(--accent-bg); stroke: var(--accent); }
+.bx.py { fill: var(--py-bg); stroke: var(--py); }
+.bx.rs { fill: var(--rs-bg); stroke: var(--rs); }
+.bx.ts { fill: var(--ts-bg); stroke: var(--ts); }
+.ex { fill: var(--ext-bg); stroke: var(--ext); stroke-width: 1.2; }
+.pl { fill: var(--new-bg); stroke: var(--new); stroke-width: 1.3; stroke-dasharray: 5 3; }
+.fl { fill: var(--bg); stroke: var(--line); stroke-dasharray: 3 3; }
+.t { fill: var(--fg); font-size: 12.5px; }
+.tb { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.ts { fill: var(--muted); font-size: 11.5px; }
+.tm { fill: var(--fg); font: 11px var(--f-mono); }
+.tp { fill: var(--new); font: 11px var(--f-mono); }
+.el { fill: var(--muted); font-size: 11px; }
+.ed { stroke: var(--fg); stroke-width: 1.3; fill: none; }
+.ed.dash { stroke-dasharray: 4 3; }
+.ed.np { stroke: var(--new); stroke-dasharray: 5 3; }
+.ll { stroke: var(--line); stroke-dasharray: 3 4; }
+.ah { fill: var(--fg); }
+.ahn { fill: var(--new); }
+.fresh rect, rect.fresh { stroke: var(--chg); stroke-width: 2.6; stroke-dasharray: none; fill: var(--chg-bg); }
+.fresh .ed, path.fresh { stroke: var(--chg); stroke-width: 2.2; }
+.fresh .t, .fresh .ts, .fresh .tm, .fresh .zt, text.fresh { fill: var(--chg); font-weight: 600; }
+.mo path { fill: none; stroke: var(--fg); stroke-width: 1.2; stroke-dasharray: none; }
+.mon path { fill: none; stroke: var(--new); stroke-width: 1.2; stroke-dasharray: none; }
+.mt path { fill: var(--panel); stroke: var(--fg); stroke-width: 1.1; stroke-dasharray: none; }
+.mf path { fill: var(--fg); }
+.cir { fill: var(--panel); stroke: var(--muted); stroke-width: 1; }
+.face { fill: var(--line); opacity: .6; }
+.tmb { fill: var(--fg); font: 600 11.5px var(--f-mono); }
+.dot { fill: var(--fg); }
+.endo { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+.frag { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.fragtag { fill: var(--zone); stroke: var(--muted); stroke-width: 1.2; }
+.note { fill: var(--panel); stroke: var(--muted); stroke-width: 1.1; }
+.lane { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.dia { fill: var(--panel); stroke: var(--fg); stroke-width: 1.2; }
+</style>
+<rect width="100%" height="100%" style="fill:var(--panel)"/>
+      <defs>
+        <marker id="f2" class="mf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <circle class="dot" cx="40" cy="65" r="7"/>
+      <path class="ed" d="M47,65 H68" marker-end="url(#f2)"/>
+      <!-- actions -->
+      <rect class="bx py" x="70" y="40" width="150" height="50" rx="14"/><text class="tb" x="84" y="61">crawl</text><text class="tm" x="84" y="78">crawl.run</text>
+      <rect class="bx py" x="270" y="40" width="150" height="50" rx="14"/><text class="tb" x="284" y="61">extract</text><text class="tm" x="284" y="78">extract.run</text>
+      <rect class="bx py" x="470" y="40" width="150" height="50" rx="14"/><text class="tb" x="484" y="61">winprob</text><text class="tm" x="484" y="78">winprob.train</text>
+      <rect class="bx py" x="670" y="40" width="150" height="50" rx="14"/><text class="tb" x="684" y="61">wpa</text><text class="tm" x="684" y="78">wpa.estimate</text>
+      <rect class="bx py" x="870" y="40" width="150" height="50" rx="14"/><text class="tb" x="884" y="61">publish</text><text class="tm" x="884" y="78">publish</text>
+      <!-- object nodes -->
+      <rect class="bx" x="70" y="150" width="150" height="34"/><text class="tm" x="80" y="171">crawl directory</text>
+      <rect class="bx" x="270" y="150" width="150" height="34"/><text class="tm" x="280" y="171">frames, decisions</text>
+      <rect class="bx" x="470" y="150" width="150" height="34"/><text class="tm" x="480" y="171">model.json</text>
+      <rect class="bx" x="670" y="150" width="150" height="34"/><text class="tm" x="680" y="171">estimates</text>
+      <rect class="bx" x="870" y="150" width="150" height="34"/><text class="tm" x="880" y="171">signed files</text>
+      <!-- flows -->
+      <path class="ed" d="M145,90 V148" marker-end="url(#f2)"/><path class="ed" d="M345,90 V148" marker-end="url(#f2)"/><path class="ed" d="M545,90 V148" marker-end="url(#f2)"/><path class="ed" d="M745,90 V148" marker-end="url(#f2)"/><path class="ed" d="M945,90 V148" marker-end="url(#f2)"/>
+      <path class="ed" d="M220,167 H245 V65 H268" marker-end="url(#f2)"/>
+      <path class="ed" d="M420,167 H445 V65 H468" marker-end="url(#f2)"/><text class="el" x="451" y="122">frames</text>
+      <path class="ed" d="M620,167 H645 V65 H668" marker-end="url(#f2)"/>
+      <path class="ed" d="M820,167 H845 V65 H868" marker-end="url(#f2)"/>
+      <path class="ed" d="M345,184 V215 H655 V80 H668" marker-end="url(#f2)"/><text class="el" x="460" y="209">frames, decisions</text>
+      <path class="ed" d="M145,184 V250 H1037 V75 H1022" marker-end="url(#f2)"/><text class="el" x="460" y="244">games: counts and rune pages</text>
+      <path class="ed" d="M945,184 V203" marker-end="url(#f2)"/>
+      <circle class="endo" cx="945" cy="213" r="9"/><circle class="dot" cx="945" cy="213" r="4.5"/>
+      <text class="el" x="78" y="30">from Riot (MatchSource)</text>
+    </svg>

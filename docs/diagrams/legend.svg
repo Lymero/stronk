@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1022" height="96" viewBox="0 0 1022 96" role="img" aria-label="Legend: colours by language and UML arrow notation">
+<style>
+svg {
+  --bg: #f4f6f8; --panel: #ffffff; --zone: #e9edf1; --fg: #15202b; --muted: #586474; --line: #b9c3ce;
+  --accent: #0b7480; --accent-bg: #e1f1f2; --new: #a65f00; --new-bg: #fff2dc; --ext: #6a55c8; --ext-bg: #efecfb; --chg: #c0267a; --chg-bg: #fde6f0; --py: #2b5fab; --py-bg: #e7eef9; --rs: #b3412a; --rs-bg: #fbeae5; --ts: #2f7d3a; --ts-bg: #e5f2e4;
+   --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+svg text { font-family: var(--f-body); }
+@media (prefers-color-scheme: dark) { svg {
+  --bg: #0e1319; --panel: #18212b; --zone: #131a22; --fg: #e3e9ef; --muted: #95a3b2; --line: #3a4757;
+  --accent: #4fc1cb; --accent-bg: #12303a; --new: #f2b14c; --new-bg: #2e2412; --ext: #a998f0; --ext-bg: #211d36; --chg: #ff7ab8; --chg-bg: #3a1429; --py: #8db4ee; --py-bg: #182a44; --rs: #f08c72; --rs-bg: #3a1f18; --ts: #7fcf88; --ts-bg: #16301a;  } }
+.zn { fill: var(--zone); stroke: var(--line); }
+.zt { fill: var(--muted); font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.bx { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+.bx.acc { fill: var(--accent-bg); stroke: var(--accent); }
+.bx.py { fill: var(--py-bg); stroke: var(--py); }
+.bx.rs { fill: var(--rs-bg); stroke: var(--rs); }
+.bx.ts { fill: var(--ts-bg); stroke: var(--ts); }
+.ex { fill: var(--ext-bg); stroke: var(--ext); stroke-width: 1.2; }
+.pl { fill: var(--new-bg); stroke: var(--new); stroke-width: 1.3; stroke-dasharray: 5 3; }
+.fl { fill: var(--bg); stroke: var(--line); stroke-dasharray: 3 3; }
+.t { fill: var(--fg); font-size: 12.5px; }
+.tb { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.ts { fill: var(--muted); font-size: 11.5px; }
+.tm { fill: var(--fg); font: 11px var(--f-mono); }
+.tp { fill: var(--new); font: 11px var(--f-mono); }
+.el { fill: var(--muted); font-size: 11px; }
+.ed { stroke: var(--fg); stroke-width: 1.3; fill: none; }
+.ed.dash { stroke-dasharray: 4 3; }
+.ed.np { stroke: var(--new); stroke-dasharray: 5 3; }
+.ll { stroke: var(--line); stroke-dasharray: 3 4; }
+.ah { fill: var(--fg); }
+.ahn { fill: var(--new); }
+.fresh rect, rect.fresh { stroke: var(--chg); stroke-width: 2.6; stroke-dasharray: none; fill: var(--chg-bg); }
+.fresh .ed, path.fresh { stroke: var(--chg); stroke-width: 2.2; }
+.fresh .t, .fresh .ts, .fresh .tm, .fresh .zt, text.fresh { fill: var(--chg); font-weight: 600; }
+.mo path { fill: none; stroke: var(--fg); stroke-width: 1.2; stroke-dasharray: none; }
+.mon path { fill: none; stroke: var(--new); stroke-width: 1.2; stroke-dasharray: none; }
+.mt path { fill: var(--panel); stroke: var(--fg); stroke-width: 1.1; stroke-dasharray: none; }
+.mf path { fill: var(--fg); }
+.cir { fill: var(--panel); stroke: var(--muted); stroke-width: 1; }
+.face { fill: var(--line); opacity: .6; }
+.tmb { fill: var(--fg); font: 600 11.5px var(--f-mono); }
+.dot { fill: var(--fg); }
+.endo { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+.frag { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.fragtag { fill: var(--zone); stroke: var(--muted); stroke-width: 1.2; }
+.note { fill: var(--panel); stroke: var(--muted); stroke-width: 1.1; }
+.lane { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.dia { fill: var(--panel); stroke: var(--fg); stroke-width: 1.2; }
+</style>
+<rect width="100%" height="100%" style="fill:var(--panel)"/>
+<defs>
+<marker id="lo" class="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1,1 L9,5 L1,9"/></marker>
+<marker id="lt" class="mt" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto"><path d="M1,1 L11,6 L1,11 z"/></marker>
+<marker id="lf" class="mf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+<rect class="bx py" x="10" y="10" width="20" height="13" rx="3"/><text class="el" x="37" y="21">Python (pipeline)</text>
+<rect class="bx rs" x="164.4" y="10" width="20" height="13" rx="3"/><text class="el" x="191.4" y="21">Rust (app core)</text>
+<rect class="bx ts" x="306.4" y="10" width="20" height="13" rx="3"/><text class="el" x="333.4" y="21">TypeScript (UI)</text>
+<rect class="bx" x="448.4" y="10" width="20" height="13" rx="3"/><text class="el" x="475.4" y="21">Files, data, hosting</text>
+<rect class="ex" x="621.4" y="10" width="20" height="13" rx="3"/><text class="el" x="648.4" y="21">Riot</text>
+<rect class="pl" x="695.1999999999999" y="10" width="20" height="13" rx="3"/><text class="el" x="722.1999999999999" y="21">Planned, not built</text>
+<rect class="bx" x="855.8" y="10" width="20" height="13" rx="3" style="fill:var(--chg-bg);stroke:var(--chg);stroke-width:2.4"/><text class="el" x="882.8" y="21">Changed by the step</text>
+<text class="tb" x="10" y="54" style="font-size:12px">Structure</text>
+<path class="ed" d="M90,50 H128" marker-end="url(#lo)"/><text class="el" x="138" y="54">calls (from the caller)</text>
+<path class="ed dash" d="M290,50 H328" marker-end="url(#lo)"/><text class="el" x="338" y="54">«use», depends on</text>
+<path class="ed dash" d="M470,50 H508" marker-end="url(#lt)"/><text class="el" x="518" y="54">implements</text>
+<text class="tb" x="10" y="82" style="font-size:12px">Behaviour</text>
+<path class="ed" d="M90,78 H128" marker-end="url(#lf)"/><text class="el" x="138" y="82">flow; synchronous call</text>
+<path class="ed" d="M290,78 H328" marker-end="url(#lo)"/><text class="el" x="338" y="82">async message</text>
+<path class="ed dash" d="M470,78 H508" marker-end="url(#lo)"/><text class="el" x="518" y="82">reply</text>
+</svg>

@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="751" viewBox="0 0 1060 751" role="img" aria-label="Component diagram: six pipeline commands, the port interfaces each requires, the classes that implement each port, and the pure domain package.">
+<style>
+svg {
+  --bg: #f4f6f8; --panel: #ffffff; --zone: #e9edf1; --fg: #15202b; --muted: #586474; --line: #b9c3ce;
+  --accent: #0b7480; --accent-bg: #e1f1f2; --new: #a65f00; --new-bg: #fff2dc; --ext: #6a55c8; --ext-bg: #efecfb; --chg: #c0267a; --chg-bg: #fde6f0; --py: #2b5fab; --py-bg: #e7eef9; --rs: #b3412a; --rs-bg: #fbeae5; --ts: #2f7d3a; --ts-bg: #e5f2e4;
+   --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+svg text { font-family: var(--f-body); }
+@media (prefers-color-scheme: dark) { svg {
+  --bg: #0e1319; --panel: #18212b; --zone: #131a22; --fg: #e3e9ef; --muted: #95a3b2; --line: #3a4757;
+  --accent: #4fc1cb; --accent-bg: #12303a; --new: #f2b14c; --new-bg: #2e2412; --ext: #a998f0; --ext-bg: #211d36; --chg: #ff7ab8; --chg-bg: #3a1429; --py: #8db4ee; --py-bg: #182a44; --rs: #f08c72; --rs-bg: #3a1f18; --ts: #7fcf88; --ts-bg: #16301a;  } }
+.zn { fill: var(--zone); stroke: var(--line); }
+.zt { fill: var(--muted); font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.bx { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+.bx.acc { fill: var(--accent-bg); stroke: var(--accent); }
+.bx.py { fill: var(--py-bg); stroke: var(--py); }
+.bx.rs { fill: var(--rs-bg); stroke: var(--rs); }
+.bx.ts { fill: var(--ts-bg); stroke: var(--ts); }
+.ex { fill: var(--ext-bg); stroke: var(--ext); stroke-width: 1.2; }
+.pl { fill: var(--new-bg); stroke: var(--new); stroke-width: 1.3; stroke-dasharray: 5 3; }
+.fl { fill: var(--bg); stroke: var(--line); stroke-dasharray: 3 3; }
+.t { fill: var(--fg); font-size: 12.5px; }
+.tb { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.ts { fill: var(--muted); font-size: 11.5px; }
+.tm { fill: var(--fg); font: 11px var(--f-mono); }
+.tp { fill: var(--new); font: 11px var(--f-mono); }
+.el { fill: var(--muted); font-size: 11px; }
+.ed { stroke: var(--fg); stroke-width: 1.3; fill: none; }
+.ed.dash { stroke-dasharray: 4 3; }
+.ed.np { stroke: var(--new); stroke-dasharray: 5 3; }
+.ll { stroke: var(--line); stroke-dasharray: 3 4; }
+.ah { fill: var(--fg); }
+.ahn { fill: var(--new); }
+.fresh rect, rect.fresh { stroke: var(--chg); stroke-width: 2.6; stroke-dasharray: none; fill: var(--chg-bg); }
+.fresh .ed, path.fresh { stroke: var(--chg); stroke-width: 2.2; }
+.fresh .t, .fresh .ts, .fresh .tm, .fresh .zt, text.fresh { fill: var(--chg); font-weight: 600; }
+.mo path { fill: none; stroke: var(--fg); stroke-width: 1.2; stroke-dasharray: none; }
+.mon path { fill: none; stroke: var(--new); stroke-width: 1.2; stroke-dasharray: none; }
+.mt path { fill: var(--panel); stroke: var(--fg); stroke-width: 1.1; stroke-dasharray: none; }
+.mf path { fill: var(--fg); }
+.cir { fill: var(--panel); stroke: var(--muted); stroke-width: 1; }
+.face { fill: var(--line); opacity: .6; }
+.tmb { fill: var(--fg); font: 600 11.5px var(--f-mono); }
+.dot { fill: var(--fg); }
+.endo { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+.frag { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.fragtag { fill: var(--zone); stroke: var(--muted); stroke-width: 1.2; }
+.note { fill: var(--panel); stroke: var(--muted); stroke-width: 1.1; }
+.lane { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.dia { fill: var(--panel); stroke: var(--fg); stroke-width: 1.2; }
+</style>
+<rect width="100%" height="100%" style="fill:var(--panel)"/>
+      <defs>
+        <marker id="t2" class="mt" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto"><path d="M1,1 L11,6 L1,11 z"/></marker>
+      </defs>
+      <text class="zt" x="20" y="18">commands, each listing the ports it requires</text>
+      <g>
+        <rect class="bx py" x="20" y="28" width="160" height="142" rx="4"/><text class="ts" x="30" y="44">«command»</text><text class="tmb" x="30" y="62">crawl.run</text><text class="ts" x="30" y="82">requires</text><text class="tm" x="30" y="99">MatchSource</text><text class="tm" x="30" y="114">MatchStore</text>
+        <rect class="bx py" x="192" y="28" width="160" height="142" rx="4"/><text class="ts" x="202" y="44">«command»</text><text class="tmb" x="202" y="62">extract.run</text><text class="ts" x="202" y="82">requires</text><text class="tm" x="202" y="99">MatchStore</text><text class="tm" x="202" y="114">PayloadParser</text><text class="tm" x="202" y="129">FrameStore</text><text class="tm" x="202" y="144">DecisionStore</text><text class="tm" x="202" y="159">ReportWriter</text>
+        <rect class="bx py" x="364" y="28" width="160" height="142" rx="4"/><text class="ts" x="374" y="44">«command»</text><text class="tmb" x="374" y="62">winprob.train</text><text class="ts" x="374" y="82">requires</text><text class="tm" x="374" y="99">FrameStore</text><text class="tm" x="374" y="114">WinProbLearner</text><text class="tm" x="374" y="129">WinProbStore</text><text class="tm" x="374" y="144">ReportWriter</text>
+        <rect class="bx py" x="536" y="28" width="160" height="142" rx="4"/><text class="ts" x="546" y="44">«command»</text><text class="tmb" x="546" y="62">wpa.estimate</text><text class="ts" x="546" y="82">requires</text><text class="tm" x="546" y="99">DecisionStore</text><text class="tm" x="546" y="114">FrameStore</text><text class="tm" x="546" y="129">WinProbStore</text><text class="tm" x="546" y="144">Estimator</text><text class="tm" x="546" y="159">EstimateStore</text>
+        <rect class="bx py" x="708" y="28" width="160" height="142" rx="4"/><text class="ts" x="718" y="44">«command»</text><text class="tmb" x="718" y="62">publish</text><text class="ts" x="718" y="82">requires</text><text class="tm" x="718" y="99">EstimateStore</text><text class="tm" x="718" y="114">MatchStore</text><text class="tm" x="718" y="129">SigningKeys</text><text class="tm" x="718" y="144">Publisher</text>
+        <rect class="bx py" x="880" y="28" width="160" height="142" rx="4"/><text class="ts" x="890" y="44">«command»</text><text class="tmb" x="890" y="62">signing.keygen</text><text class="ts" x="890" y="82">requires</text><text class="tm" x="890" y="99">SigningKeys</text>
+      </g>
+
+      <text class="zt" x="20" y="192">ports (ports.py), each under a command that requires it, with its implementations</text>
+      <g>
+        <rect class="bx py" x="20" y="200" width="160" height="38" rx="4"/><text class="ts" x="30" y="214">«interface»</text><text class="tm" x="30" y="231">MatchSource</text>
+        <path class="ed dash" d="M100,260 V240" marker-end="url(#t2)"/>
+        <rect class="bx py" x="20" y="260" width="160" height="44" rx="4"/><text class="tm" x="30" y="277">RiotApiSource</text><text class="ts" x="30" y="294">replay: an httpx transport</text>
+        <rect class="bx py" x="20" y="322" width="160" height="38" rx="4"/><text class="ts" x="30" y="336">«interface»</text><text class="tm" x="30" y="353">MatchStore</text>
+        <path class="ed dash" d="M100,382 V362" marker-end="url(#t2)"/>
+        <rect class="bx py" x="20" y="382" width="160" height="28" rx="4"/><text class="tm" x="30" y="400">FileMatchStore</text>
+        <rect class="bx py" x="192" y="200" width="160" height="38" rx="4"/><text class="ts" x="202" y="214">«interface»</text><text class="tm" x="202" y="231">PayloadParser</text>
+        <path class="ed dash" d="M272,260 V240" marker-end="url(#t2)"/>
+        <rect class="bx py" x="192" y="260" width="160" height="28" rx="4"/><text class="tm" x="202" y="278">parse_quarantined</text>
+        <rect class="bx py" x="192" y="306" width="160" height="38" rx="4"/><text class="ts" x="202" y="320">«interface»</text><text class="tm" x="202" y="337">FrameStore</text>
+        <path class="ed dash" d="M272,366 V346" marker-end="url(#t2)"/>
+        <rect class="bx py" x="192" y="366" width="160" height="28" rx="4"/><text class="tm" x="202" y="384">ParquetFrameStore</text>
+        <rect class="bx py" x="192" y="412" width="160" height="38" rx="4"/><text class="ts" x="202" y="426">«interface»</text><text class="tm" x="202" y="443">DecisionStore</text>
+        <path class="ed dash" d="M272,472 V452" marker-end="url(#t2)"/>
+        <rect class="bx py" x="192" y="472" width="160" height="28" rx="4"/><text class="tm" x="202" y="490">ParquetDecisionStore</text>
+        <rect class="bx py" x="192" y="518" width="160" height="38" rx="4"/><text class="ts" x="202" y="532">«interface»</text><text class="tm" x="202" y="549">ReportWriter</text>
+        <path class="ed dash" d="M272,578 V558" marker-end="url(#t2)"/>
+        <rect class="bx py" x="192" y="578" width="160" height="28" rx="4"/><text class="tm" x="202" y="596">JsonReportWriter</text>
+        <rect class="bx py" x="364" y="200" width="160" height="38" rx="4"/><text class="ts" x="374" y="214">«interface»</text><text class="tm" x="374" y="231">WinProbLearner</text>
+        <path class="ed dash" d="M444,260 V240" marker-end="url(#t2)"/>
+        <rect class="bx py" x="364" y="260" width="160" height="44" rx="4"/><text class="tm" x="374" y="277">LogisticLearner</text><text class="tm" x="374" y="294">LightGbmLearner</text>
+        <rect class="bx py" x="364" y="322" width="160" height="38" rx="4"/><text class="ts" x="374" y="336">«interface»</text><text class="tm" x="374" y="353">WinProbStore</text>
+        <path class="ed dash" d="M444,382 V362" marker-end="url(#t2)"/>
+        <rect class="bx py" x="364" y="382" width="160" height="28" rx="4"/><text class="tm" x="374" y="400">JsonWinProbStore</text>
+        <rect class="bx py" x="536" y="200" width="160" height="38" rx="4"/><text class="ts" x="546" y="214">«interface»</text><text class="tm" x="546" y="231">Estimator</text>
+        <path class="ed dash" d="M616,260 V240" marker-end="url(#t2)"/>
+        <rect class="bx py" x="536" y="260" width="160" height="44" rx="4"/><text class="tm" x="546" y="277">ReferenceEstimatorV1</text><text class="tm" x="546" y="294" textLength="144" lengthAdjust="spacingAndGlyphs">OverlapWeightedEstimator</text>
+        <rect class="pl" x="536" y="310" width="160" height="26" rx="4"/><text class="tp" x="546" y="327">WPA v2, doubly robust</text>
+        <rect class="bx py" x="536" y="354" width="160" height="38" rx="4"/><text class="ts" x="546" y="368">«interface»</text><text class="tm" x="546" y="385">EstimateStore</text>
+        <path class="ed dash" d="M616,414 V394" marker-end="url(#t2)"/>
+        <rect class="bx py" x="536" y="414" width="160" height="28" rx="4"/><text class="tm" x="546" y="432">JsonEstimateStore</text>
+        <rect class="bx py" x="708" y="200" width="160" height="38" rx="4"/><text class="ts" x="718" y="214">«interface»</text><text class="tm" x="718" y="231">Publisher</text>
+        <path class="ed dash" d="M788,260 V240" marker-end="url(#t2)"/>
+        <rect class="bx py" x="708" y="260" width="160" height="28" rx="4"/><text class="tm" x="718" y="278">LocalPublisher</text>
+        <rect class="pl" x="708" y="294" width="160" height="26" rx="4"/><text class="tp" x="718" y="311">R2Publisher</text>
+        <rect class="bx py" x="880" y="200" width="160" height="38" rx="4"/><text class="ts" x="890" y="214">«interface»</text><text class="tm" x="890" y="231">SigningKeys</text>
+        <path class="ed dash" d="M960,260 V240" marker-end="url(#t2)"/>
+        <rect class="bx py" x="880" y="260" width="160" height="28" rx="4"/><text class="tm" x="890" y="278">MinisignKeys</text>
+      </g>
+
+      <!-- domain package -->
+      <path class="bx" d="M20,659 V641 H150 V659"/>
+      <rect class="bx" x="20" y="659" width="1020" height="82"/>
+      <text class="tb" x="30" y="655">domain</text>
+      <text class="ts" x="160" y="655">pure, no I/O (import-linter); every command uses it</text>
+      <g>
+        <rect class="bx py" x="30" y="671" width="192" height="60" rx="4"/><text class="ts" x="40" y="687">crawl</text><text class="tb" x="40" y="705">What a game holds</text><text class="ts" x="40" y="722">Match, StaticData</text>
+        <rect class="bx py" x="232" y="671" width="192" height="60" rx="4"/><text class="ts" x="242" y="687">extract</text><text class="tb" x="242" y="705">Find the choices</text><text class="ts" x="242" y="722">choice points, game state, skill</text>
+        <rect class="bx py" x="434" y="671" width="192" height="60" rx="4"/><text class="ts" x="444" y="687">winprob</text><text class="tb" x="444" y="705">Predict who wins</text><text class="ts" x="444" y="722">logistic model, calibration</text>
+        <rect class="bx py" x="636" y="671" width="192" height="60" rx="4"/><text class="ts" x="646" y="687">wpa</text><text class="tb" x="646" y="705">Score each choice</text><text class="ts" x="646" y="722">estimators, intervals, FDR</text>
+        <rect class="bx py" x="838" y="671" width="192" height="60" rx="4"/><text class="ts" x="848" y="687">publish</text><text class="tb" x="848" y="705">Lay out the files</text><text class="ts" x="848" y="722">games per role, rune pages</text>
+      </g>
+    </svg>

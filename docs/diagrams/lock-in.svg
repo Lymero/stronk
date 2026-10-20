@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1265" height="1162" viewBox="0 0 1265 1162" role="img" aria-label="Sequence diagram: on hover the UI gets the state and a plan from the core; on lock-in, if auto-import is on, build.import reads the session, gets the cached build and writes runes, item set and spells to the client.">
+<style>
+svg {
+  --bg: #f4f6f8; --panel: #ffffff; --zone: #e9edf1; --fg: #15202b; --muted: #586474; --line: #b9c3ce;
+  --accent: #0b7480; --accent-bg: #e1f1f2; --new: #a65f00; --new-bg: #fff2dc; --ext: #6a55c8; --ext-bg: #efecfb; --chg: #c0267a; --chg-bg: #fde6f0; --py: #2b5fab; --py-bg: #e7eef9; --rs: #b3412a; --rs-bg: #fbeae5; --ts: #2f7d3a; --ts-bg: #e5f2e4;
+   --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+svg text { font-family: var(--f-body); }
+@media (prefers-color-scheme: dark) { svg {
+  --bg: #0e1319; --panel: #18212b; --zone: #131a22; --fg: #e3e9ef; --muted: #95a3b2; --line: #3a4757;
+  --accent: #4fc1cb; --accent-bg: #12303a; --new: #f2b14c; --new-bg: #2e2412; --ext: #a998f0; --ext-bg: #211d36; --chg: #ff7ab8; --chg-bg: #3a1429; --py: #8db4ee; --py-bg: #182a44; --rs: #f08c72; --rs-bg: #3a1f18; --ts: #7fcf88; --ts-bg: #16301a;  } }
+.zn { fill: var(--zone); stroke: var(--line); }
+.zt { fill: var(--muted); font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.bx { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+.bx.acc { fill: var(--accent-bg); stroke: var(--accent); }
+.bx.py { fill: var(--py-bg); stroke: var(--py); }
+.bx.rs { fill: var(--rs-bg); stroke: var(--rs); }
+.bx.ts { fill: var(--ts-bg); stroke: var(--ts); }
+.ex { fill: var(--ext-bg); stroke: var(--ext); stroke-width: 1.2; }
+.pl { fill: var(--new-bg); stroke: var(--new); stroke-width: 1.3; stroke-dasharray: 5 3; }
+.fl { fill: var(--bg); stroke: var(--line); stroke-dasharray: 3 3; }
+.t { fill: var(--fg); font-size: 12.5px; }
+.tb { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.ts { fill: var(--muted); font-size: 11.5px; }
+.tm { fill: var(--fg); font: 11px var(--f-mono); }
+.tp { fill: var(--new); font: 11px var(--f-mono); }
+.el { fill: var(--muted); font-size: 11px; }
+.ed { stroke: var(--fg); stroke-width: 1.3; fill: none; }
+.ed.dash { stroke-dasharray: 4 3; }
+.ed.np { stroke: var(--new); stroke-dasharray: 5 3; }
+.ll { stroke: var(--line); stroke-dasharray: 3 4; }
+.ah { fill: var(--fg); }
+.ahn { fill: var(--new); }
+.fresh rect, rect.fresh { stroke: var(--chg); stroke-width: 2.6; stroke-dasharray: none; fill: var(--chg-bg); }
+.fresh .ed, path.fresh { stroke: var(--chg); stroke-width: 2.2; }
+.fresh .t, .fresh .ts, .fresh .tm, .fresh .zt, text.fresh { fill: var(--chg); font-weight: 600; }
+.mo path { fill: none; stroke: var(--fg); stroke-width: 1.2; stroke-dasharray: none; }
+.mon path { fill: none; stroke: var(--new); stroke-width: 1.2; stroke-dasharray: none; }
+.mt path { fill: var(--panel); stroke: var(--fg); stroke-width: 1.1; stroke-dasharray: none; }
+.mf path { fill: var(--fg); }
+.cir { fill: var(--panel); stroke: var(--muted); stroke-width: 1; }
+.face { fill: var(--line); opacity: .6; }
+.tmb { fill: var(--fg); font: 600 11.5px var(--f-mono); }
+.dot { fill: var(--fg); }
+.endo { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+.frag { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.fragtag { fill: var(--zone); stroke: var(--muted); stroke-width: 1.2; }
+.note { fill: var(--panel); stroke: var(--muted); stroke-width: 1.1; }
+.lane { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.dia { fill: var(--panel); stroke: var(--fg); stroke-width: 1.2; }
+</style>
+<rect width="100%" height="100%" style="fill:var(--panel)"/>
+      <defs>
+        <marker id="f4" class="mf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="o4" class="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1,1 L9,5 L1,9"/></marker>
+      </defs>
+      <!-- participants -->
+      <rect class="ex" x="7" y="10" width="116" height="40" rx="3"/>
+      <text class="tb" x="65" y="35" text-anchor="middle">League client</text>
+      <rect class="bx rs" x="137" y="10" width="116" height="40" rx="3"/>
+      <text class="ts" x="195" y="25" text-anchor="middle">lcu crate</text><text class="tb" x="195" y="42" text-anchor="middle">watch()</text>
+      <rect class="bx rs" x="267" y="10" width="116" height="40" rx="3"/>
+      <text class="ts" x="325" y="25" text-anchor="middle">lcu crate</text><text class="tb" x="325" y="42" text-anchor="middle">LcuClient</text>
+      <rect class="bx rs" x="397" y="10" width="116" height="40" rx="3"/>
+      <text class="ts" x="455" y="25" text-anchor="middle">core</text><text class="tb" x="455" y="42" text-anchor="middle">src-tauri</text>
+      <rect class="bx ts" x="527" y="10" width="116" height="40" rx="3"/>
+      <text class="ts" x="585" y="25" text-anchor="middle">UI</text><text class="tb" x="585" y="42" text-anchor="middle">app state</text>
+      <rect class="bx rs" x="657" y="10" width="116" height="40" rx="3"/>
+      <text class="ts" x="715" y="25" text-anchor="middle">service</text><text class="tb" x="715" y="42" text-anchor="middle">Registry</text>
+      <rect class="bx rs" x="787" y="10" width="116" height="40" rx="3"/>
+      <text class="ts" x="845" y="25" text-anchor="middle">data crate</text><text class="tb" x="845" y="42" text-anchor="middle">FileBackups</text>
+      <rect class="bx rs" x="917" y="10" width="116" height="40" rx="3"/>
+      <text class="ts" x="975" y="25" text-anchor="middle">data crate</text><text class="tb" x="975" y="42" text-anchor="middle">HttpSource</text>
+      <line class="ll" x1="65" y1="50" x2="65" y2="1158"/><line class="ll" x1="195" y1="50" x2="195" y2="1158"/><line class="ll" x1="325" y1="50" x2="325" y2="1158"/><line class="ll" x1="455" y1="50" x2="455" y2="1158"/><line class="ll" x1="585" y1="50" x2="585" y2="1158"/><line class="ll" x1="715" y1="50" x2="715" y2="1158"/><line class="ll" x1="845" y1="50" x2="845" y2="1158"/><line class="ll" x1="975" y1="50" x2="975" y2="1158"/>
+      <text class="zt" x="10" y="104">hover</text>
+      <path class="ed" d="M65,118 H193" marker-end="url(#o4)"/><text class="el" x="73" y="113">session event (wss)</text>
+      <path class="ed" d="M195,140 H453" marker-end="url(#o4)"/><text class="el" x="203" y="135">notify</text>
+      <path class="ed" d="M455,162 H583" marker-end="url(#o4)"/><text class="el" x="463" y="157">champselect-changed</text>
+      <path class="ed" d="M585,184 H713" marker-end="url(#f4)"/><text class="el" x="593" y="179">champselect.state</text>
+      <path class="ed" d="M715,206 H327" marker-end="url(#f4)"/><text class="el" x="707" y="201" text-anchor="end">champ_select()</text>
+      <path class="ed" d="M325,228 H67" marker-end="url(#f4)"/><text class="el" x="317" y="223" text-anchor="end">GET session</text>
+      <path class="ed dash" d="M65,250 H323" marker-end="url(#o4)"/><text class="el" x="73" y="245">session</text>
+      <path class="ed dash" d="M325,272 H713" marker-end="url(#o4)"/><text class="el" x="333" y="267">ChampSelect</text>
+      <path class="ed dash" d="M715,294 H587" marker-end="url(#o4)"/><text class="el" x="707" y="289" text-anchor="end">champion, role</text>
+      <path class="ed" d="M585,322 H713" marker-end="url(#f4)"/><text class="el" x="593" y="317">build.plan</text>
+      <path class="ed" d="M715,344 H973" marker-end="url(#f4)"/><text class="el" x="723" y="339">build(patch, key)</text>
+      <path class="note" d="M993,352 H1133 L1145,364 V408 H993 Z"/><path class="note" d="M1133,352 V364 H1145"/>
+      <line class="ll" x1="975" y1="376" x2="993" y2="376" style="stroke:var(--muted)"/>
+      <text class="ts" x="1003" y="370">cache hit, or GET then</text><text class="ts" x="1003" y="385">verify signature and</text><text class="ts" x="1003" y="400">sha256, then cache</text>
+      <path class="ed dash" d="M975,426 H717" marker-end="url(#o4)"/><text class="el" x="967" y="421" text-anchor="end">Build</text>
+      <path class="ed dash" d="M715,448 H587" marker-end="url(#o4)"/><text class="el" x="707" y="443" text-anchor="end">Plan: options per slot</text>
+      <text class="zt" x="10" y="482">lock-in</text>
+      <path class="ed" d="M65,496 H193" marker-end="url(#o4)"/><text class="el" x="73" y="491">session event (wss)</text>
+      <path class="ed" d="M195,518 H453" marker-end="url(#o4)"/><text class="el" x="203" y="513">notify</text>
+      <path class="ed" d="M455,540 H583" marker-end="url(#o4)"/><text class="el" x="463" y="535">champselect-changed</text>
+      <path class="ed" d="M585,562 H713" marker-end="url(#f4)"/><text class="el" x="593" y="557">champselect.state</text>
+      <path class="ed" d="M715,584 H327" marker-end="url(#f4)"/><text class="el" x="707" y="579" text-anchor="end">champ_select()</text>
+      <path class="ed" d="M325,606 H67" marker-end="url(#f4)"/><text class="el" x="317" y="601" text-anchor="end">GET session</text>
+      <path class="ed dash" d="M65,628 H323" marker-end="url(#o4)"/><text class="el" x="73" y="623">session</text>
+      <path class="ed dash" d="M325,650 H713" marker-end="url(#o4)"/><text class="el" x="333" y="645">ChampSelect</text>
+      <path class="ed dash" d="M715,672 H587" marker-end="url(#o4)"/><text class="el" x="707" y="667" text-anchor="end">locked; same plan kept</text>
+      <rect class="frag" x="5" y="688" width="1135" height="460"/>
+      <path class="fragtag" d="M5,688 H52 V702 L44,710 H5 Z"/>
+      <text class="tb" x="14" y="704" style="font-size:12px">opt</text>
+      <text class="ts" x="62" y="704">[auto-import is on, or the player clicks import]</text>
+      <path class="ed" d="M585,738 H713" marker-end="url(#f4)"/><text class="el" x="593" y="733">build.import(picks)</text>
+      <path class="ed" d="M715,760 H327" marker-end="url(#f4)"/><text class="el" x="707" y="755" text-anchor="end">champ_select()</text>
+      <path class="ed" d="M325,782 H67" marker-end="url(#f4)"/><text class="el" x="317" y="777" text-anchor="end">GET session</text>
+      <path class="ed dash" d="M65,804 H323" marker-end="url(#o4)"/><text class="el" x="73" y="799">session</text>
+      <path class="ed dash" d="M325,826 H713" marker-end="url(#o4)"/><text class="el" x="333" y="821">ChampSelect</text>
+      <path class="ed" d="M715,848 H973" marker-end="url(#f4)"/><text class="el" x="723" y="843">build(patch, key)</text>
+      <path class="ed dash" d="M975,870 H717" marker-end="url(#o4)"/><text class="el" x="967" y="865" text-anchor="end">Build, from cache</text>
+      <path class="ed" d="M715,892 H327" marker-end="url(#f4)"/><text class="el" x="707" y="887" text-anchor="end">rune page calls</text>
+      <path class="ed" d="M325,914 H67" marker-end="url(#f4)"/><text class="el" x="317" y="909" text-anchor="end">GET, DELETE, POST pages</text>
+      <path class="ed" d="M715,936 H327" marker-end="url(#f4)"/><text class="el" x="707" y="931" text-anchor="end">item_sets()</text>
+      <path class="ed" d="M325,958 H67" marker-end="url(#f4)"/><text class="el" x="317" y="953" text-anchor="end">GET item sets</text>
+      <path class="ed dash" d="M325,980 H713" marker-end="url(#o4)"/><text class="el" x="333" y="975">current sets</text>
+      <path class="ed" d="M715,1002 H843" marker-end="url(#f4)"/><text class="el" x="723" y="997">save(item-sets)</text>
+      <path class="ed dash" d="M845,1024 H717" marker-end="url(#o4)"/><text class="el" x="837" y="1019" text-anchor="end">backup path</text>
+      <path class="ed" d="M715,1046 H327" marker-end="url(#f4)"/><text class="el" x="707" y="1041" text-anchor="end">save_item_sets()</text>
+      <path class="ed" d="M325,1068 H67" marker-end="url(#f4)"/><text class="el" x="317" y="1063" text-anchor="end">PUT item sets</text>
+      <path class="ed" d="M715,1090 H327" marker-end="url(#f4)"/><text class="el" x="707" y="1085" text-anchor="end">set_spells()</text>
+      <path class="ed" d="M325,1112 H67" marker-end="url(#f4)"/><text class="el" x="317" y="1107" text-anchor="end">PATCH my-selection</text>
+      <path class="ed dash" d="M715,1134 H587" marker-end="url(#o4)"/><text class="el" x="707" y="1129" text-anchor="end">Imported</text>
+      <path class="ed" d="M1160,496 V1134 M1154,496 H1166 M1154,1134 H1166" style="stroke:var(--accent)"/>
+      <text class="ts" x="1172" y="785" style="fill:var(--accent)">lock-in to</text>
+      <text class="ts" x="1172" y="800" style="fill:var(--accent)">writes done:</text>
+      <text class="ts" x="1172" y="815" style="fill:var(--accent)">p95 ≤ 300 ms,</text>
+      <text class="ts" x="1172" y="830" style="fill:var(--accent)">now 67 ms</text>
+    </svg>

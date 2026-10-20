@@ -111,3 +111,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: Riot's review of the application.
 - 2026-10-20: architecture diagrams in `docs/architecture-diagrams.html` (UML, inline SVG, drawn from `02672bd`): deployment by M4 step, pipeline activity and ports, app components, lock-in sequence, data trust; linked from AGENTS.md and docs/architecture.md.
   Open: keep them in step with the code; the M4 step order there is a suggestion, and the web viewer's ranking (WASM or not) is undecided.
+- 2026-10-20: the architecture diagrams moved to Markdown so GitHub renders them: `docs/architecture-diagrams.md` with one SVG per diagram (and per M4 step of the deployment view) in `docs/diagrams/`; the HTML page is gone.
+  Open: the SVGs are hand-maintained; edit them with the code they describe.

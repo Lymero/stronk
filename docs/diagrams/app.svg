@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1150" height="490" viewBox="0 0 1150 490" role="img" aria-label="Component diagram: the Svelte UI and its Backend interface with four implementations; the Rust core's entry points, registry, three ports and the crates that implement them; outside systems below.">
+<style>
+svg {
+  --bg: #f4f6f8; --panel: #ffffff; --zone: #e9edf1; --fg: #15202b; --muted: #586474; --line: #b9c3ce;
+  --accent: #0b7480; --accent-bg: #e1f1f2; --new: #a65f00; --new-bg: #fff2dc; --ext: #6a55c8; --ext-bg: #efecfb; --chg: #c0267a; --chg-bg: #fde6f0; --py: #2b5fab; --py-bg: #e7eef9; --rs: #b3412a; --rs-bg: #fbeae5; --ts: #2f7d3a; --ts-bg: #e5f2e4;
+   --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+svg text { font-family: var(--f-body); }
+@media (prefers-color-scheme: dark) { svg {
+  --bg: #0e1319; --panel: #18212b; --zone: #131a22; --fg: #e3e9ef; --muted: #95a3b2; --line: #3a4757;
+  --accent: #4fc1cb; --accent-bg: #12303a; --new: #f2b14c; --new-bg: #2e2412; --ext: #a998f0; --ext-bg: #211d36; --chg: #ff7ab8; --chg-bg: #3a1429; --py: #8db4ee; --py-bg: #182a44; --rs: #f08c72; --rs-bg: #3a1f18; --ts: #7fcf88; --ts-bg: #16301a;  } }
+.zn { fill: var(--zone); stroke: var(--line); }
+.zt { fill: var(--muted); font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.bx { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+.bx.acc { fill: var(--accent-bg); stroke: var(--accent); }
+.bx.py { fill: var(--py-bg); stroke: var(--py); }
+.bx.rs { fill: var(--rs-bg); stroke: var(--rs); }
+.bx.ts { fill: var(--ts-bg); stroke: var(--ts); }
+.ex { fill: var(--ext-bg); stroke: var(--ext); stroke-width: 1.2; }
+.pl { fill: var(--new-bg); stroke: var(--new); stroke-width: 1.3; stroke-dasharray: 5 3; }
+.fl { fill: var(--bg); stroke: var(--line); stroke-dasharray: 3 3; }
+.t { fill: var(--fg); font-size: 12.5px; }
+.tb { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.ts { fill: var(--muted); font-size: 11.5px; }
+.tm { fill: var(--fg); font: 11px var(--f-mono); }
+.tp { fill: var(--new); font: 11px var(--f-mono); }
+.el { fill: var(--muted); font-size: 11px; }
+.ed { stroke: var(--fg); stroke-width: 1.3; fill: none; }
+.ed.dash { stroke-dasharray: 4 3; }
+.ed.np { stroke: var(--new); stroke-dasharray: 5 3; }
+.ll { stroke: var(--line); stroke-dasharray: 3 4; }
+.ah { fill: var(--fg); }
+.ahn { fill: var(--new); }
+.fresh rect, rect.fresh { stroke: var(--chg); stroke-width: 2.6; stroke-dasharray: none; fill: var(--chg-bg); }
+.fresh .ed, path.fresh { stroke: var(--chg); stroke-width: 2.2; }
+.fresh .t, .fresh .ts, .fresh .tm, .fresh .zt, text.fresh { fill: var(--chg); font-weight: 600; }
+.mo path { fill: none; stroke: var(--fg); stroke-width: 1.2; stroke-dasharray: none; }
+.mon path { fill: none; stroke: var(--new); stroke-width: 1.2; stroke-dasharray: none; }
+.mt path { fill: var(--panel); stroke: var(--fg); stroke-width: 1.1; stroke-dasharray: none; }
+.mf path { fill: var(--fg); }
+.cir { fill: var(--panel); stroke: var(--muted); stroke-width: 1; }
+.face { fill: var(--line); opacity: .6; }
+.tmb { fill: var(--fg); font: 600 11.5px var(--f-mono); }
+.dot { fill: var(--fg); }
+.endo { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+.frag { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.fragtag { fill: var(--zone); stroke: var(--muted); stroke-width: 1.2; }
+.note { fill: var(--panel); stroke: var(--muted); stroke-width: 1.1; }
+.lane { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.dia { fill: var(--panel); stroke: var(--fg); stroke-width: 1.2; }
+</style>
+<rect width="100%" height="100%" style="fill:var(--panel)"/>
+      <defs>
+        <marker id="o3" class="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1,1 L9,5 L1,9"/></marker>
+        <marker id="on3" class="mon" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1,1 L9,5 L1,9"/></marker>
+        <marker id="t3" class="mt" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto"><path d="M1,1 L11,6 L1,11 z"/></marker>
+      </defs>
+      <text class="zt" x="20" y="26">UI: Svelte 5, TypeScript</text>
+      <text class="zt" x="410" y="26">Core: Rust workspace</text>
+
+      <!-- UI -->
+      <rect class="bx ts" x="20" y="40" width="310" height="50" rx="4"/>
+      <text class="tb" x="32" y="61">features</text><text class="ts" x="32" y="78">champ-select, build-view, settings</text>
+      <path class="ed dash" d="M175,90 V108" marker-end="url(#o3)"/><text class="el" x="183" y="103">«use»</text>
+      <rect class="bx ts" x="20" y="110" width="310" height="50" rx="4"/>
+      <text class="tb" x="32" y="131">app state, one object</text><text class="ts" x="32" y="148">plan, picks, settings; decides auto-import</text>
+      <path class="ed dash" d="M175,160 V178" marker-end="url(#o3)"/><text class="el" x="183" y="173">«use»</text>
+      <rect class="bx ts" x="20" y="180" width="310" height="44" rx="4"/>
+      <text class="ts" x="32" y="195">«interface»</text><text class="tm" x="32" y="213">Backend.run(id, params)</text>
+      <path class="ed dash" d="M93,242 V234 H175 M256,242 V234 H175 M167,320 H175 M183,320 H175 V226" marker-end="url(#t3)"/>
+      <rect class="bx ts" x="20" y="242" width="147" height="44" rx="4"/><text class="tm" x="30" y="261">MockBackend</text><text class="ts" x="30" y="278">scripted, in a browser</text>
+      <rect class="pl" x="183" y="242" width="147" height="44" rx="4"/><text class="tp" x="193" y="261">HttpBackend</text><text class="ts" x="193" y="278">web viewer</text>
+      <rect class="bx ts" x="20" y="298" width="147" height="44" rx="4"/><text class="tm" x="30" y="317">CoreBackend</text><text class="ts" x="30" y="334">Playwright tests</text>
+      <rect class="bx ts" x="183" y="298" width="147" height="44" rx="4"/><text class="tm" x="193" y="317">TauriBackend</text><text class="ts" x="193" y="334">the desktop app</text>
+      <path class="ed" d="M330,320 H362 V74 H408" marker-end="url(#o3)"/>
+      <text class="el" x="335" y="314">IPC</text>
+
+      <!-- entry points -->
+      <rect class="bx rs" x="410" y="58" width="153" height="32" rx="4"/><text class="tb" x="420" y="79">src-tauri</text>
+      <rect class="bx rs" x="578" y="58" width="153" height="32" rx="4"/><text class="tb" x="588" y="79">stronk-core CLI</text>
+      <rect class="pl" x="746" y="58" width="153" height="32" rx="4"/><text class="tb" x="756" y="79">MCP server</text>
+      <path class="ed dash" d="M486,90 V108" marker-end="url(#o3)"/><path class="ed" d="M420,90 V100 H388 V350 H408" marker-end="url(#o3)"/><path class="ed dash" d="M654,90 V108" marker-end="url(#o3)"/><path class="ed np" d="M822,90 V108" marker-end="url(#on3)"/>
+
+      <!-- service -->
+      <rect class="bx rs" x="410" y="110" width="490" height="88" rx="4"/>
+      <text class="tb" x="422" y="131">service: Registry, Context</text>
+      <text class="t" x="422" y="155">commands for champion select, builds,</text>
+      <text class="t" x="422" y="173">data status, names and icons, item set backups</text>
+      <path class="ed dash" d="M900,150 H968" marker-end="url(#o3)"/>
+      <text class="el" x="934" y="143" text-anchor="middle">«use»</text>
+      <rect class="bx rs" x="970" y="110" width="170" height="88" rx="4"/>
+      <text class="tb" x="980" y="131">domain crate</text>
+      <text class="ts" x="980" y="149">ranking, choosing options</text>
+      <text class="ts" x="980" y="166">no I/O</text>
+
+      <!-- ports -->
+      <path class="ed dash" d="M486,198 V220" marker-end="url(#o3)"/><path class="ed dash" d="M654,198 V220" marker-end="url(#o3)"/><path class="ed dash" d="M822,198 V220" marker-end="url(#o3)"/>
+      <rect class="bx rs" x="410" y="222" width="153" height="38" rx="4"/><text class="ts" x="420" y="236">«interface»</text><text class="tm" x="420" y="253">LeagueClient</text>
+      <rect class="bx rs" x="578" y="222" width="153" height="38" rx="4"/><text class="ts" x="588" y="236">«interface»</text><text class="tm" x="588" y="253">BuildSource</text>
+      <rect class="bx rs" x="746" y="222" width="153" height="38" rx="4"/><text class="ts" x="756" y="236">«interface»</text><text class="tm" x="756" y="253">Backups</text>
+      <path class="ed dash" d="M486,286 V262" marker-end="url(#t3)"/><path class="ed dash" d="M654,286 V262" marker-end="url(#t3)"/><path class="ed dash" d="M822,286 V262" marker-end="url(#t3)"/>
+
+      <!-- implementations -->
+      <rect class="bx rs" x="410" y="286" width="153" height="98" rx="4"/>
+      <text class="tb" x="420" y="305">lcu crate</text>
+      <text class="tm" x="420" y="323">LcuClient</text><text class="tm" x="420" y="338">Reconnecting</text><text class="tm" x="420" y="353">watch()</text>
+      <text class="ts" x="420" y="371">Riot CA check</text>
+      <rect class="bx rs" x="578" y="286" width="153" height="98" rx="4"/>
+      <text class="tb" x="588" y="305">data crate</text>
+      <text class="tm" x="588" y="323">DirectorySource</text><text class="tm" x="588" y="338">HttpSource</text>
+      <text class="ts" x="588" y="371">verify, cache, offline</text>
+      <rect class="bx rs" x="746" y="286" width="153" height="98" rx="4"/>
+      <text class="tb" x="756" y="305">data crate</text>
+      <text class="tm" x="756" y="323">FileBackups</text>
+
+      <!-- outside -->
+      <path class="ed" d="M486,384 V418" marker-end="url(#o3)"/><text class="el" x="492" y="405">HTTPS, wss</text>
+      <path class="ed" d="M654,384 V418" marker-end="url(#o3)"/><text class="el" x="660" y="405">read, GET</text>
+      <path class="ed" d="M822,384 V418" marker-end="url(#o3)"/><text class="el" x="828" y="405">read, write</text>
+      <rect class="ex" x="410" y="420" width="153" height="54" rx="4"/><text class="tb" x="420" y="452">League client</text>
+      <rect class="bx" x="578" y="420" width="153" height="54" rx="4"/><text class="tb" x="588" y="441">Build data</text><text class="ts" x="588" y="459">folder, serve-data, CDN</text>
+      <rect class="bx" x="746" y="420" width="153" height="54" rx="4"/><text class="tb" x="756" y="441">User data folder</text><text class="ts" x="756" y="459">backups, cache, logs</text>
+    </svg>
