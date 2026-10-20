@@ -109,3 +109,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: Riot's review (answers come in the portal's messages); remove riot.txt once approved; the legal notice in the app.
 - 2026-10-19: Riot's legal notice in the app's footer, below the settings (App.svelte, tested in App.test.ts); production key draft updated.
   Open: Riot's review of the application.
+- 2026-10-20: architecture diagrams in `docs/architecture-diagrams.html` (UML, inline SVG, drawn from `02672bd`): deployment by M4 step, pipeline activity and ports, app components, lock-in sequence, data trust; linked from AGENTS.md and docs/architecture.md.
+  Open: keep them in step with the code; the M4 step order there is a suggestion, and the web viewer's ranking (WASM or not) is undecided.

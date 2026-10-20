@@ -1,5 +1,7 @@
 # Architecture
 
+Diagrams (deployment from today to M4, pipeline and app components, the lock-in sequence, data trust): [architecture-diagrams.html](architecture-diagrams.html), drawn from `02672bd`.
+
 ## 1. System overview
 
 ```

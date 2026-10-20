@@ -9,6 +9,7 @@ Working guide for AI agents and contributors. Read this first.
 | [README.md](README.md) | What the project is |
 | [docs/project-brief.md](docs/project-brief.md) | Goals, principles, product decisions |
 | [docs/architecture.md](docs/architecture.md) | Components, layering, commands, contracts, budgets, testing |
+| [docs/architecture-diagrams.html](docs/architecture-diagrams.html) | UML diagrams: deployment by M4 step, pipeline, app, lock-in sequence, data trust |
 | [docs/wpa-method.md](docs/wpa-method.md) | The statistics and the tests that protect them |
 | [docs/security.md](docs/security.md) | Threat model and security rules |
 | [docs/decisions.md](docs/decisions.md) | Why things are the way they are |
