@@ -2,12 +2,21 @@
   // The build Stronk would import, one line per slot (ADR-056): the option the import writes,
   // a verdict only when it clearly beats the most played one or is the player's own pick, and
   // the slot's options behind a click.
-  import type { Choice, GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
+  import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
   import OptionList from "./OptionList.svelte";
   import type { Pick, Picks } from "../../state/picks.ts";
-  import { allPopular, mostPlayed, options as ranked, percent, selected, type Slot, verdict } from "./options.ts";
+  import {
+    allPopular,
+    explain,
+    figure,
+    mostPlayed,
+    options as ranked,
+    selected,
+    type Slot,
+    verdict,
+  } from "./options.ts";
 
   let {
     plan,
@@ -41,12 +50,6 @@
   );
   const options = $derived(ranked(plan, picks));
 
-  /** The evidence behind a clear result: the interval and how many games it rests on. */
-  const evidence = (c: Choice<unknown> | null) =>
-    c?.label === "clearly_better"
-      ? `Win impact ${percent(c.wpa)} against the most played option${c.ci ? ` (95% interval ${percent(c.ci[0])} to ${percent(c.ci[1])})` : ""}, from ${c.games.toLocaleString("en-US")} games`
-      : "";
-
   const page = (p: Page) => {
     const [primary, secondary] = runePage(names, p);
     return `${primary?.runes[0] ?? ""} · ${primary?.title ?? ""} + ${secondary?.title ?? ""}`;
@@ -77,15 +80,22 @@
     return others.length ? `Also in ${others.join(" and ")}` : "";
   };
 
-  /** What a closed slot says after its value: the player's pick, or a clear result. */
-  function note<T>(slot: Slot<T>, label: (value: T) => string): { text: string; tone: string } | null {
+  /** What a closed slot says after its value: a clear result against the most played option,
+   * else the option's number with its uncertainty; "Your pick" first when it isn't Stronk's. */
+  function note<T>(
+    slot: Slot<T>,
+    label: (value: T) => string,
+  ): { text: string; tone: string; title: string } | null {
     const row = selected(slot);
     if (!row) return null;
-    if (!row.chosen) return { text: "Your pick", tone: "picked" };
     const clear = verdict(row);
     const base = mostPlayed(slot);
-    if (!clear || !base || base === row) return null;
-    return { text: `${clear.text} vs ${label(base.value)}`, tone: clear.tone };
+    const number =
+      clear && base && base !== row ? `${clear.text} vs ${label(base.value)}` : (figure(row) ?? "");
+    const tone = clear && base !== row ? clear.tone : "muted";
+    const text = row.chosen ? number : number ? `Your pick · ${number}` : "Your pick";
+    if (!text) return null;
+    return { text, tone: row.chosen ? tone : "picked", title: explain(row) };
   }
 
   const parts = $derived(
@@ -107,8 +117,7 @@
   key: string,
   title: string,
   value: { icons: { src: string | null; name: string }[]; name: string; detail: string },
-  said: { text: string; tone: string } | null,
-  why: string,
+  said: { text: string; tone: string; title: string } | null,
   count: number,
 )}
   <button
@@ -128,7 +137,7 @@
       <span class="name">{value.name}</span>
       {#if value.detail}<span class="detail">{value.detail}</span>{/if}
     </span>
-    {#if said}<span class="said {said.tone}" title={why}>{said.text}</span>{/if}
+    {#if said}<span class="said {said.tone}" title={said.title}>{said.text}</span>{/if}
     {#if count > 1}
       <span class="count">{count} {count === 1 ? "option" : "options"}</span>
       <span class="chevron" aria-hidden="true"></span>
@@ -162,7 +171,6 @@
           "Runes",
           { icons: pageIcons(value), name: page(value), detail: pageDetail(value) },
           note(options.runes, page),
-          evidence(plan.runes),
           options.runes.rows.length,
         )}
         {#if open.runes}
@@ -187,7 +195,6 @@
           "Spells",
           { icons: spellIcons(value), name: spells(value), detail: "" },
           note(options.spells, spells),
-          evidence(plan.spells),
           options.spells.rows.length,
         )}
         {#if open.spells}
@@ -213,7 +220,6 @@
           `Item ${choice.slot}`,
           { icons: itemIcons(value), name: item(value), detail: alsoIn(choice.slot)(value) },
           note(alts, item),
-          evidence(choice),
           alts.rows.length,
         )}
         {#if open[key]}
@@ -323,10 +329,16 @@
     text-overflow: ellipsis;
   }
   .said {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
     font-size: var(--text-sm);
     font-weight: 600;
     text-align: right;
+  }
+  .said.muted {
+    color: var(--color-muted);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
   }
   .said.positive {
     color: var(--color-positive);
@@ -390,9 +402,23 @@
       gap: var(--space-2);
       padding: var(--space-2) var(--space-3);
     }
+    .summary {
+      flex-wrap: wrap;
+    }
     .slot-name,
     .count {
       display: none;
+    }
+    .value {
+      flex: 1 1 0;
+    }
+    /* The number goes under the name, so the name keeps the width. */
+    .said {
+      order: 1;
+      flex-basis: 100%;
+      padding-left: calc(var(--icon-md) + var(--space-2));
+      text-align: left;
+      white-space: normal;
     }
     .caption {
       position: static;

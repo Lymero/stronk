@@ -18,7 +18,7 @@ test("follows champion select and shows the plan by name", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible();
   await expect(page.getByText("Conqueror · Precision + Inspiration")).toBeVisible();
   await expect(page.getByText("Smite · Flash")).toBeVisible();
-  await expect(page.getByText("▲ +2.1% vs Black Cleaver")).toBeVisible();
+  await expect(page.getByText("▲ +2.1% ± 1.3 vs Black Cleaver")).toBeVisible();
   await expect(page.getByLabel("Champion select").locator("img")).toHaveAttribute("src", /^data:image\/svg\+xml,/);
   await screenshot(page, "mock-hovering");
   await next(page);

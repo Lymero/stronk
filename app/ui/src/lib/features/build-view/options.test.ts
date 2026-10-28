@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Plan, Row } from "../../backend/backend.ts";
-import { allPopular, mostPlayed, options, percent, selected, share, verdict } from "./options.ts";
+import { allPopular, explain, figure, mostPlayed, options, percent, selected, share, verdict } from "./options.ts";
 
 const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   value,
@@ -80,12 +80,24 @@ describe("options", () => {
   });
 
   it("gives a verdict only for a clear difference", () => {
-    expect(verdict(row(1, { wpa: 0.021, confidence: "clearly_better" }))).toEqual({ text: "▲ +2.1%", tone: "positive" });
-    expect(verdict(row(1, { wpa: -0.018, confidence: "clearly_worse" }))).toEqual({ text: "▼ −1.8%", tone: "negative" });
+    const better = row(1, { wpa: 0.021, ci: [0.008, 0.034], versus: "most_played", confidence: "clearly_better" });
+    expect(verdict(better)).toEqual({ text: "▲ +2.1% ± 1.3", tone: "positive" });
+    expect(verdict(row(1, { wpa: -0.018, confidence: "clearly_worse" }))).toEqual({ text: "▼ −1.8% vs others", tone: "negative" });
     for (const confidence of ["most_played", "no_clear_difference", "too_few_games", "not_estimated"] as const) {
       expect(verdict(row(1, { wpa: 0.05, confidence }))).toBeNull();
     }
     expect(verdict(row(1, { wpa: null, confidence: "clearly_better" }))).toBeNull();
+  });
+
+  it("shows every estimate with its uncertainty and what it's measured against", () => {
+    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives" }))).toBe("+0.4% ± 1.0 vs others");
+    expect(figure(row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played" }))).toBe("−0.9% ± 1.5");
+    expect(figure(row(1, { wpa: null }))).toBeNull();
+    const unclear = row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played", confidence: "no_clear_difference" });
+    expect(explain(unclear)).toBe(
+      "Win probability added against the most played option: −0.9%, 95% interval −2.4% to +0.6%. No clear difference: the interval is too wide to tell it apart from the most played option.",
+    );
+    expect(explain(row(1, { wpa: null, confidence: "too_few_games" }))).toBe("Too few comparable games to estimate its win impact");
   });
 
   it("finds a slot's most played option and the one the import writes", () => {

@@ -4,7 +4,7 @@
   // difference with the most played option is clear (ADR-056).
   import Icon from "../../ui/Icon.svelte";
   import { games } from "../../ui/labels.ts";
-  import { percent, type Shown, type Slot, share, verdict } from "./options.ts";
+  import { explain, figure, type Shown, type Slot, share, verdict } from "./options.ts";
 
   let {
     slot,
@@ -28,13 +28,6 @@
   let all = $state(false);
   const rows = $derived(all ? slot.rows : slot.rows.filter((r) => r.shown));
 
-  const title = (r: Shown<T>) => {
-    if (r.confidence === "too_few_games") return "Too few comparable games for its numbers to mean much";
-    if (r.wpa === null || !verdict(r)) return "Not distinguishable from the most played option with the games so far";
-    const interval = r.ci ? `, 95% interval ${percent(r.ci[0])} to ${percent(r.ci[1])}` : "";
-    const word = r.confidence === "clearly_better" ? "more" : "less";
-    return `Wins ${word} often than the most played option: ${percent(r.wpa)} win probability${interval}`;
-  };
 </script>
 
 <ol class="options">
@@ -48,7 +41,7 @@
         class:selected={row.selected}
         class:few={row.confidence === "too_few_games"}
         aria-pressed={row.selected}
-        title={title(row)}
+        title={explain(row)}
         onclick={() => onpick(row.value)}
       >
         <span class="mark" aria-hidden="true"></span>
@@ -57,7 +50,11 @@
             {#each icons?.(row.value) ?? [] as i, n (n)}<Icon src={i.src} name={i.name} size="sm" />{/each}
             <span class="name">{label(row.value)}</span>
             {#if row.chosen && !row.selected}<span class="hint">Stronk's pick</span>{/if}
-            {#if clear}<span class="verdict {clear.tone}">{clear.text}</span>{/if}
+            {#if clear}
+              <span class="verdict {clear.tone}">{clear.text}</span>
+            {:else if figure(row)}
+              <span class="verdict">{figure(row)}</span>
+            {/if}
           </span>
           {#if more}<span class="detail">{more}</span>{/if}
           <span class="line stats">
@@ -151,16 +148,18 @@
   }
   .verdict {
     margin-left: auto;
+    color: var(--color-muted);
     font-size: var(--text-sm);
-    font-weight: 600;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
   .verdict.positive {
     color: var(--color-positive);
+    font-weight: 600;
   }
   .verdict.negative {
     color: var(--color-negative);
+    font-weight: 600;
   }
   .detail {
     color: var(--color-muted);

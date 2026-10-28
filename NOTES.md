@@ -118,3 +118,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the change half (`backtest.direction_share`) deferred until more data per patch; UI review proposed (collapsed build, one marker), awaiting go.
 - 2026-10-28: UI redesign (ADR-056): one line per slot with options behind a click, numbers only for clear differences, Import next to the champion, a calm "League of Legends isn't open" state, works down to 420 px; layout bugs fixed (wrapping names, overflowing card).
   Open: check it on Windows against the real client (the shell window size, real icons); stat shards are no longer shown.
+- 2026-10-28: every estimate shows again, grey with its uncertainty ("+0.4% ± 1.0 vs others"), on each slot's line and in its options; colour and ▲/▼ only for clear differences (ADR-056, amended at the owner's request).
+  Open: the real-client check on Windows.

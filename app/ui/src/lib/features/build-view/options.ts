@@ -73,10 +73,38 @@ export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
 /** What the import writes for a slot: the player's pick, else Stronk's choice. */
 export const selected = <T>(slot: Slot<T>): Shown<T> | undefined => slot.rows.find((r) => r.selected);
 
-/** A clear result as the player reads it, "▲ +2.1%"; nothing for the rest (ADR-056). */
+/** An option's win impact with its uncertainty, "+0.4% ± 2.6", or "+0.4% ± 2.6 vs others" when
+ * it isn't compared with the most played option; null without an estimate. */
+export function figure(row: Row<unknown>): string | null {
+  if (row.wpa === null) return null;
+  const spread = row.ci ? ` ± ${(Math.abs(row.ci[1] - row.ci[0]) * 50).toFixed(1)}` : "";
+  return `${percent(row.wpa)}${spread}${row.versus === "alternatives" ? " vs others" : ""}`;
+}
+
+/** Why an option's number reads as it does: what it's measured against, its interval, and
+ * whether the difference is clear. */
+export function explain(row: Row<unknown>): string {
+  if (row.wpa === null) return "Too few comparable games to estimate its win impact";
+  const against =
+    row.versus === "most_played" ? "against the most played option" : "against the other options at this point";
+  const interval = row.ci ? `, 95% interval ${percent(row.ci[0])} to ${percent(row.ci[1])}` : "";
+  const reading =
+    row.confidence === "clearly_better"
+      ? "Clearly better: the difference holds once false discoveries are controlled."
+      : row.confidence === "clearly_worse"
+        ? "Clearly worse: the difference holds once false discoveries are controlled."
+        : row.confidence === "too_few_games"
+          ? "Too few comparable games for this number to mean much."
+          : row.confidence === "most_played"
+            ? "The most played option, which the others are compared with."
+            : "No clear difference: the interval is too wide to tell it apart from the most played option.";
+  return `Win probability added ${against}: ${percent(row.wpa)}${interval}. ${reading}`;
+}
+
+/** A clear result as the player reads it, "▲ +2.1% ± 1.3"; nothing for the rest (ADR-056). */
 export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "negative" } | null {
   if (row.wpa === null) return null;
-  if (row.confidence === "clearly_better") return { text: `▲ ${percent(row.wpa)}`, tone: "positive" };
-  if (row.confidence === "clearly_worse") return { text: `▼ ${percent(row.wpa)}`, tone: "negative" };
+  if (row.confidence === "clearly_better") return { text: `▲ ${figure(row)}`, tone: "positive" };
+  if (row.confidence === "clearly_worse") return { text: `▼ ${figure(row)}`, tone: "negative" };
   return null;
 }

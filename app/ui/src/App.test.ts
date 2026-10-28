@@ -78,7 +78,7 @@ describe("App with MockBackend", () => {
     ]);
   });
 
-  it("shows the build one slot a line, with a verdict only where an option is clearly better", async () => {
+  it("shows the build one slot a line, each with its number, coloured only when clearly better", async () => {
     const { app, next } = setup("ranked-jungle");
     await app.refresh();
     await next();
@@ -89,11 +89,15 @@ describe("App with MockBackend", () => {
     }
     expect(within(build).queryByRole("button", { pressed: true })).toBeNull(); // options stay closed
     expect(within(build).queryByText(/Popular|Most played|No clear difference/)).toBeNull();
-    const better = within(build).getByText("▲ +2.1% vs Black Cleaver"); // item 2, the only one
+    const better = within(build).getByText("▲ +2.1% ± 1.3 vs Black Cleaver"); // item 2, the only clear one
+    expect(better).toHaveClass("positive");
     expect(better).toHaveAttribute(
       "title",
-      "Win impact +2.1% against the most played option (95% interval +0.8% to +3.4%), from 640 games",
+      "Win probability added against the most played option: +2.1%, 95% interval +0.8% to +3.4%. Clearly better: the difference holds once false discoveries are controlled.",
     );
+    // Every other estimate shows too, grey, with its uncertainty and what it's measured against.
+    const runes = within(build).getByRole("button", { name: /^Runes / });
+    expect(within(runes).getByText(/^\+0\.4% ± \d\.\d vs others$/)).toHaveClass("muted");
   });
 
   it("shows each slot's alternatives with their share, win impact and confidence", async () => {
@@ -107,7 +111,7 @@ describe("App with MockBackend", () => {
     for (const slot of ["Runes", "Item 2", "Item 3"]) await openSlot(build, slot);
     expect(within(build).getByText("Electrocute · Domination + Precision")).toBeInTheDocument();
     expect(within(build).getAllByRole("button", { name: /^Death's Dance/ })).toHaveLength(2); // slots 2 and 3
-    expect(within(build).getAllByText("▼ −1.8%")).toHaveLength(1); // Death's Dance at slot 3
+    expect(within(build).getAllByText(/^▼ −1\.8%/)).toHaveLength(1); // Death's Dance at slot 3
     expect(within(build).getAllByText("· few games").length).toBeGreaterThan(0);
     // Sundered Sky, the pick at slot 2: 640 of 1,790 picks, +2.1% against Black Cleaver.
     const pick = within(build).getByRole("button", { name: /^Sundered Sky/, pressed: true });
