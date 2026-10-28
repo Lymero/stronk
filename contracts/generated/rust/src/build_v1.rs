@@ -18,6 +18,13 @@ pub struct Build {
     #[doc = "Riot platform or region id, lower case (for example \"euw1\")."]
     pub region: BuildRegion,
     pub role: Role,
+    #[doc = "Each rune row on its own, for information: every primary row, the secondary pair and every stat shard row (ADR-057). Imports still write a whole page from `runes`."]
+    #[serde(
+        rename = "runeChoices",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub rune_choices: ::std::vec::Vec<RuneChoice>,
     pub runes: ::std::vec::Vec<RuneOption>,
     #[doc = "Contract major version. A breaking change publishes a new version alongside this one."]
     #[serde(rename = "schemaVersion")]
@@ -442,6 +449,103 @@ impl ::std::convert::TryFrom<&str> for Role {
     }
 }
 impl ::std::convert::TryFrom<::std::string::String> for Role {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+#[doc = "One choice of one rune row, estimated among the choices of that row."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RuneChoice {
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub ci: ::std::option::Option<Interval>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub comparison: ::std::option::Option<RuneChoiceComparison>,
+    pub flags: ::std::vec::Vec<Flag>,
+    #[doc = "Games with this choice."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub games: ::std::option::Option<u64>,
+    #[doc = "A primary tree's row, the secondary tree's two runes, or a stat shard row."]
+    pub kind: RuneChoiceKind,
+    #[doc = "Decisions behind the estimate."]
+    pub n: u64,
+    #[doc = "The rune or shard chosen, or the secondary pair, smallest id first."]
+    pub perks: ::std::vec::Vec<u64>,
+    #[doc = "The row, for primary rows (after the keystone) and shard rows."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub row: ::std::option::Option<::std::num::NonZeroU64>,
+    #[doc = "The tree, for primary rows and secondary pairs."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub style: ::std::option::Option<u64>,
+    #[doc = "Win probability added against the row's other choices; null when not estimated."]
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub wpa: ::std::option::Option<f64>,
+}
+#[doc = "The choice head to head with its row's most played choice (ADR-036)."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RuneChoiceComparison {
+    #[doc = "95% interval of `wpa`."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ci: ::std::option::Option<Interval>,
+    #[doc = "False-discovery-adjusted p-value of no difference, across the patch."]
+    pub q: f64,
+    #[doc = "The row's most played choice: one rune or shard, or the secondary pair."]
+    pub versus: ::std::vec::Vec<u64>,
+    #[doc = "Win probability added by this choice against `versus`."]
+    pub wpa: f64,
+}
+#[doc = "A primary tree's row, the secondary tree's two runes, or a stat shard row."]
+#[derive(
+    :: serde :: Deserialize,
+    :: serde :: Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum RuneChoiceKind {
+    #[serde(rename = "primary")]
+    Primary,
+    #[serde(rename = "secondary")]
+    Secondary,
+    #[serde(rename = "shard")]
+    Shard,
+}
+impl ::std::fmt::Display for RuneChoiceKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Primary => f.write_str("primary"),
+            Self::Secondary => f.write_str("secondary"),
+            Self::Shard => f.write_str("shard"),
+        }
+    }
+}
+impl ::std::str::FromStr for RuneChoiceKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "primary" => Ok(Self::Primary),
+            "secondary" => Ok(Self::Secondary),
+            "shard" => Ok(Self::Shard),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for RuneChoiceKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for RuneChoiceKind {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,

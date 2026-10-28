@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Plan, Row } from "../../backend/backend.ts";
-import { allPopular, explain, figure, mostPlayed, options, percent, selected, share, verdict } from "./options.ts";
+import { allPopular, explain, figure, mostPlayed, options, percent, runeRows, selected, share, verdict } from "./options.ts";
 
 const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   value,
@@ -39,6 +39,7 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
         more: 2,
       },
     ],
+    rune_rows: [],
   },
   ...over,
 });
@@ -121,5 +122,36 @@ describe("options", () => {
     expect(allPopular(plan())).toBe(true);
     const better = { slot: 4, value: 10, label: "clearly_better", wpa: 0.02, ci: null, games: 5 } as const;
     expect(allPopular(plan({ items: [better] }))).toBe(false);
+  });
+});
+
+describe("rune rows", () => {
+  const page = { primary_style: 8000, sub_style: 8300, perks: [8010, 9111, 9104, 8014, 8347, 8304, 5005, 5008, 5001] };
+  const rows: Plan["alternatives"]["rune_rows"] = [
+    { kind: "shard", style: null, row: 2, rows: [row([5010]), row([5008])], more: 0 },
+    { kind: "secondary", style: 8300, row: null, rows: [row([8304, 8347])], more: 0 },
+    { kind: "primary", style: 8100, row: 1, rows: [row([8143])], more: 0 },
+    { kind: "primary", style: 8000, row: 1, rows: [row([9111]), row([8009], { listed: false })], more: 1 },
+  ];
+  const withRows = plan({ alternatives: { ...plan().alternatives, rune_rows: rows } });
+
+  it("keeps the page's trees, primary rows first, and selects the page's choices", () => {
+    const shown = runeRows(withRows, page);
+    expect(shown.map((r) => r.key)).toEqual(["primary-8000-1", "secondary-8300-", "shard--2"]);
+    expect(shown.map((r) => r.slot.rows.filter((x) => x.selected).map((x) => x.value))).toEqual([
+      [[9111]],
+      [[8304, 8347]], // the page lists the pair in its own order
+      [[5008]],
+    ]);
+    expect(shown[0]?.slot.more).toBe(1);
+  });
+
+  it("selects nothing in a row the page doesn't match", () => {
+    const other = { ...page, perks: [8010, 8009, 9104, 8014, 8347, 8304, 5005, 5007, 5001] };
+    const shown = runeRows(withRows, other);
+    // Presence of Mind is past the short list, but the page has it: it's listed.
+    expect(shown[0]?.slot.rows.find((x) => x.selected)?.value).toEqual([8009]);
+    expect(shown[0]?.slot.more).toBe(0);
+    expect(shown[2]?.slot.rows.some((x) => x.selected)).toBe(false);
   });
 });

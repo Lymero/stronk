@@ -120,3 +120,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: check it on Windows against the real client (the shell window size, real icons); stat shards are no longer shown.
 - 2026-10-28: every estimate shows again, grey with its uncertainty ("+0.4% ± 1.0 vs others"), on each slot's line and in its options; colour and ▲/▼ only for clear differences (ADR-056, amended at the owner's request).
   Open: the real-client check on Windows.
+- 2026-10-28: runes and shards row by row (ADR-057): extract adds a decision per primary row, secondary pair and shard row; `runeChoices` in build.v1; `build.plan` ranks `rune_rows`; the runes slot shows "Rune by rune" with every choice's number, for reading; no middle dots in the UI (`Facts`).
+  Open: rebuild the real data (`just data-real`) so the rows appear in the app; picking single runes is not supported.

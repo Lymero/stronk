@@ -3,7 +3,9 @@
 //! rule (ADR-049). Writes nothing.
 
 use serde::{Deserialize, Serialize};
-use stronk_contracts::build_v1::{Build, Comparison, Flag, Interval};
+use stronk_contracts::build_v1::{
+    Build, Comparison, Flag, Interval, RuneChoice, RuneChoiceComparison, RuneChoiceKind,
+};
 use stronk_domain::Role;
 use stronk_domain::select::{self, Candidate, Choice, Ranked, choose, choose_items, rank};
 
@@ -50,6 +52,28 @@ pub struct Alternatives {
     pub runes: Ranked<Page>,
     pub spells: Ranked<(i64, i64)>,
     pub items: Vec<SlotRanked>,
+    /// Each rune row on its own, for information (ADR-057): imports write whole pages.
+    pub rune_rows: Vec<RuneRow>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RowKind {
+    Primary,
+    Secondary,
+    Shard,
+}
+
+/// The choices of one rune row: a primary tree's row, a secondary tree's pair, or a shard row.
+/// Values are the runes chosen (two for a pair, smallest first); `chosen` marks the one in the
+/// page Stronk imports.
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
+pub struct RuneRow {
+    pub kind: RowKind,
+    pub style: Option<i64>,
+    pub row: Option<u64>,
+    #[serde(flatten)]
+    pub ranked: Ranked<Vec<i64>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
@@ -159,6 +183,7 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         .collect();
     let runes_choice = choose(&runes);
     let spells_choice = choose(&spells);
+    let rune_rows = rune_rows(&build.rune_choices, runes_choice.as_ref().map(|c| &c.value));
     let alternatives = Alternatives {
         runes: rank(&runes, runes_choice.as_ref().map(|c| &c.value)),
         spells: rank(&spells, spells_choice.as_ref().map(|c| &c.value)),
@@ -172,6 +197,7 @@ pub fn plan(build: &Build, role: Role) -> Plan {
                 }
             })
             .collect(),
+        rune_rows,
     };
     Plan {
         champion: build.champion.to_string(),
@@ -184,6 +210,91 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         spells: spells_choice,
         items,
         alternatives,
+    }
+}
+
+/// The published rune choices grouped by row, primary rows first, then pairs, then shards, each
+/// ranked by the same rule as every slot; the row's choice in `page` is marked chosen.
+fn rune_rows(choices: &[RuneChoice], page: Option<&Page>) -> Vec<RuneRow> {
+    let mut rows: Vec<(RowKind, Option<i64>, Option<u64>)> = choices.iter().map(row_of).collect();
+    rows.sort_unstable();
+    rows.dedup();
+    rows.into_iter()
+        .map(|(kind, style, row)| {
+            let candidates: Vec<Candidate<Vec<i64>>> = choices
+                .iter()
+                .filter(|c| row_of(c) == (kind, style, row))
+                .map(|c| {
+                    let value: Vec<i64> = c.perks.iter().map(|p| to_i64(*p)).collect();
+                    Candidate {
+                        id: perks_id(&value),
+                        value,
+                        played: c.games.unwrap_or(c.n),
+                        wpa: c.wpa,
+                        ci: c.ci.as_ref().map(interval),
+                        too_few: too_few(&c.flags),
+                        unclear: c.flags.contains(&Flag::NoClearDifference),
+                        fragile: c.flags.contains(&Flag::Fragile),
+                        comparison: c.comparison.as_ref().map(row_compared),
+                    }
+                })
+                .collect();
+            let chosen = page.and_then(|p| in_page(p, kind, style, row));
+            RuneRow {
+                kind,
+                style,
+                row,
+                ranked: rank(&candidates, chosen.as_ref()),
+            }
+        })
+        .collect()
+}
+
+fn row_of(c: &RuneChoice) -> (RowKind, Option<i64>, Option<u64>) {
+    let kind = match c.kind {
+        RuneChoiceKind::Primary => RowKind::Primary,
+        RuneChoiceKind::Secondary => RowKind::Secondary,
+        RuneChoiceKind::Shard => RowKind::Shard,
+    };
+    (kind, c.style.map(to_i64), c.row.map(|r| r.get()))
+}
+
+/// What `page` has in a row: perks are the keystone, three primary runes, two secondary runes,
+/// then three shards.
+fn in_page(page: &Page, kind: RowKind, style: Option<i64>, row: Option<u64>) -> Option<Vec<i64>> {
+    let at = |i: u64| {
+        usize::try_from(i)
+            .ok()
+            .and_then(|i| page.perks.get(i))
+            .copied()
+    };
+    match kind {
+        RowKind::Primary if style == Some(page.primary_style) => at(row?).map(|r| vec![r]),
+        RowKind::Secondary if style == Some(page.sub_style) => {
+            let mut pair = vec![at(4)?, at(5)?];
+            pair.sort_unstable();
+            Some(pair)
+        }
+        RowKind::Shard => at(row? + 5).map(|r| vec![r]),
+        RowKind::Primary | RowKind::Secondary => None,
+    }
+}
+
+/// A row's choice as one id for comparisons: the rune, or a pair as `low * 100000 + high`.
+fn perks_id(perks: &[i64]) -> i64 {
+    match perks {
+        [one] => *one,
+        [low, high] => low.saturating_mul(100_000).saturating_add(*high),
+        _ => -1,
+    }
+}
+
+fn row_compared(c: &RuneChoiceComparison) -> select::Comparison {
+    let versus: Vec<i64> = c.versus.iter().map(|v| to_i64(*v)).collect();
+    select::Comparison {
+        versus: perks_id(&versus),
+        wpa: c.wpa,
+        ci: c.ci.as_ref().map(interval),
     }
 }
 

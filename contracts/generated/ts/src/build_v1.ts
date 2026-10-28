@@ -23,6 +23,13 @@ export type Flag = "low_sample" | "low_overlap" | "no_clear_difference" | "fragi
  * @maxItems 2
  */
 export type Interval1 = [number, number];
+/**
+ * 95% interval [low, high] of the WPA estimate.
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Interval2 = [number, number];
 
 /**
  * Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json.
@@ -54,6 +61,10 @@ export interface Build {
   items: ItemOption[];
   spells: SpellOption[];
   skillOrder?: SkillOrderOption[];
+  /**
+   * Each rune row on its own, for information: every primary row, the secondary pair and every stat shard row (ADR-057). Imports still write a whole page from `runes`.
+   */
+  runeChoices?: RuneChoice[];
 }
 export interface RuneOption {
   page: RunePage;
@@ -335,4 +346,64 @@ export interface SkillOrderOption {
         "Q" | "W" | "E" | "R"
       ];
   n: number;
+}
+/**
+ * One choice of one rune row, estimated among the choices of that row.
+ */
+export interface RuneChoice {
+  /**
+   * A primary tree's row, the secondary tree's two runes, or a stat shard row.
+   */
+  kind: "primary" | "secondary" | "shard";
+  /**
+   * The tree, for primary rows and secondary pairs.
+   */
+  style?: number;
+  /**
+   * The row, for primary rows (after the keystone) and shard rows.
+   */
+  row?: number;
+  /**
+   * The rune or shard chosen, or the secondary pair, smallest id first.
+   *
+   * @minItems 1
+   * @maxItems 2
+   */
+  perks: [number] | [number, number];
+  /**
+   * Games with this choice.
+   */
+  games?: number;
+  /**
+   * Win probability added against the row's other choices; null when not estimated.
+   */
+  wpa: number | null;
+  ci: Interval | null;
+  /**
+   * Decisions behind the estimate.
+   */
+  n: number;
+  flags: Flag[];
+  comparison?: RuneChoiceComparison;
+}
+/**
+ * The choice head to head with its row's most played choice (ADR-036).
+ */
+export interface RuneChoiceComparison {
+  /**
+   * The row's most played choice: one rune or shard, or the secondary pair.
+   *
+   * @minItems 1
+   * @maxItems 2
+   */
+  versus: [number] | [number, number];
+  /**
+   * Win probability added by this choice against `versus`.
+   */
+  wpa: number;
+  /**
+   * False-discovery-adjusted p-value of no difference, across the patch.
+   */
+  q: number;
+  ci?: Interval2;
 }

@@ -90,6 +90,12 @@ const names: GameNames = {
     "8345": "Biscuit Delivery",
     "8005": "Press the Attack",
     "8009": "Presence of Mind",
+    "9105": "Legend: Haste",
+    "9103": "Legend: Bloodline",
+    "8017": "Cut Down",
+    "8299": "Last Stand",
+    "5010": "Move Speed",
+    "5011": "Health",
     "8429": "Conditioning",
     "8451": "Overgrowth",
   },
@@ -132,6 +138,90 @@ function row<T>(value: T, played: number, total: number, rest: Partial<Row<T>> =
 /** An option past the short list: played less, shown when the player asks for every option. */
 const rare = <T>(value: T, played: number, total: number, rest: Partial<Row<T>> = {}): Row<T> =>
   row(value, played, total, { confidence: "too_few_games", listed: false, ...rest });
+
+/** Lee Sin's rune rows (ADR-057): each row of Precision and of Domination, Inspiration's pairs and
+ * the three shard rows; the conqueror page's choices are chosen. */
+const leeSinRuneRows: Alternatives["rune_rows"] = [
+  {
+    kind: "primary",
+    style: 8000,
+    row: 1,
+    rows: [
+      row([9111], 1480, 1740, { wpa: 0.002, ci: [-0.006, 0.01], confidence: "most_played", chosen: true }),
+      row([8009], 260, 1740, { wpa: -0.006, ci: [-0.027, 0.015], versus: "most_played" }),
+    ],
+    more: 0,
+  },
+  {
+    kind: "primary",
+    style: 8000,
+    row: 2,
+    rows: [
+      row([9104], 1210, 1740, { wpa: 0.003, ci: [-0.006, 0.012], confidence: "most_played", chosen: true }),
+      row([9105], 470, 1740, { wpa: -0.004, ci: [-0.019, 0.011], versus: "most_played" }),
+      rare([9103], 60, 1740),
+    ],
+    more: 1,
+  },
+  {
+    kind: "primary",
+    style: 8000,
+    row: 3,
+    rows: [
+      row([8014], 990, 1740, { wpa: 0.001, ci: [-0.009, 0.011], confidence: "most_played", chosen: true }),
+      row([8017], 610, 1740, { wpa: 0.004, ci: [-0.009, 0.017], versus: "most_played" }),
+      row([8299], 140, 1740, { confidence: "too_few_games" }),
+    ],
+    more: 0,
+  },
+  {
+    kind: "primary",
+    style: 8100,
+    row: 1,
+    rows: [row([8143], 560, 560, { wpa: 0.0, ci: [-0.012, 0.012], confidence: "most_played" })],
+    more: 0,
+  },
+  {
+    kind: "secondary",
+    style: 8300,
+    row: null,
+    rows: [
+      row([8304, 8347], 1020, 1100, { wpa: 0.001, ci: [-0.01, 0.012], confidence: "most_played", chosen: true }),
+      row([8345, 8347], 80, 1100, { confidence: "too_few_games" }),
+    ],
+    more: 0,
+  },
+  {
+    kind: "shard",
+    style: null,
+    row: 1,
+    rows: [
+      row([5005], 1650, 1840, { wpa: 0.001, ci: [-0.008, 0.01], confidence: "most_played", chosen: true }),
+      row([5008], 190, 1840, { confidence: "too_few_games" }),
+    ],
+    more: 0,
+  },
+  {
+    kind: "shard",
+    style: null,
+    row: 2,
+    rows: [
+      row([5008], 1500, 1840, { wpa: 0.002, ci: [-0.007, 0.011], confidence: "most_played", chosen: true }),
+      row([5010], 340, 1840, { wpa: -0.011, ci: [-0.03, 0.008], versus: "most_played" }),
+    ],
+    more: 0,
+  },
+  {
+    kind: "shard",
+    style: null,
+    row: 3,
+    rows: [
+      row([5001], 1220, 1840, { wpa: 0.0, ci: [-0.01, 0.01], confidence: "most_played", chosen: true }),
+      row([5011], 620, 1840, { wpa: 0.003, ci: [-0.012, 0.018], versus: "most_played" }),
+    ],
+    more: 0,
+  },
+];
 
 /** Lee Sin's alternatives: several options per slot, some past the short list, one clearly better item at slot 2 (the
  * plan's choice), one clearly worse, one fragile, and rare options with too few games. */
@@ -192,6 +282,7 @@ const leeSinAlternatives: Alternatives = {
       more: 1,
     },
   ],
+  rune_rows: leeSinRuneRows,
 };
 
 /** Graves: a small build file where nothing has enough games to compare. */
@@ -202,6 +293,7 @@ const gravesAlternatives: Alternatives = {
   },
   spells: { rows: [row<[number, number]>([11, 4], 140, 140, { confidence: "too_few_games", chosen: true })], more: 0 },
   items: [{ slot: 1, rows: [row(6676, 60, 60, { confidence: "too_few_games", chosen: true })], more: 0 }],
+  rune_rows: [],
 };
 
 const leeSin: Plan = {

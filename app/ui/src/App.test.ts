@@ -46,6 +46,9 @@ async function openSlot(build: HTMLElement, slot: string) {
   await fireEvent.click(within(build).getByRole("button", { name: new RegExp(`^${slot} `) }));
 }
 
+/** The facts of a line, one per item: "Jungle", "Locked in"... */
+const facts = (el: HTMLElement) => [...el.querySelectorAll(".facts > span")].map((s) => s.textContent);
+
 const imports = (backend: MockBackend) => backend.calls.filter((c) => c.id === "build.import").length;
 
 describe("App with MockBackend", () => {
@@ -70,7 +73,8 @@ describe("App with MockBackend", () => {
     await next();
     expect(await screen.findByRole("heading", { name: "Lee Sin" })).toBeInTheDocument();
     await next();
-    expect(await screen.findByText("Jungle · Locked in · Final changes")).toBeInTheDocument();
+    expect(await screen.findByText("Locked in")).toBeInTheDocument();
+    expect(facts(screen.getByLabelText("Champion select"))).toEqual(["Jungle", "Locked in", "Final changes"]);
     const planned = backend.calls.filter((c) => c.id === "build.plan").map((c) => c.params);
     expect(planned).toEqual([
       { champion: "Graves", role: "JUNGLE" },
@@ -106,19 +110,57 @@ describe("App with MockBackend", () => {
     await next();
     await next();
     const build = screen.getByLabelText("Build");
-    expect(await within(build).findByText(/16\.20 · 1,840 games · Master\+ · All regions/)).toBeInTheDocument();
+    expect(await within(build).findByText("Patch 16.20")).toBeInTheDocument();
+    expect(facts(within(build).getByText("Patch 16.20").parentElement as HTMLElement)).toEqual([
+      "Patch 16.20",
+      "1,840 games",
+      "Master+",
+      "All regions",
+    ]);
     expect(within(build).getByTitle(/Stronk imports the most played options, except where another one is clearly better\./)).toBeInTheDocument();
     for (const slot of ["Runes", "Item 2", "Item 3"]) await openSlot(build, slot);
-    expect(within(build).getByText("Electrocute · Domination + Precision")).toBeInTheDocument();
+    expect(within(build).getByText("Electrocute (Domination + Precision)")).toBeInTheDocument();
     expect(within(build).getAllByRole("button", { name: /^Death's Dance/ })).toHaveLength(2); // slots 2 and 3
     expect(within(build).getAllByText(/^▼ −1\.8%/)).toHaveLength(1); // Death's Dance at slot 3
-    expect(within(build).getAllByText("· few games").length).toBeGreaterThan(0);
+    expect(within(build).getAllByText("few games").length).toBeGreaterThan(0);
     // Sundered Sky, the pick at slot 2: 640 of 1,790 picks, +2.1% against Black Cleaver.
     const pick = within(build).getByRole("button", { name: /^Sundered Sky/, pressed: true });
-    expect(pick).toHaveTextContent("36% · 640 games");
+    expect(facts(pick)).toEqual(["36%", "640 games"]);
     expect(pick).toHaveTextContent("▲ +2.1%");
     // The rows come with the plan: nothing else is asked for them.
     expect(backend.calls.filter((c) => c.id === "build.get")).toEqual([]);
+  });
+
+  it("shows the page rune by rune, each row with its numbers, for reading only", async () => {
+    const { app, next } = setup("ranked-jungle");
+    await app.refresh();
+    for (let i = 0; i < 3; i++) await next();
+    const build = screen.getByLabelText("Build");
+    await openSlot(build, "Runes");
+    const byRune = within(build).getByRole("region", { name: "Rune by rune" });
+    const titles = within(byRune).getAllByRole("heading", { level: 5 }).map((h) => h.textContent);
+    expect(titles).toEqual([
+      "Precision row 1",
+      "Precision row 2",
+      "Precision row 3",
+      "Inspiration secondary",
+      "Offense shard",
+      "Flex shard",
+      "Defense shard",
+    ]);
+    expect(within(byRune).queryAllByRole("button", { pressed: true })).toEqual([]); // nothing to click
+    const triumph = within(byRune).getByText("Triumph").closest(".option") as HTMLElement;
+    expect(triumph).toHaveAttribute("aria-current", "true"); // in the page the import writes
+    expect(triumph).toHaveTextContent("+0.2% ± 0.8 vs others");
+    const moveSpeed = within(byRune).getByText("Move Speed").closest(".option") as HTMLElement;
+    expect(moveSpeed).toHaveTextContent("−1.1% ± 1.9");
+    expect(moveSpeed).toHaveAttribute("title", expect.stringMatching(/^Win probability added against the most played option/));
+    expect(within(byRune).getByText("Magical Footwear + Cosmic Insight")).toBeInTheDocument();
+
+    // Another page picked: its own trees' rows, the shards stay.
+    await fireEvent.click(within(build).getByRole("button", { name: /^Electrocute/ }));
+    const rows = within(byRune).getAllByRole("heading", { level: 5 }).map((h) => h.textContent);
+    expect(rows).toEqual(["Domination row 1", "Offense shard", "Flex shard", "Defense shard"]);
   });
 
   it("imports the option the player clicks instead of Stronk's, until reset", async () => {
@@ -139,7 +181,7 @@ describe("App with MockBackend", () => {
 
     // Changing a pick after the import says so; Stronk's picks come back with one click.
     await openSlot(build, "Spells");
-    const smiteIgnite = within(build).getByRole("button", { name: /^Smite · Ignite/ });
+    const smiteIgnite = within(build).getByRole("button", { name: /^Smite \+ Ignite/ });
     await fireEvent.click(smiteIgnite);
     expect(screen.getByRole("status")).toHaveTextContent("Your picks changed since: import again to use them.");
     await fireEvent.click(screen.getByRole("button", { name: "Use Stronk's picks" }));
@@ -156,7 +198,7 @@ describe("App with MockBackend", () => {
     const build = screen.getByLabelText("Build");
     for (const slot of ["Runes", "Item 1", "Item 2", "Item 3"]) await openSlot(build, slot);
     expect(within(build).getByText("Show 2 more")).toBeInTheDocument(); // rune pages
-    expect(within(build).getAllByText("Show 1 more")).toHaveLength(3); // items
+    expect(within(build).getAllByText("Show 1 more")).toHaveLength(4); // items, and Precision row 2
     const deathsDance = () => within(build).getAllByRole("button", { name: /^Death's Dance/ });
     await fireEvent.click(deathsDance()[0] as HTMLElement); // slot 2
     await fireEvent.click(deathsDance()[1] as HTMLElement); // slot 3
@@ -233,10 +275,12 @@ describe("App with MockBackend", () => {
     await app.refresh();
     await next();
     await next();
-    expect(await screen.findByText("Jungle · Hovering · Bans and picks")).toBeInTheDocument();
-    expect(screen.getByText("Conqueror · Precision + Inspiration")).toBeInTheDocument();
-    expect(screen.getByText("Triumph · Legend: Alacrity · Coup de Grace · Magical Footwear · Cosmic Insight")).toBeInTheDocument();
-    expect(screen.getByText("Smite · Flash")).toBeInTheDocument();
+    expect(await screen.findByText("Bans and picks")).toBeInTheDocument();
+    expect(facts(screen.getByLabelText("Champion select"))).toEqual(["Jungle", "Hovering", "Bans and picks"]);
+    expect(screen.getByText("Conqueror (Precision + Inspiration)")).toBeInTheDocument();
+    expect(screen.getByText("Triumph, Legend: Alacrity, Coup de Grace, Magical Footwear, Cosmic Insight")).toBeInTheDocument();
+    expect(screen.getByText("Smite + Flash")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("·"); // no middle dots anywhere
     expect(screen.getByText("Sundered Sky")).toBeInTheDocument();
   });
 

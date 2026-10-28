@@ -1,8 +1,12 @@
 """Where players make the choices we score (docs/wpa-method.md, section 2; ADR-026).
 
 - Slot 0, champion select: the keystone rune.
-- Slot k >= 1: the k-th completed item. The decision is anchored at the first component bought
-  after slot k - 1 was completed (for slot 1, after the starting purchases), so every option
+- Champion select, the rest of the rune page (ADR-057), one decision each: every row of the
+  primary tree (slot `tree * 10 + row`, rows 1 to 3, option the rune), the secondary tree's two
+  runes as a pair (slot `tree * 10 + 5`, option `"low,high"`), and every stat shard row (slot
+  `50000 + row`). A row only compares runes of the same tree, as the client offers them.
+- Slot k from 1 to 6: the k-th completed item. The decision is anchored at the first component
+  bought after slot k - 1 was completed (for slot 1, after the starting purchases), so every option
   is compared from the state the player was in when they started building it.
 
 A slot still unfinished when the game ends keeps its decision if the components bought so far
@@ -21,6 +25,29 @@ from stronk_pipeline.domain.static import StaticData
 STARTING_PURCHASES_MS = 90_000
 """Purchases before this are the starting items, not a decision about slot 1."""
 MAX_SLOT = 6
+SECONDARY_ROW = 5
+"""`tree * 10 + SECONDARY_ROW` is the secondary pair's slot."""
+SHARD_SLOTS = 50_000
+"""`SHARD_SLOTS + row` is a stat shard row's slot."""
+
+
+def rune_slot(tree: int, row: int) -> int:
+    """A primary tree's row (1 to 3), or its secondary pair (`SECONDARY_ROW`)."""
+    return tree * 10 + row
+
+
+def is_rune_slot(slot: int) -> bool:
+    """Champion select's choices besides the keystone: rune rows, secondary pairs, shards."""
+    return slot > MAX_SLOT
+
+
+def rune_row(slot: int) -> tuple[str, int | None, int | None]:
+    """A rune slot as (kind, tree, row): `("primary", 8000, 1)`, `("secondary", 8100, None)`,
+    `("shard", None, 2)`."""
+    if SHARD_SLOTS < slot < SHARD_SLOTS + 10:
+        return ("shard", None, slot - SHARD_SLOTS)
+    tree, row = divmod(slot, 10)
+    return ("secondary", tree, None) if row == SECONDARY_ROW else ("primary", tree, row)
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,10 +62,38 @@ class DecisionPoint:
 
 def decision_points(match: Match, static: StaticData, dropped: Counter[str]) -> list[DecisionPoint]:
     points = [DecisionPoint(p.participant_id, 0, 0, str(p.keystone)) for p in match.participants]
+    for p in match.participants:
+        points.extend(
+            _rune_rows(p.participant_id, p.primary_style, p.sub_style, p.perks, p.stat_perks)
+        )
     for participant in match.participants:
         purchases = _kept_purchases(match.items, participant.participant_id)
         points.extend(_item_slots(participant.participant_id, purchases, static, dropped))
     return points
+
+
+def _rune_rows(
+    participant_id: int,
+    primary: int,
+    secondary: int,
+    perks: tuple[int, ...],
+    shards: tuple[int, ...],
+) -> list[DecisionPoint]:
+    """The page after its keystone: perks are the keystone, three primary runes in row order,
+    then two secondary runes; a page that isn't whole adds nothing."""
+    if len(perks) != 6 or len(shards) != 3:
+        return []
+    rows = [
+        DecisionPoint(participant_id, rune_slot(primary, row), 0, str(rune))
+        for row, rune in enumerate(perks[1:4], start=1)
+    ]
+    pair = ",".join(str(r) for r in sorted(perks[4:6]))
+    rows.append(DecisionPoint(participant_id, rune_slot(secondary, SECONDARY_ROW), 0, pair))
+    rows.extend(
+        DecisionPoint(participant_id, SHARD_SLOTS + row, 0, str(shard))
+        for row, shard in enumerate(shards, start=1)
+    )
+    return rows
 
 
 def _kept_purchases(events: tuple[ItemEvent, ...], participant_id: int) -> list[ItemEvent]:

@@ -13,16 +13,16 @@ test("follows champion select and shows the plan by name", async ({ page }) => {
   await expect(page.getByText("Waiting for champion select")).toBeVisible();
   await next(page);
   await expect(page.getByRole("heading", { name: "Graves" })).toBeVisible();
-  await expect(page.getByText("Jungle · Hovering · Declaring picks")).toBeVisible();
+  await expect(page.getByLabel("Champion select").locator(".facts > span")).toHaveText(["Jungle", "Hovering", "Declaring picks"]);
   await next(page);
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible();
-  await expect(page.getByText("Conqueror · Precision + Inspiration")).toBeVisible();
-  await expect(page.getByText("Smite · Flash")).toBeVisible();
+  await expect(page.getByText("Conqueror (Precision + Inspiration)")).toBeVisible();
+  await expect(page.getByText("Smite + Flash")).toBeVisible();
   await expect(page.getByText("▲ +2.1% ± 1.3 vs Black Cleaver")).toBeVisible();
   await expect(page.getByLabel("Champion select").locator("img")).toHaveAttribute("src", /^data:image\/svg\+xml,/);
   await screenshot(page, "mock-hovering");
   await next(page);
-  await expect(page.getByText("Jungle · Locked in · Final changes")).toBeVisible();
+  await expect(page.getByLabel("Champion select").locator(".facts > span")).toHaveText(["Jungle", "Locked in", "Final changes"]);
   await page.getByRole("button", { name: "Import" }).click();
   await expect(page.getByRole("status")).toHaveText(/Imported: Rune page, Item set, Spells\./);
   await screenshot(page, "mock-imported");
@@ -37,7 +37,7 @@ test("imports the options the player clicks", async ({ page }) => {
   await build.getByRole("button", { name: /^Black Cleaver/ }).click();
   await build.getByRole("button", { name: /^Electrocute/ }).click();
   await expect(build.getByRole("button", { name: /^Black Cleaver/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(build.getByRole("button", { name: /^Runes Electrocute · Domination \+ Precision/ })).toContainText("Your pick");
+  await expect(build.getByRole("button", { name: /^Runes Electrocute \(Domination \+ Precision\)/ })).toContainText("Your pick");
   await screenshot(page, "mock-picked");
   await page.getByRole("button", { name: "Import" }).click();
   await expect(page.getByRole("status")).toHaveText(/Imported: Rune page, Item set, Spells\./);
@@ -53,7 +53,7 @@ test("lists every option on request, and keeps picks after a restart", async ({ 
   await build.getByRole("button", { name: "Show 2 more" }).click();
   await build.getByRole("button", { name: /^Press the Attack/ }).click();
   await openSlot(page, "Item 1");
-  await build.getByRole("button", { name: "Show 1 more" }).click();
+  await build.locator("#slot-item-1").getByRole("button", { name: "Show 1 more" }).click();
   await build.getByRole("button", { name: /^The Collector/ }).click();
   await expect(build.getByRole("button", { name: /^The Collector/ })).toHaveAttribute("aria-pressed", "true");
   await screenshot(page, "mock-all-options");
@@ -61,7 +61,7 @@ test("lists every option on request, and keeps picks after a restart", async ({ 
   await page.reload(); // the app starts again
   for (let i = 0; i < 3; i++) await next(page);
   await expect(build.getByRole("button", { name: /^Item 1 The Collector/ })).toContainText("Your pick");
-  await expect(build.getByRole("button", { name: /^Runes Press the Attack · Precision \+ Resolve/ })).toContainText("Your pick");
+  await expect(build.getByRole("button", { name: /^Runes Press the Attack \(Precision \+ Resolve\)/ })).toContainText("Your pick");
   await openSlot(page, "Item 1");
   await expect(build.getByRole("button", { name: /^The Collector/ })).toHaveAttribute("aria-pressed", "true");
   await screenshot(page, "mock-picks-restored");
@@ -69,6 +69,16 @@ test("lists every option on request, and keeps picks after a restart", async ({ 
   await page.reload();
   for (let i = 0; i < 3; i++) await next(page);
   await expect(build.getByRole("button", { name: /^Item 1 Eclipse/ })).toBeVisible();
+});
+
+test("shows the page rune by rune", async ({ page }) => {
+  await page.goto("/?scenario=ranked-jungle");
+  for (let i = 0; i < 3; i++) await next(page);
+  await openSlot(page, "Runes");
+  const byRune = page.getByRole("region", { name: "Rune by rune" });
+  await expect(byRune.getByRole("heading", { level: 5 })).toHaveCount(7);
+  await expect(byRune.locator(".option[aria-current]")).toHaveCount(7); // the page's choice in each row
+  await screenshot(page, "mock-rune-by-rune");
 });
 
 test("fits a narrow window, one slot a line", async ({ page }) => {

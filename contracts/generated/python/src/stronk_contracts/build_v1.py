@@ -101,6 +101,77 @@ class RuneOption(BaseModel):
     comparison: Comparison | None = None
 
 
+class Versu(RootModel[int]):
+    root: Annotated[int, Field(ge=0)]
+
+
+class RuneChoiceComparison(BaseModel):
+    """
+    The choice head to head with its row's most played choice (ADR-036).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    versus: Annotated[list[Versu], Field(max_length=2, min_length=1)]
+    """
+    The row's most played choice: one rune or shard, or the secondary pair.
+    """
+    wpa: float
+    """
+    Win probability added by this choice against `versus`.
+    """
+    q: Annotated[float, Field(ge=0.0, le=1.0)]
+    """
+    False-discovery-adjusted p-value of no difference, across the patch.
+    """
+    ci: Interval | None = None
+    """
+    95% interval of `wpa`.
+    """
+
+
+class RuneChoice(BaseModel):
+    """
+    One choice of one rune row, estimated among the choices of that row.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    kind: Literal["primary", "secondary", "shard"]
+    """
+    A primary tree's row, the secondary tree's two runes, or a stat shard row.
+    """
+    style: Annotated[int | None, Field(ge=0)] = None
+    """
+    The tree, for primary rows and secondary pairs.
+    """
+    row: Annotated[int | None, Field(ge=1, le=3)] = None
+    """
+    The row, for primary rows (after the keystone) and shard rows.
+    """
+    perks: Annotated[list[Perk], Field(max_length=2, min_length=1)]
+    """
+    The rune or shard chosen, or the secondary pair, smallest id first.
+    """
+    games: Annotated[int | None, Field(ge=0)] = None
+    """
+    Games with this choice.
+    """
+    wpa: float | None
+    """
+    Win probability added against the row's other choices; null when not estimated.
+    """
+    ci: Interval | None
+    n: Annotated[int, Field(ge=0)]
+    """
+    Decisions behind the estimate.
+    """
+    flags: list[Flag]
+    comparison: RuneChoiceComparison | None = None
+
+
 class ItemOption(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -187,3 +258,7 @@ class Build(BaseModel):
     skill_order: Annotated[list[SkillOrderOption] | None, Field(alias="skillOrder")] = (
         None
     )
+    rune_choices: Annotated[list[RuneChoice] | None, Field(alias="runeChoices")] = None
+    """
+    Each rune row on its own, for information: every primary row, the secondary pair and every stat shard row (ADR-057). Imports still write a whole page from `runes`.
+    """

@@ -22,6 +22,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationEr
 from stronk_contracts.build_v1 import Build
 from stronk_contracts.manifest_v1 import Manifest
 from stronk_pipeline.application.registry import Command, CommandError
+from stronk_pipeline.domain.extract.decision_points import is_rune_slot, rune_row
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.publish import Played, played
 from stronk_pipeline.domain.result import Err, Ok, Result
@@ -196,6 +197,15 @@ def _builds(
             {"slot": e.slot, "item": int(e.option), "picks": e.chosen, **_numbers(e)}
             for e in _ranked(o for o in options if 1 <= o.slot <= 6)
         ]
+        choices = [
+            {
+                **_row_of(e.slot),
+                "perks": _perks(e.option),
+                "games": e.chosen,
+                **_numbers(e, versus=_perks),
+            }
+            for e in _ranked(o for o in options if is_rune_slot(o.slot))
+        ]
         spells = [
             {"spells": list(pair), "games": n, "wpa": None, "ci": None, "n": n, "flags": []}
             for pair, n in seen.spells.get((champion, role), [])[:SPELL_PAIRS]
@@ -212,10 +222,14 @@ def _builds(
                 "runes": runes,
                 "items": items,
                 "spells": spells,
+                "runeChoices": choices,
             }
         )
         data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order"})
-        for option in (*data["runes"], *data["items"]):
+        for option in (*data["runes"], *data["items"], *data["runeChoices"]):
+            for key in ("style", "row"):  # optional: absent, not null
+                if option.get(key, 0) is None:
+                    option.pop(key)
             if option.get("comparison") is None:  # optional: absent, not null
                 option.pop("comparison", None)
         files[f"{params.region}/{params.elo}/{champion}/{role}.json"] = _canonical(data)
@@ -227,7 +241,17 @@ def _ranked(options: Iterable[OptionEstimate]) -> list[OptionEstimate]:
     return sorted(options, key=lambda e: (e.slot, e.wpa is None, -(e.wpa or 0.0), -e.n, e.option))
 
 
-def _numbers(e: OptionEstimate) -> dict[str, object]:
+def _row_of(slot: int) -> dict[str, object]:
+    kind, tree, row = rune_row(slot)
+    return {"kind": kind, "style": tree, "row": row}
+
+
+def _perks(option: str) -> list[int]:
+    """A rune row's option: one id, or a secondary pair `"low,high"`."""
+    return [int(p) for p in option.split(",")]
+
+
+def _numbers(e: OptionEstimate, versus: Callable[[str], object] = int) -> dict[str, object]:
     numbers: dict[str, object] = {
         "wpa": None if e.wpa is None else round(e.wpa, 5),
         "ci": None if e.ci is None else [round(e.ci[0], 5), round(e.ci[1], 5)],
@@ -236,7 +260,7 @@ def _numbers(e: OptionEstimate) -> dict[str, object]:
     }
     if e.versus is not None and e.contrast is not None and e.q is not None:
         numbers["comparison"] = {
-            "versus": int(e.versus),
+            "versus": versus(e.versus),
             "wpa": round(e.contrast, 5),
             "q": round(e.q, 5),
             **({"ci": [round(v, 5) for v in e.contrast_ci]} if e.contrast_ci else {}),

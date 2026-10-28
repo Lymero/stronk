@@ -72,6 +72,11 @@ export type Confidence =
  */
 export type Versus = "most_played" | "alternatives";
 /**
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "RowKind".
+ */
+export type RowKind = "primary" | "secondary" | "shard";
+/**
  * Why an option was chosen; shown next to it in the UI.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -359,6 +364,10 @@ export interface Plan {
  */
 export interface Alternatives {
   items: SlotRanked[];
+  /**
+   * Each rune row on its own, for information (ADR-057): imports write whole pages.
+   */
+  rune_rows: RuneRow[];
   runes: PageRanked;
   spells: TupleOfInt64AndInt64Ranked;
 }
@@ -408,6 +417,62 @@ export interface Int64Row {
    */
   share: number;
   value: number;
+  versus: Versus;
+  /**
+   * Win probability added, against what `versus` says.
+   */
+  wpa: number | null;
+}
+/**
+ * The choices of one rune row: a primary tree's row, a secondary tree's pair, or a shard row.
+ * Values are the runes chosen (two for a pair, smallest first); `chosen` marks the one in the
+ * page Stronk imports.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "RuneRow".
+ */
+export interface RuneRow {
+  kind: RowKind;
+  /**
+   * Options played less, not listed until the player asks for every option.
+   */
+  more: number;
+  row: number | null;
+  rows: ArrayOfInt64Row[];
+  style: number | null;
+}
+/**
+ * One option of a slot, as the champion select view shows it (ADR-049).
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_int64Row".
+ */
+export interface ArrayOfInt64Row {
+  /**
+   * Stronk's choice for the slot.
+   */
+  chosen: boolean;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  ci: [number, number] | null;
+  confidence: Confidence;
+  fragile: boolean;
+  /**
+   * Listed before the player asks for every option: one of the [`SHOWN`] most played, or
+   * Stronk's choice.
+   */
+  listed: boolean;
+  /**
+   * Games (or picks) with this option.
+   */
+  played: number;
+  /**
+   * Its share of the slot's games, 0 to 1.
+   */
+  share: number;
+  value: number[];
   versus: Versus;
   /**
    * Win probability added, against what `versus` says.

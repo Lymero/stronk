@@ -2,6 +2,7 @@
   // A slot's options as a list to pick from (ADR-049, ADR-051): the short list first, the rest on
   // request. One marker for what the import writes (the highlighted row); a number only when the
   // difference with the most played option is clear (ADR-056).
+  import Facts from "../../ui/Facts.svelte";
   import Icon from "../../ui/Icon.svelte";
   import { games } from "../../ui/labels.ts";
   import { explain, figure, type Shown, type Slot, share, verdict } from "./options.ts";
@@ -20,8 +21,9 @@
     icons?: (value: T) => { src: string | null; name: string }[];
     /** A second, quieter line for an option (the rest of a rune page); none when empty. */
     detail?: (value: T) => string;
-    /** The player clicked an option: import it instead of Stronk's choice. */
-    onpick: (value: T) => void;
+    /** The player clicked an option: import it instead of Stronk's choice. Without it the list
+     * is for reading only (rune rows, ADR-057): the highlight marks what the import writes. */
+    onpick?: (value: T) => void;
   } = $props();
 
   /** Every option, after the player asked for them; the short list otherwise. */
@@ -35,16 +37,7 @@
     {@const more = detail?.(row.value)}
     {@const clear = verdict(row)}
     <li>
-      <button
-        type="button"
-        class="option"
-        class:selected={row.selected}
-        class:few={row.confidence === "too_few_games"}
-        aria-pressed={row.selected}
-        title={explain(row)}
-        onclick={() => onpick(row.value)}
-      >
-        <span class="mark" aria-hidden="true"></span>
+      {#snippet content()}
         <span class="body">
           <span class="line">
             {#each icons?.(row.value) ?? [] as i, n (n)}<Icon src={i.src} name={i.name} size="sm" />{/each}
@@ -59,12 +52,41 @@
           {#if more}<span class="detail">{more}</span>{/if}
           <span class="line stats">
             <span class="bar" aria-hidden="true"><span style:width={share(row.share)}></span></span>
-            <span>{share(row.share)} · {games(row.played)}</span>
-            {#if row.confidence === "too_few_games"}<span>· few games</span>{/if}
-            {#if row.fragile}<span title="A modest hidden factor could overturn this">· fragile</span>{/if}
+            <Facts
+              facts={[
+                share(row.share),
+                games(row.played),
+                row.confidence === "too_few_games" && "few games",
+                row.fragile && { text: "fragile", title: "A modest hidden factor could overturn this" },
+              ]}
+            />
           </span>
         </span>
-      </button>
+      {/snippet}
+      {#if onpick}
+        <button
+          type="button"
+          class="option"
+          class:selected={row.selected}
+          class:few={row.confidence === "too_few_games"}
+          aria-pressed={row.selected}
+          title={explain(row)}
+          onclick={() => onpick(row.value)}
+        >
+          <span class="mark" aria-hidden="true"></span>
+          {@render content()}
+        </button>
+      {:else}
+        <div
+          class="option static"
+          class:selected={row.selected}
+          class:few={row.confidence === "too_few_games"}
+          aria-current={row.selected ? "true" : undefined}
+          title={explain(row)}
+        >
+          {@render content()}
+        </div>
+      {/if}
     </li>
   {/each}
 </ol>
@@ -83,6 +105,7 @@
     list-style: none;
   }
   .option {
+    box-sizing: border-box;
     display: flex;
     gap: var(--space-3);
     align-items: flex-start;
@@ -102,6 +125,16 @@
   .option:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 1px;
+  }
+  .option.static {
+    padding-left: var(--space-3);
+    cursor: default;
+  }
+  .option.static:hover {
+    background: none;
+  }
+  .option.static.selected:hover {
+    background: var(--color-accent-bg);
   }
   .option.selected {
     border-color: var(--color-accent);

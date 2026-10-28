@@ -6,6 +6,7 @@ from stronk_pipeline.domain.extract.decision_points import (
     MAX_SLOT,
     DecisionPoint,
     decision_points,
+    is_rune_slot,
 )
 
 STATIC = domain_static()
@@ -17,7 +18,9 @@ def items_of(
 ) -> tuple[list[DecisionPoint], Counter[str]]:
     dropped: Counter[str] = Counter()
     points = decision_points(domain_match(events=events), STATIC, dropped)
-    return [p for p in points if p.participant_id == participant_id and p.slot > 0], dropped
+    return [
+        p for p in points if p.participant_id == participant_id and 1 <= p.slot <= MAX_SLOT
+    ], dropped
 
 
 def test_every_player_has_a_keystone_decision_in_champion_select() -> None:
@@ -25,6 +28,25 @@ def test_every_player_has_a_keystone_decision_in_champion_select() -> None:
     keystones = [p for p in points if p.slot == 0]
     assert len(keystones) == 10
     assert keystones[0] == DecisionPoint(1, 0, 0, "8010")
+
+
+def test_the_rest_of_the_page_is_one_decision_per_row() -> None:
+    """Rows of the primary tree, the secondary pair and each shard row, all at the start."""
+    points = decision_points(domain_match(), STATIC, Counter())
+    page = [p for p in points if p.participant_id == 1 and is_rune_slot(p.slot)]
+    primary = next(p for p in points if p.participant_id == 1 and p.slot == 0)
+    assert primary.option == "8010"
+    assert [(p.slot, p.option) for p in page] == [
+        (81001, "8139"),
+        (81002, "8138"),
+        (81003, "8135"),
+        (83005, "8345,8347"),
+        (50001, "5008"),
+        (50002, "5008"),
+        (50003, "5011"),
+    ]
+    assert {p.timestamp for p in page} == {0}
+    assert sum(1 for p in points if is_rune_slot(p.slot)) == 70
 
 
 def test_slot_is_anchored_at_the_first_component() -> None:

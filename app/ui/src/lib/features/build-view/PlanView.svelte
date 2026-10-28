@@ -3,6 +3,7 @@
   // a verdict only when it clearly beats the most played one or is the player's own pick, and
   // the slot's options behind a click.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
+  import Facts from "../../ui/Facts.svelte";
   import Icon from "../../ui/Icon.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
   import OptionList from "./OptionList.svelte";
@@ -13,6 +14,7 @@
     figure,
     mostPlayed,
     options as ranked,
+    runeRows,
     selected,
     type Slot,
     verdict,
@@ -41,7 +43,7 @@
   let open = $state<Record<string, boolean>>({});
   const toggle = (key: string) => (open = { ...open, [key]: !open[key] });
 
-  const source = $derived([plan.patch, games(plan.games), elo(plan.elo), region(plan.region)].join(" · "));
+  const source = $derived([`Patch ${plan.patch}`, games(plan.games), elo(plan.elo), region(plan.region)]);
   const how = $derived(
     (allPopular(plan)
       ? "No option beats the most played one clearly yet, so Stronk imports the most played build."
@@ -49,16 +51,26 @@
       " Open a slot and click any option to import it instead.",
   );
   const options = $derived(ranked(plan, picks));
+  /** The rune rows of the page the import writes. */
+  const byRune = $derived(plan.runes ? runeRows(plan, picks.runes ?? plan.runes.value) : []);
 
   const page = (p: Page) => {
     const [primary, secondary] = runePage(names, p);
-    return `${primary?.runes[0] ?? ""} · ${primary?.title ?? ""} + ${secondary?.title ?? ""}`;
+    return `${primary?.runes[0] ?? ""} (${primary?.title ?? ""} + ${secondary?.title ?? ""})`;
   };
   const pageDetail = (p: Page) => {
     const [primary, secondary] = runePage(names, p);
-    return [...(primary?.runes.slice(1) ?? []), ...(secondary?.runes ?? [])].join(" · ");
+    return [...(primary?.runes.slice(1) ?? []), ...(secondary?.runes ?? [])].join(", ");
   };
-  const spells = (pair: [number, number]) => pair.map((id) => name(names, "spells", id)).join(" · ");
+  const spells = (pair: [number, number]) => pair.map((id) => name(names, "spells", id)).join(" + ");
+  const runes = (ids: number[]) => ids.map((id) => name(names, "runes", id)).join(" + ");
+  const runeIcons = (ids: number[]) => ids.map((id) => shown("runes", id));
+  const SHARD_ROWS = ["Offense shard", "Flex shard", "Defense shard"];
+  /** A rune row's name: "Precision row 1", "Inspiration, secondary", "Flex shard". */
+  const rowTitle = (r: { kind: string; style: number | null; row: number | null }) =>
+    r.kind === "shard"
+      ? (SHARD_ROWS[(r.row ?? 1) - 1] ?? "Shard")
+      : `${name(names, "rune_styles", r.style ?? 0)} ${r.kind === "secondary" ? "secondary" : `row ${r.row ?? ""}`}`;
   const item = (id: number) => name(names, "items", id);
   const shown = (kind: "rune_styles" | "runes" | "spells" | "items", id: number) => ({
     src: icon(icons, kind, id),
@@ -93,7 +105,7 @@
     const number =
       clear && base && base !== row ? `${clear.text} vs ${label(base.value)}` : (figure(row) ?? "");
     const tone = clear && base !== row ? clear.tone : "muted";
-    const text = row.chosen ? number : number ? `Your pick · ${number}` : "Your pick";
+    const text = row.chosen ? number : number ? `Your pick: ${number}` : "Your pick";
     if (!text) return null;
     return { text, tone: row.chosen ? tone : "picked", title: explain(row) };
   }
@@ -147,7 +159,7 @@
 
 <section class="plan" aria-label="Build">
   <p class="meta">
-    {source}
+    <Facts facts={source} />
     <span class="how" title={how} aria-label={how}>How Stronk picks</span>
   </p>
 
@@ -182,6 +194,21 @@
               icons={pageIcons}
               onpick={(p) => onpick({ runes: p })}
             />
+            {#if byRune.length}
+              <section class="by-rune" aria-label="Rune by rune">
+                <h4>Rune by rune</h4>
+                <p class="hint">
+                  Each row of the page above against the other choices in that row. For reading: the import
+                  writes a whole page.
+                </p>
+                {#each byRune as r (r.key)}
+                  <div class="rune-row">
+                    <h5>{rowTitle(r)}</h5>
+                    <OptionList slot={r.slot} label={runes} icons={runeIcons} />
+                  </div>
+                {/each}
+              </section>
+            {/if}
           </div>
         {/if}
       </li>
@@ -376,6 +403,30 @@
   }
   .choices {
     padding: 0 var(--space-3) var(--space-3);
+  }
+  .by-rune {
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px dashed var(--color-border);
+  }
+  .by-rune h4 {
+    margin: 0 var(--space-3);
+    font-size: var(--text-md);
+  }
+  .by-rune .hint {
+    margin: 0 var(--space-3);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+  }
+  .rune-row h5 {
+    margin: var(--space-2) var(--space-3) var(--space-1);
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .result {
     margin: 0;

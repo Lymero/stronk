@@ -286,6 +286,47 @@ fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
 }
 
 #[test]
+fn plan_ranks_each_rune_row_and_marks_the_imported_pages_choices() {
+    let out = run(
+        &ctx(NoClient),
+        "build.plan",
+        json!({"champion": "Viego", "role": "JUNGLE"}),
+    )
+    .unwrap();
+    let rows = &out["alternatives"]["rune_rows"];
+    let shape: Vec<_> = rows
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| (r["kind"].clone(), r["style"].clone(), r["row"].clone()))
+        .collect();
+    assert_eq!(
+        shape,
+        vec![
+            (json!("primary"), json!(8000), json!(1)),
+            (json!("secondary"), json!(8100), json!(null)),
+            (json!("shard"), json!(null), json!(1)),
+        ]
+    );
+    // Precision row 1: Triumph is in the imported page and the most played; Legend: Alacrity is
+    // compared with it, with no clear difference.
+    assert_eq!(
+        rows[0]["rows"],
+        json!([
+            {"value": [9111], "played": 5200, "share": 5200.0 / 7600.0, "wpa": 0.006,
+             "ci": [-0.004, 0.016], "versus": "alternatives", "confidence": "most_played",
+             "fragile": false, "chosen": true, "listed": true},
+            {"value": [8009], "played": 2400, "share": 2400.0 / 7600.0, "wpa": -0.009,
+             "ci": [-0.026, 0.008], "versus": "most_played", "confidence": "no_clear_difference",
+             "fragile": false, "chosen": false, "listed": true}
+        ])
+    );
+    assert_eq!(rows[1]["rows"][0]["value"], json!([8135, 8143]));
+    assert_eq!(rows[1]["rows"][0]["chosen"], true);
+    assert_eq!(rows[2]["rows"][0]["chosen"], true); // shard row 1 of the page: 5005
+}
+
+#[test]
 fn import_writes_a_full_stronk_page_and_leaves_the_players_alone() {
     let (out, client) = import(FakeClient::new(Some(viego((4, 14)))));
     assert_eq!(out["runes"]["status"], "imported");

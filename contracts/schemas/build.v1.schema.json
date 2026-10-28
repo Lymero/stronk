@@ -17,7 +17,12 @@
     "runes": { "type": "array", "items": { "$ref": "#/$defs/RuneOption" } },
     "items": { "type": "array", "items": { "$ref": "#/$defs/ItemOption" } },
     "spells": { "type": "array", "items": { "$ref": "#/$defs/SpellOption" } },
-    "skillOrder": { "type": "array", "items": { "$ref": "#/$defs/SkillOrderOption" } }
+    "skillOrder": { "type": "array", "items": { "$ref": "#/$defs/SkillOrderOption" } },
+    "runeChoices": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RuneChoice" },
+      "description": "Each rune row on its own, for information: every primary row, the secondary pair and every stat shard row (ADR-057). Imports still write a whole page from `runes`."
+    }
   },
   "$defs": {
     "Patch": { "type": "string", "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}$", "description": "Game patch, major.minor (for example \"26.20\")." },
@@ -68,6 +73,36 @@
         "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
         "games": { "type": "integer", "minimum": 0, "description": "Games played with exactly this full page." },
         "comparison": { "$ref": "#/$defs/Comparison" }
+      }
+    },
+    "RuneChoiceComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["versus", "wpa", "q"],
+      "description": "The choice head to head with its row's most played choice (ADR-036).",
+      "properties": {
+        "versus": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1, "maxItems": 2, "description": "The row's most played choice: one rune or shard, or the secondary pair." },
+        "wpa": { "type": "number", "description": "Win probability added by this choice against `versus`." },
+        "q": { "type": "number", "minimum": 0, "maximum": 1, "description": "False-discovery-adjusted p-value of no difference, across the patch." },
+        "ci": { "$ref": "#/$defs/Interval", "description": "95% interval of `wpa`." }
+      }
+    },
+    "RuneChoice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "perks", "wpa", "ci", "n", "flags"],
+      "description": "One choice of one rune row, estimated among the choices of that row.",
+      "properties": {
+        "kind": { "type": "string", "enum": ["primary", "secondary", "shard"], "description": "A primary tree's row, the secondary tree's two runes, or a stat shard row." },
+        "style": { "type": "integer", "minimum": 0, "description": "The tree, for primary rows and secondary pairs." },
+        "row": { "type": "integer", "minimum": 1, "maximum": 3, "description": "The row, for primary rows (after the keystone) and shard rows." },
+        "perks": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 1, "maxItems": 2, "description": "The rune or shard chosen, or the secondary pair, smallest id first." },
+        "games": { "type": "integer", "minimum": 0, "description": "Games with this choice." },
+        "wpa": { "type": ["number", "null"], "description": "Win probability added against the row's other choices; null when not estimated." },
+        "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
+        "n": { "type": "integer", "minimum": 0, "description": "Decisions behind the estimate." },
+        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
+        "comparison": { "$ref": "#/$defs/RuneChoiceComparison" }
       }
     },
     "ItemOption": {

@@ -31,5 +31,22 @@
     { "slot": 1, "item": 6692, "wpa": null, "ci": null, "n": 140, "flags": ["low_sample", "low_overlap"], "picks": 140 }
   ],
   "spells": [{ "spells": [4, 11], "wpa": null, "ci": null, "n": 18000, "flags": [], "games": 18000 }],
-  "skillOrder": [{ "order": ["Q", "E", "W", "Q", "Q", "R"], "n": 12000 }]
+  "skillOrder": [{ "order": ["Q", "E", "W", "Q", "Q", "R"], "n": 12000 }],
+  "runeChoices": [
+    { "kind": "primary", "style": 8000, "row": 1, "perks": [9111], "games": 5200, "wpa": 0.006, "ci": [-0.004, 0.016], "n": 5200, "flags": [] },
+    {
+      "kind": "primary",
+      "style": 8000,
+      "row": 1,
+      "perks": [8009],
+      "games": 2400,
+      "wpa": -0.004,
+      "ci": [-0.018, 0.01],
+      "n": 2400,
+      "flags": ["no_clear_difference"],
+      "comparison": { "versus": [9111], "wpa": -0.009, "q": 0.71, "ci": [-0.026, 0.008] }
+    },
+    { "kind": "secondary", "style": 8100, "perks": [8135, 8143], "games": 4100, "wpa": 0.003, "ci": [-0.008, 0.014], "n": 4100, "flags": [] },
+    { "kind": "shard", "row": 1, "perks": [5005], "games": 6900, "wpa": 0.001, "ci": [-0.007, 0.009], "n": 6900, "flags": [] }
+  ]
 }

@@ -25,6 +25,39 @@ ESTIMATES = [
         "Champ1", "fighter", "TOP", 1, "3071", None, None, 12, frozenset({Flag.LOW_OVERLAP})
     ),
     OptionEstimate("Champ1", "fighter", "TOP", 1, "6333", 0.03, (0.01, 0.05), 410, frozenset()),
+    # The rest of the page, row by row (ADR-057): a primary row, a secondary pair, a shard row.
+    OptionEstimate(
+        "Champ1",
+        "fighter",
+        "TOP",
+        81001,
+        "9111",
+        0.004,
+        (-0.01, 0.02),
+        500,
+        frozenset(),
+        chosen=500,
+    ),
+    OptionEstimate(
+        "Champ1",
+        "fighter",
+        "TOP",
+        81001,
+        "8009",
+        -0.01,
+        (-0.03, 0.01),
+        200,
+        frozenset({Flag.NO_CLEAR_DIFFERENCE}),
+        q=0.8,
+        versus="9111",
+        contrast=-0.012,
+        contrast_ci=(-0.04, 0.016),
+        chosen=200,
+    ),
+    OptionEstimate(
+        "Champ1", "fighter", "TOP", 83005, "8135,8143", 0.002, (-0.01, 0.014), 300, chosen=300
+    ),
+    OptionEstimate("Champ1", "fighter", "TOP", 50002, "5008", None, None, 12, chosen=12),
 ]
 
 
@@ -50,6 +83,57 @@ def publish(tmp_path: Path, **params: object) -> Result[PublishResult, CommandEr
         "out": str(tmp_path / "dist"),
     }
     return command.run(PublishParams.model_validate({**defaults, **params}))
+
+
+def test_publishes_each_rune_row_for_information(tmp_path: Path) -> None:
+    assert isinstance(publish(setup(tmp_path)), Ok)
+    path = tmp_path / "dist" / "16.20" / "all" / "master_plus" / "Champ1" / "TOP.json"
+    choices = json.loads(path.read_text())["runeChoices"]
+    assert choices == [
+        {
+            "kind": "shard",
+            "row": 2,
+            "perks": [5008],
+            "games": 12,
+            "wpa": None,
+            "ci": None,
+            "n": 12,
+            "flags": [],
+        },
+        {
+            "kind": "primary",
+            "style": 8100,
+            "row": 1,
+            "perks": [9111],
+            "games": 500,
+            "wpa": 0.004,
+            "ci": [-0.01, 0.02],
+            "n": 500,
+            "flags": [],
+        },
+        {
+            "kind": "primary",
+            "style": 8100,
+            "row": 1,
+            "perks": [8009],
+            "games": 200,
+            "wpa": -0.01,
+            "ci": [-0.03, 0.01],
+            "n": 200,
+            "flags": ["no_clear_difference"],
+            "comparison": {"versus": [9111], "wpa": -0.012, "q": 0.8, "ci": [-0.04, 0.016]},
+        },
+        {
+            "kind": "secondary",
+            "style": 8300,
+            "perks": [8135, 8143],
+            "games": 300,
+            "wpa": 0.002,
+            "ci": [-0.01, 0.014],
+            "n": 300,
+            "flags": [],
+        },
+    ]
 
 
 def test_publishes_signed_valid_builds(tmp_path: Path) -> None:

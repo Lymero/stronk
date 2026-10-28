@@ -14,6 +14,7 @@ No method makes observational data fully unbiased. The goal is to remove every b
 
 - **Decision point:** the moment a player starts a new item slot (first component bought after the previous item is completed), or champion select for runes and spells. Exact definitions in ADR-026.
 - **Options:** the items realistically chosen at that decision point for that champion and role.
+- **Runes:** the keystone is one decision; the rest of the page is one decision per row (each primary row, the secondary pair, each shard row; ADR-057), so each rune is compared only with the runes the client offers in its row. All are made in champion select, where win probability is 0.5 for everyone, so a rune's WPA is a win-rate difference among comparable picks of that champion and role, with the propensity model only trimming non-overlap; nothing about the game state adjusts it.
 - **Estimand:** the average effect on win probability of choosing option A instead of the alternatives, **in situations where both are realistically chosen** (the overlap population).
 - **Result per option:** effect, 95% interval, number of decisions, and flags.
 

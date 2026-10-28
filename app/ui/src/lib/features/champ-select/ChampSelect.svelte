@@ -3,6 +3,7 @@
   // Stronk is waiting for (ADR-056).
   import type { Snippet } from "svelte";
   import type { ChampSelectState, GameNames } from "../../backend/backend.ts";
+  import Facts from "../../ui/Facts.svelte";
   import Icon from "../../ui/Icon.svelte";
   import { type Icons, icon, phase, role } from "../../ui/labels.ts";
 
@@ -37,7 +38,9 @@
     <div class="who">
       <h2>{champion ?? "No champion yet"}</h2>
       <p class="meta">
-        {select.role ? role(select.role) : "No role"} · {select.session.locked ? "Locked in" : "Hovering"} · {phase(select.session.phase)}
+        <Facts
+          facts={[select.role ? role(select.role) : "No role", select.session.locked ? "Locked in" : "Hovering", phase(select.session.phase)]}
+        />
       </p>
     </div>
     {#if actions}<div class="actions">{@render actions()}</div>{/if}
