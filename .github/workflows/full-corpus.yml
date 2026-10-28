@@ -1,6 +1,7 @@
 name: full-corpus
 
-# Floors on the full corpus (crawl-all-16.20, ADR-038): too slow for every push, so weekly and
+# Floors on the full corpus (crawl-all-16.20, ADR-038) and the patch backtest against
+# crawl-all-16.21 (ADR-055): too slow for every push, so weekly and
 # on demand. `just check` covers the CI corpus.
 on:
   schedule:
@@ -42,4 +43,6 @@ jobs:
           path: |
             metrics/out/winprob-full.json
             metrics/out/extract-full.json
+            metrics/out/backtest.json
+            runs/floors-next/backtest/report.json
             runs/floors-full/winprob/report.json

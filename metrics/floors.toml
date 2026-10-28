@@ -177,11 +177,14 @@ enforce = false
 
 # Stability backtest (ADR-055, `just backtest`): share of head-to-head contrasts measured on two
 # patches whose sign agrees (0.5 is a coin flip). Measured 2026-10-28, v1, 16.20 -> 16.21
-# (about 23k games each): 0.655 over 84 contrasts. Pending until two patch corpora are pinned.
+# (about 23k games each): 0.655 over 84 contrasts, reproduced by `just floors-full`. With 84
+# contrasts a 95% interval is about 0.55 to 0.75, so the floor sits at its bottom (owner's
+# approval, 2026-10-28).
 [[floor]]
 metric = "backtest.sign_agreement"
 source = "metrics/out/backtest.json"
-enforce = false
+suite = "full"
+min = 0.55
 
 # Pipeline on the committed live recording (`just pipeline`). Skip rate: games lost to a failure
 # (quarantined by the crawl, or dropped whole by extract) over games attempted. Measured

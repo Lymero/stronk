@@ -10,6 +10,7 @@ contracts_rs := "--manifest-path contracts/generated/rust/Cargo.toml"
 core_rs := "--manifest-path app/core/Cargo.toml"
 ci_corpus := "crawl-ci-16.20"
 full_corpus := "crawl-all-16.20"
+next_corpus := "crawl-all-16.21"
 
 # List recipes
 default:
@@ -141,6 +142,14 @@ backtest earlier later out="runs/backtest":
     uv run stronk-pipeline run backtest.run --params '{"earlier": "{{ earlier }}", "later": "{{ later }}", "out": "{{ out }}"}'
     uv run python tools/checks/pipeline_metrics.py {{ out }}/report.json metrics/out/backtest.json
 
+# Patch backtest on corpora: WPA on the earlier run (extract and winprob already in <earlier>)
+# and on the later corpus (extracted into <out>), then `just backtest`
+backtest-corpora earlier later out:
+    just extract {{ later }} {{ out }}/extract > /dev/null
+    just winprob {{ out }}/extract/frames.parquet {{ out }}/winprob > /dev/null
+    for run in {{ earlier }} {{ out }}; do uv run stronk-pipeline run wpa.estimate --params '{"decisions": "'"$run"'/extract/decisions.parquet", "winprob": "'"$run"'/winprob/model.json", "out": "'"$run"'/estimates.json"}' > /dev/null; done
+    just backtest {{ earlier }}/estimates.json {{ out }}/estimates.json {{ out }}/backtest > /dev/null
+
 # Win probability model on frames: just winprob runs/extract/euw1/frames.parquet runs/winprob/euw1
 winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
     uv run stronk-pipeline run winprob.train --params '{"frames": "{{ frames }}", "out": "{{ out }}"}'
@@ -198,8 +207,9 @@ floors: (corpus ci_corpus)
     uv run python tools/checks/check_floors.py
 
 # Floors on the full corpus (all regions): the weekly CI job, or by hand
-floors-full: (corpus full_corpus)
+floors-full: (corpus full_corpus next_corpus)
     just corpus-floors {{ full_corpus }} full
+    just backtest-corpora runs/floors-full corpus/{{ next_corpus }} runs/floors-next
     uv run python tools/checks/check_floors.py --suite full
 
 # Extract and winprob on one corpus entry, metrics named after it: just corpus-floors <name> <tag>

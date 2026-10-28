@@ -17,3 +17,10 @@ sha256 = "06ded5939b6aa10a4db89a0e97b41851d5dea8baa3a2e648dc03e0e7cf77805b"
 name = "crawl-all-16.20"
 url = "https://api.github.com/repos/Lymero/stronk/releases/assets/654369574"
 sha256 = "40a054746e6047d3d8257e9178286bac299872b46bad49c3619a08ef95e696c4"
+
+# Full corpus of the next patch: 23675 games, EUW, KR and NA (ADR-055). Weekly CI job: the patch
+# backtest against crawl-all-16.20.
+[[file]]
+name = "crawl-all-16.21"
+url = "https://api.github.com/repos/Lymero/stronk/releases/assets/685711136"
+sha256 = "5ca747593d4b66dfecd1bc18a7ecb32e1d9e80c4d34d14fe98aef2c909d8cad9"
