@@ -56,8 +56,11 @@ export function options(plan: Plan, picks: Picks = noPicks()): Options {
   };
 }
 
-/** A win impact as a signed percentage, "+2.1%". */
-export const percent = (v: number): string => `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(1)}%`;
+/** A win impact in wins per 100 games (percentage points of win probability), "+2.1" (ADR-060). */
+export const wins = (v: number): string => `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(1)}`;
+
+/** Half an interval's width in wins per 100 games. */
+export const spread = (ci: [number, number]): number => Math.abs(ci[1] - ci[0]) * 50;
 
 /** A share of games as a whole percentage. */
 export const share = (v: number): string => `${Math.round(v * 100)}%`;
@@ -73,12 +76,12 @@ export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
 /** What the import writes for a slot: the player's pick, else Stronk's choice. */
 export const selected = <T>(slot: Slot<T>): Shown<T> | undefined => slot.rows.find((r) => r.selected);
 
-/** An option's win impact with its uncertainty, "+0.4% ± 2.6", or "+0.4% ± 2.6 vs others" when
- * it isn't compared with the most played option; null without an estimate. */
+/** An option's win impact with its uncertainty, "+0.4 ± 2.6 wins per 100", ending "vs others"
+ * when it isn't compared with the most played option; null without an estimate. */
 export function figure(row: Row<unknown>): string | null {
   if (row.wpa === null) return null;
-  const spread = row.ci ? ` ± ${(Math.abs(row.ci[1] - row.ci[0]) * 50).toFixed(1)}` : "";
-  return `${percent(row.wpa)}${spread}${row.versus === "alternatives" ? " vs others" : ""}`;
+  const pm = row.ci ? ` ± ${spread(row.ci).toFixed(1)}` : "";
+  return `${wins(row.wpa)}${pm} wins per 100${row.versus === "alternatives" ? " vs others" : ""}`;
 }
 
 /** Why an option's number reads as it does: what it's measured against, its interval, and
@@ -90,7 +93,7 @@ export function explain(row: Row<unknown>): string {
       : "No win impact is estimated for this yet";
   const against =
     row.versus === "most_played" ? "against the most played option" : "against the other options at this point";
-  const interval = row.ci ? `, 95% interval ${percent(row.ci[0])} to ${percent(row.ci[1])}` : "";
+  const interval = row.ci ? ` (95% interval ${wins(row.ci[0])} to ${wins(row.ci[1])})` : "";
   const reading =
     row.confidence === "clearly_better"
       ? "Clearly better: the difference holds once false discoveries are controlled."
@@ -101,13 +104,35 @@ export function explain(row: Row<unknown>): string {
           : row.confidence === "most_played"
             ? "The most played option, which the others are compared with."
             : "No clear difference: the interval is too wide to tell it apart from the most played option.";
-  return `Win probability added ${against}: ${percent(row.wpa)}${interval}. ${reading}`;
+  return `Wins per 100 games ${against}: ${wins(row.wpa)}${interval}. ${reading}`;
 }
 
-/** A clear result as the player reads it, "▲ +2.1% ± 1.3"; nothing for the rest (ADR-056). */
+/** A clear result as the player reads it, "▲ +2.1 ± 1.3 wins per 100"; nothing for the rest (ADR-056). */
 export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "negative" } | null {
   if (row.wpa === null) return null;
   if (row.confidence === "clearly_better") return { text: `▲ ${figure(row)}`, tone: "positive" };
   if (row.confidence === "clearly_worse") return { text: `▼ ${figure(row)}`, tone: "negative" };
   return null;
+}
+
+/** What Stronk imports instead of the most played option: each clearly better choice with the
+ * option it beats (ADR-060). */
+export interface Change<T> {
+  part: "runes" | "spells" | number;
+  row: Shown<T>;
+  base: Shown<T> | undefined;
+}
+
+export function changes(options: Options): Change<unknown>[] {
+  const of = <T>(part: Change<T>["part"], slot: Slot<T>): Change<unknown>[] => {
+    const row = slot.rows.find((r) => r.chosen);
+    return row && row.confidence === "clearly_better"
+      ? [{ part, row, base: mostPlayed(slot) } as Change<unknown>]
+      : [];
+  };
+  return [
+    ...of("runes", options.runes),
+    ...of("spells", options.spells),
+    ...options.items.flatMap((s) => of(s.slot, s)),
+  ];
 }

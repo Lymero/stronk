@@ -1,7 +1,8 @@
 <script lang="ts">
   // The build Stronk would import as a board of panels (ADR-059): the rune page built by clicking
   // runes, the spells and each item slot as rows of options, every option with its numbers and
-  // the lit ones what the import writes. Nothing to open or scroll through.
+  // the lit ones what the import writes. Nothing to open or scroll through. It opens with what
+  // Stronk changes from the most played build (ADR-060).
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
   import Icon from "../../ui/Icon.svelte";
@@ -11,13 +12,16 @@
   import type { Pick, Picks } from "../../state/picks.ts";
   import {
     allPopular,
+    changes,
     explain,
     figure,
     mostPlayed,
     options as ranked,
     selected,
+    spread,
     type Slot,
     verdict,
+    wins,
   } from "./options.ts";
 
   let {
@@ -47,6 +51,12 @@
       " Open a slot and click any option to import it instead.",
   );
   const options = $derived(ranked(plan, picks));
+  const stronkChanges = $derived(changes(options));
+  /** A change's part, option and the option it beats, in words. */
+  const what = (part: "runes" | "spells" | number) =>
+    part === "runes" ? "Runes" : part === "spells" ? "Summoner spells" : `Item ${part}`;
+  const valueOf = (part: "runes" | "spells" | number, value: unknown) =>
+    part === "runes" ? page(value as Page) : part === "spells" ? spells(value as [number, number]) : item(value as number);
   /** The page the import writes: the player's, else Stronk's. */
   const shownPage = $derived(picks.runes ?? plan.runes?.value ?? null);
   /** The client's layout of that page's trees, without which pages are picked whole. */
@@ -128,6 +138,33 @@
     </p>
   {/if}
 
+  <div class="take" aria-label="What Stronk changes">
+    {#if stronkChanges.length === 0}
+      <p class="headline">The most played build. No option is clearly better yet.</p>
+    {:else}
+      <p class="headline">
+        Stronk changes {stronkChanges.length === 1 ? "1 thing" : `${stronkChanges.length} things`} from the most played build
+      </p>
+      <ul>
+        {#each stronkChanges as c (c.part)}
+          <li title={explain(c.row)}>
+            <span class="part">{what(c.part)}</span>
+            <strong>{valueOf(c.part, c.row.value)}</strong>
+            {#if c.base && c.base !== c.row}<span class="base">over {valueOf(c.part, c.base.value)}</span>{/if}
+            <span class="gain">
+              {wins(c.row.wpa ?? 0)}{c.row.ci ? ` ± ${spread(c.row.ci).toFixed(1)}` : ""} wins per 100 games
+            </span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <p class="legend">
+      <span class="key ring" aria-hidden="true"></span>ring: share of games
+      <span class="key line" aria-hidden="true"></span>line: 95% interval, wins per 100 games against zero
+      <span class="key clear" aria-hidden="true">▲</span>colour only when clearly better or worse
+    </p>
+  </div>
+
   <div class="board">
     <div class="column">
       {#if shownPage && laidOut && names}
@@ -199,6 +236,74 @@
   .how {
     border-bottom: 1px dotted var(--color-muted);
     cursor: help;
+  }
+  .take {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-4);
+    border-left: 3px solid var(--color-accent);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  .take p,
+  .take ul {
+    margin: 0;
+  }
+  .headline {
+    font-weight: 600;
+  }
+  .take ul {
+    display: grid;
+    gap: 2px;
+    padding: 0;
+    list-style: none;
+  }
+  .take li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+    align-items: baseline;
+  }
+  .part,
+  .base {
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+  }
+  .gain {
+    color: var(--color-positive);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+    align-items: center;
+    margin-top: var(--space-1) !important;
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+  }
+  .key {
+    display: inline-block;
+    margin-left: var(--space-2);
+  }
+  .key:first-child {
+    margin-left: 0;
+  }
+  .key.ring {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: conic-gradient(var(--color-muted) 0.3turn, var(--color-track) 0);
+  }
+  .key.line {
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--color-muted);
+  }
+  .key.clear {
+    color: var(--color-positive);
   }
   .board {
     display: grid;

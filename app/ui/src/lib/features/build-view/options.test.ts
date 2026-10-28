@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Plan, Row } from "../../backend/backend.ts";
-import { allPopular, explain, figure, mostPlayed, options, percent, selected, share, verdict } from "./options.ts";
+import { allPopular, changes, explain, figure, mostPlayed, options, selected, share, verdict, wins } from "./options.ts";
 
 const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   value,
@@ -82,8 +82,8 @@ describe("options", () => {
 
   it("gives a verdict only for a clear difference", () => {
     const better = row(1, { wpa: 0.021, ci: [0.008, 0.034], versus: "most_played", confidence: "clearly_better" });
-    expect(verdict(better)).toEqual({ text: "▲ +2.1% ± 1.3", tone: "positive" });
-    expect(verdict(row(1, { wpa: -0.018, confidence: "clearly_worse" }))).toEqual({ text: "▼ −1.8% vs others", tone: "negative" });
+    expect(verdict(better)).toEqual({ text: "▲ +2.1 ± 1.3 wins per 100", tone: "positive" });
+    expect(verdict(row(1, { wpa: -0.018, confidence: "clearly_worse" }))).toEqual({ text: "▼ −1.8 wins per 100 vs others", tone: "negative" });
     for (const confidence of ["most_played", "no_clear_difference", "too_few_games", "not_estimated"] as const) {
       expect(verdict(row(1, { wpa: 0.05, confidence }))).toBeNull();
     }
@@ -91,12 +91,12 @@ describe("options", () => {
   });
 
   it("shows every estimate with its uncertainty and what it's measured against", () => {
-    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives" }))).toBe("+0.4% ± 1.0 vs others");
-    expect(figure(row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played" }))).toBe("−0.9% ± 1.5");
+    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives" }))).toBe("+0.4 ± 1.0 wins per 100 vs others");
+    expect(figure(row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played" }))).toBe("−0.9 ± 1.5 wins per 100");
     expect(figure(row(1, { wpa: null }))).toBeNull();
     const unclear = row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played", confidence: "no_clear_difference" });
     expect(explain(unclear)).toBe(
-      "Win probability added against the most played option: −0.9%, 95% interval −2.4% to +0.6%. No clear difference: the interval is too wide to tell it apart from the most played option.",
+      "Wins per 100 games against the most played option: −0.9 (95% interval −2.4 to +0.6). No clear difference: the interval is too wide to tell it apart from the most played option.",
     );
     expect(explain(row(1, { wpa: null, confidence: "too_few_games" }))).toBe("Too few comparable games to estimate its win impact");
   });
@@ -115,7 +115,31 @@ describe("options", () => {
   });
 
   it("formats win impact and shares", () => {
-    expect([percent(0.021), percent(-0.004), share(0.3575)]).toEqual(["+2.1%", "−0.4%", "36%"]);
+    expect([wins(0.021), wins(-0.004), share(0.3575)]).toEqual(["+2.1", "−0.4", "36%"]);
+  });
+
+  it("lists what Stronk imports instead of the most played option, and what it beats", () => {
+    const p = plan({
+      alternatives: {
+        runes: { rows: [], more: 0 },
+        spells: { rows: [row([4, 11] as [number, number], { chosen: true })], more: 0 },
+        items: [
+          {
+            slot: 2,
+            rows: [
+              row(10, { played: 90 }),
+              row(11, { wpa: 0.021, versus: "most_played", confidence: "clearly_better", chosen: true }),
+            ],
+            more: 0,
+          },
+          { slot: 3, rows: [row(12, { chosen: true })], more: 0 },
+        ],
+        rune_rows: [],
+      },
+    });
+    const found = changes(options(p));
+    expect(found.map((c) => [c.part, c.row.value, c.base?.value])).toEqual([[2, 11, 10]]);
+    expect(changes(options(plan()))).toEqual([]);
   });
 
   it("knows when every choice is the most played one", () => {

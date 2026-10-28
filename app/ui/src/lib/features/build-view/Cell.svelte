@@ -1,10 +1,11 @@
 <script lang="ts">
-  // One option as an icon with its numbers under it (ADR-059): win impact (coloured only when
-  // clearly better or worse), how precise it is as a bar, and how many games it rests on. Lit
-  // when the import writes it; clicking it picks it.
+  // One option as its icon and its estimate (ADR-060): a ring around the icon filled by its share
+  // of games, its 95% interval drawn against zero, and its wins per 100 games, coloured only when
+  // clearly better or worse. Games and the full reading are in its title. Lit when the import
+  // writes it; clicking it picks it.
   import type { Row } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
-  import { explain, percent, verdict } from "./options.ts";
+  import { explain, spread, verdict, wins } from "./options.ts";
 
   let {
     icons,
@@ -30,18 +31,18 @@
     onpick?: () => void;
   } = $props();
 
+  /** The interval's scale: ±2.5 wins per 100 games across the glyph; wider intervals run off it. */
+  const RANGE = 0.025;
+  const W = 52;
+  const x = (v: number) => W / 2 + (Math.max(-RANGE, Math.min(RANGE, v)) / RANGE) * (W / 2 - 2);
+
   const clear = $derived(row ? verdict(row) : null);
-  /** Half the 95% interval, in points. */
-  const spread = $derived(row?.ci ? Math.abs(row.ci[1] - row.ci[0]) * 50 : null);
-  /** Five bars for a tight interval (±0.5 points or less), one for a loose one (over ±3.5). */
-  const precision = $derived(
-    spread === null ? 0 : spread <= 0.5 ? 5 : spread <= 1 ? 4 : spread <= 2 ? 3 : spread <= 3.5 ? 2 : 1,
-  );
-  const count = (n: number) =>
-    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : String(n);
+  const tone = $derived(clear?.tone ?? "");
+  const half = $derived(row?.ci ? spread(row.ci) : null);
+  const games = $derived(row ? `${Math.round(row.share * 100)}% of games (${row.played.toLocaleString("en-US")})` : "");
   const title = $derived(
     `${name}${stronk && !on ? " (Stronk's pick)" : ""}${
-      bare ? "" : row ? `: ${Math.round(row.share * 100)}% of games (${row.played.toLocaleString("en-US")}). ${explain(row)}` : ": not played in these games"
+      bare ? "" : row ? `: ${games}. ${explain(row)}` : ": not played in these games"
     }`,
   );
   const label = $derived(
@@ -50,9 +51,9 @@
         ? ""
         : row.wpa === null
           ? row.confidence === "too_few_games"
-            ? " few games"
+            ? ", too few games"
             : ""
-          : ` ${percent(row.wpa)}${spread === null ? "" : ` ± ${spread.toFixed(1)}`}`
+          : ` ${wins(row.wpa)}${half === null ? "" : ` ± ${half.toFixed(1)}`} wins per 100`
     }`,
   );
 </script>
@@ -70,16 +71,25 @@
   onclick={() => onpick?.()}
 >
   <span class="icons">
-    {#each icons as i, n (n)}<Icon src={i.src} name={i.name} size={size === "sm" ? "sm" : "md"} />{/each}
+    {#each icons as i, n (n)}
+      <span class="ring" style:--share={bare || !row ? 0 : row.share}>
+        <Icon src={i.src} name={i.name} size={size === "sm" ? "sm" : "md"} />
+      </span>
+    {/each}
   </span>
   {#if !bare}
-    <span class="num {clear?.tone ?? ''}" class:few={row?.confidence === "too_few_games"}>
-      {#if !row || (row.wpa === null && row.confidence !== "too_few_games")}–{:else if row.wpa === null}few{:else}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{percent(row.wpa)}{/if}
+    <svg class="interval {tone}" viewBox={`0 0 ${W} 10`} width={W} height="10" aria-hidden="true">
+      {#if row?.wpa != null}
+        <line class="zero" x1={W / 2} x2={W / 2} y1="1" y2="9" />
+        {#if row.ci}<line class="ci" x1={x(row.ci[0])} x2={x(row.ci[1])} y1="5" y2="5" />{/if}
+        <circle cx={x(row.wpa)} cy="5" r="2.5" />
+      {:else if row?.confidence === "too_few_games"}
+        <line class="few" x1="2" x2={W - 2} y1="5" y2="5" />
+      {/if}
+    </svg>
+    <span class="num {tone}">
+      {#if row?.wpa != null}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{wins(row.wpa)}{/if}
     </span>
-    <span class="bars" aria-hidden="true">
-      {#each [1, 2, 3, 4, 5] as b (b)}<span class:filled={b <= precision}></span>{/each}
-    </span>
-    <span class="games">{row ? count(row.played) : ""}</span>
   {/if}
 </button>
 
@@ -87,10 +97,10 @@
   .cell {
     position: relative;
     display: grid;
-    grid-template-rows: auto 15px 6px 14px;
+    grid-template-rows: auto 10px 14px;
     align-content: start;
     justify-items: center;
-    gap: 1px;
+    gap: 2px;
     min-width: 58px;
     padding: var(--space-1) 2px;
     border: 1px solid transparent;
@@ -119,23 +129,33 @@
   .icons {
     display: flex;
     gap: 2px;
-    border-radius: 50%;
   }
-  .icons :global(.icon) {
+  /* The share of games as an arc around the icon, from the top, clockwise. */
+  .ring {
+    display: grid;
+    padding: 4px;
+    border-radius: 50%;
+    background:
+      radial-gradient(closest-side, var(--color-surface) calc(100% - 3px), transparent calc(100% - 3px)),
+      conic-gradient(var(--ring, var(--color-muted)) calc(var(--share) * 1turn), var(--color-track) 0);
+  }
+  .bare .ring {
+    background: none;
+  }
+  .on .ring {
+    --ring: var(--color-accent);
+  }
+  .ring :global(.icon) {
     border-radius: 50%;
     filter: grayscale(1);
-    opacity: 0.45;
+    opacity: 0.5;
     transition: opacity 0.1s;
   }
-  .cell:not(:disabled):hover .icons :global(.icon) {
-    opacity: 0.8;
+  .cell:not(:disabled):hover .ring :global(.icon) {
+    opacity: 0.85;
   }
-  .on .icons :global(.icon) {
+  .on .ring :global(.icon) {
     filter: none;
-    opacity: 1;
-    box-shadow: 0 0 0 2px var(--color-accent);
-  }
-  .on:not(:disabled):hover .icons :global(.icon) {
     opacity: 1;
   }
   /* Stronk's choice when the player picked another: a small dot. */
@@ -149,10 +169,42 @@
     background: var(--color-accent);
     content: "";
   }
+  .interval {
+    overflow: visible;
+    color: var(--color-muted);
+  }
+  .interval .zero {
+    stroke: var(--color-border);
+    stroke-width: 1;
+  }
+  .interval .ci {
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    opacity: 0.55;
+  }
+  .interval circle {
+    fill: currentColor;
+  }
+  .interval .few {
+    stroke: var(--color-border);
+    stroke-width: 2;
+    stroke-dasharray: 2 3;
+  }
+  .on .interval {
+    color: var(--color-text);
+  }
+  .interval.positive {
+    color: var(--color-positive);
+  }
+  .interval.negative {
+    color: var(--color-negative);
+  }
   .num {
     color: var(--color-muted);
     font-size: var(--text-xs);
     font-variant-numeric: tabular-nums;
+    line-height: 14px;
     white-space: nowrap;
   }
   .on .num {
@@ -167,34 +219,8 @@
     color: var(--color-negative);
     font-weight: 600;
   }
-  .num.few {
-    font-style: italic;
-    font-weight: 400;
-  }
-  .bars {
-    display: flex;
-    gap: 2px;
-    align-items: center;
-  }
-  .bars span {
-    width: 5px;
-    height: 3px;
-    border-radius: 1px;
-    background: var(--color-track);
-  }
-  .bars span.filled {
-    background: var(--color-muted);
-  }
-  .on .bars span.filled {
-    background: var(--color-accent);
-  }
-  .games {
-    color: var(--color-muted);
-    font-size: 10px;
-    font-variant-numeric: tabular-nums;
-  }
   @media (prefers-reduced-motion: reduce) {
-    .icons :global(.icon) {
+    .ring :global(.icon) {
       transition: none;
     }
   }

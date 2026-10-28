@@ -128,3 +128,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: check the board on the real client; starter items, boots and components aren't estimated yet (the Coachless panels we can't fill).
 - 2026-10-28: a keystone's games are now every game with it (the estimate's `n`), not only those with its most played full page; Conqueror on Lee Sin showed 813 of its 4076 games, fewer than Triumph's 4067.
   Open: the mock's Precision rows still count all 1740 games while its Precision keystones count 1000.
+- 2026-10-28: Stronk's own look (ADR-060): a strip of what Stronk changes from the most played build, cells as a share ring, an interval line against zero and the estimate, numbers in wins per 100 games; precision bars and game counts moved to titles.
+  Open: owner to look on the real client and keep or revert parts; next candidates are items as a build path with a forest plot per slot, the client's line through the picked runes, settings as a header icon.
