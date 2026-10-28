@@ -126,3 +126,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: check the trees on the real client (icons, real layout).
 - 2026-10-28: the build as one board (ADR-059): runes as the client's trees with a tree switcher, spells and item slots as rows of icons, every option with its number, precision bars and games; rune pages built by clicking, `build.import` checks them with `select::valid_page`; window 1200 by 900.
   Open: check the board on the real client; starter items, boots and components aren't estimated yet (the Coachless panels we can't fill).
+- 2026-10-28: a keystone's games are now every game with it (the estimate's `n`), not only those with its most played full page; Conqueror on Lee Sin showed 813 of its 4076 games, fewer than Triumph's 4067.
+  Open: the mock's Precision rows still count all 1740 games while its Precision keystones count 1000.

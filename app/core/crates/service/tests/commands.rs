@@ -283,6 +283,9 @@ fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
         (&json!([4, 11]), &json!("most_played"), &json!(true))
     );
     assert_eq!(alternatives["runes"]["rows"][0]["chosen"], true);
+    // A page row stands for its keystone: all 9120 games with Conqueror, not only the 7810 with
+    // exactly this page.
+    assert_eq!(alternatives["runes"]["rows"][0]["played"], 9120);
 }
 
 #[test]

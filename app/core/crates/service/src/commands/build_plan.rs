@@ -124,7 +124,9 @@ pub fn plan(build: &Build, role: Role) -> Plan {
                 perks: o.page.perks.iter().map(|p| to_i64(*p)).collect(),
             },
             id: o.page.perks.first().map_or(0, |k| to_i64(*k)),
-            played: o.games.unwrap_or(o.n),
+            // The estimate is the keystone's: every game with it, not only those with exactly
+            // this page (`games`), which splits a keystone across its page variants.
+            played: o.n,
             wpa: o.wpa,
             ci: o.ci.as_ref().map(interval),
             too_few: too_few(&o.flags),
