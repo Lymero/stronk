@@ -23,6 +23,7 @@ field_names = st.sampled_from(
     [
         *("decisions", "estimator", "bootstrap_samples", "seed"),
         *("platform", "tiers", "patch", "max_matches", "replay", "record", "out", "crawl"),
+        *("earlier", "later", "fdr"),
         "x",
     ]
 )

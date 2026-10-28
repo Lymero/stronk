@@ -35,6 +35,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just pipeline-stage <name>` | One stage: `crawl`, `extract`, `winprob`, `wpa`, `publish` |
 | `just crawl <platform> <games>` | Crawl ranked games from the Riot API (needs `RIOT_API_KEY`); rerun to resume |
 | `just extract [crawl,…] [out] [--retry-quarantine]` | Frames and decision points from one or more crawl directories (comma-separated) into one table; the flag first re-reads games the crawl quarantined |
+| `just backtest <earlier> <later> [out]` | Compare two patches' WPA estimates (same sign on both?) and write `metrics/out/backtest.json` |
 | `just keygen [out]` | Create the data signing key outside the repository (default `~/.config/stronk/signing.key`) |
 | `just winprob [frames] [out]` | Train the win probability model and write its calibration report |
 | `just corpus-merge <out> "<crawl> …" [games]` | One crawl from several: all games, or a sample stratified by crawl |

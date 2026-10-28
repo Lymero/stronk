@@ -3,7 +3,8 @@
 pipeline_metrics.py <report.json> <out.json> [corpus]
 
 extract: `pipeline.skip_rate`. winprob: `winprob.calibration_error` and `winprob.log_loss` of the
-chosen model on the test matches. With a corpus name, each corpus has its own metrics and
+chosen model on the test matches. backtest: `backtest.sign_agreement`, `backtest.paired` and
+`backtest.clear_sign_agreement` (ADR-055). With a corpus name, each corpus has its own metrics and
 floors (ADR-038): `extract.<corpus>.skip_rate`, `winprob.<corpus>.log_loss`...
 """
 
@@ -27,6 +28,12 @@ def metrics(report: dict[str, Any], corpus: str | None = None) -> dict[str, floa
             return {
                 f"{prefix}calibration_error": float(test["calibration_error"]),
                 f"{prefix}log_loss": float(test["log_loss"]),
+            }
+        case "backtest":
+            return {
+                f"backtest.{name}": float(result[name])
+                for name in ("sign_agreement", "paired", "clear_sign_agreement")
+                if result[name] is not None
             }
         case stage:
             raise ValueError(f"no metrics for stage {stage!r}")

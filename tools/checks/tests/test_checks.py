@@ -128,6 +128,14 @@ def test_pipeline_metrics_read_the_winprob_report() -> None:
     assert pipeline_metrics.metrics(extract, "full") == {"extract.full.skip_rate": 0.0}
 
 
+def test_pipeline_metrics_read_the_backtest_report() -> None:
+    result = {"sign_agreement": 0.66, "paired": 84, "clear_sign_agreement": None}
+    assert pipeline_metrics.metrics({"stage": "backtest", "result": result}) == {
+        "backtest.sign_agreement": 0.66,
+        "backtest.paired": 84.0,
+    }
+
+
 def test_bench_reports_median_and_max() -> None:
     ticks = iter([0.0, 1.0, 1.0, 4.0, 4.0, 6.0])  # runs of 1, 3 and 2 s
     runs: list[None] = []

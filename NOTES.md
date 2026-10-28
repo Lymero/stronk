@@ -113,3 +113,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: keep them in step with the code; the M4 step order there is a suggestion, and the web viewer's ranking (WASM or not) is undecided.
 - 2026-10-20: the architecture diagrams moved to Markdown so GitHub renders them: `docs/architecture-diagrams.md` with one SVG per diagram (and per M4 step of the deployment view) in `docs/diagrams/`; the HTML page is gone.
   Open: the SVGs are hand-maintained; edit them with the code they describe.
+- 2026-10-28: patch 16.21 crawled (23,675 games); `backtest.run` / `just backtest` compares two patches' contrasts (ADR-055): v1 sign agreement 0.655 over 84, overlap-weighted 0.643, class 0.570; winprob transfers across the patch.
+  Open: pin `crawl-all-16.21` (upload needs approval) and set the `backtest.sign_agreement` floor; the change half (`backtest.direction_share`) needs each patch's item and rune changes.

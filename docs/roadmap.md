@@ -64,7 +64,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
 
 ## M5 · Statistics v2
 
-- [ ] Patch backtests and their floor
+- [ ] Patch backtests and their floor (stability half: `backtest.run`, ADR-055, floor pending until a second patch corpus is pinned; the change half needs each patch's item and rune changes)
 - [ ] `wpa` v2: doubly robust estimator, compared with v1 side by side
 - [ ] E-values and the `fragile` flag
 - [ ] Within-player check report

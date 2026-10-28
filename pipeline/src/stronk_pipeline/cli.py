@@ -22,6 +22,7 @@ from stronk_pipeline.adapters.riot.client import RiotApiSource
 from stronk_pipeline.adapters.riot.payloads import parse_quarantined
 from stronk_pipeline.adapters.riot.rate_limit import RateLimiter
 from stronk_pipeline.adapters.winprob_store import JsonWinProbStore
+from stronk_pipeline.application.backtest import backtest_command
 from stronk_pipeline.application.crawl import CrawlParams, SourceFactory, crawl_command
 from stronk_pipeline.application.extract import extract_command
 from stronk_pipeline.application.publish import publish_command
@@ -54,6 +55,7 @@ def build_registry(settings: Settings | None = None) -> CommandRegistry:
             wpa_estimate_command(decisions, estimators, models, JsonEstimateStore(), frames),
             signing_keygen_command(MinisignKeys()),
             publish_command(JsonEstimateStore(), FileMatchStore, MinisignKeys(), LocalPublisher),
+            backtest_command(JsonEstimateStore(), reports),
         ]
     )
 

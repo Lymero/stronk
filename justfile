@@ -136,6 +136,11 @@ data-real key="~/.config/stronk/signing.key" out="runs/real":
     cp "$key.pub" {{ out }}/data.pub
     echo "real data: {{ out }}/data, public key {{ out }}/data.pub"
 
+# One patch's WPA contrasts against the next (ADR-055); metrics for backtest.* in floors.toml
+backtest earlier later out="runs/backtest":
+    uv run stronk-pipeline run backtest.run --params '{"earlier": "{{ earlier }}", "later": "{{ later }}", "out": "{{ out }}"}'
+    uv run python tools/checks/pipeline_metrics.py {{ out }}/report.json metrics/out/backtest.json
+
 # Win probability model on frames: just winprob runs/extract/euw1/frames.parquet runs/winprob/euw1
 winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
     uv run stronk-pipeline run winprob.train --params '{"frames": "{{ frames }}", "out": "{{ out }}"}'

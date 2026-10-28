@@ -175,6 +175,14 @@ metric = "backtest.direction_share"
 source = "metrics/out/backtest.json"
 enforce = false
 
+# Stability backtest (ADR-055, `just backtest`): share of head-to-head contrasts measured on two
+# patches whose sign agrees (0.5 is a coin flip). Measured 2026-10-28, v1, 16.20 -> 16.21
+# (about 23k games each): 0.655 over 84 contrasts. Pending until two patch corpora are pinned.
+[[floor]]
+metric = "backtest.sign_agreement"
+source = "metrics/out/backtest.json"
+enforce = false
+
 # Pipeline on the committed live recording (`just pipeline`). Skip rate: games lost to a failure
 # (quarantined by the crawl, or dropped whole by extract) over games attempted. Measured
 # 2026-10-18: 0 on the fixture and on the corpora; the first crawl, before the two

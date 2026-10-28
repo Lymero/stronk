@@ -246,7 +246,7 @@ Shape of one file (`/{patch}/{region}/{elo}/{champion}/{role}.json`):
 
 - Win probability model: calibration error and log loss, per corpus (`winprob.ci.*` in `just check`, `winprob.full.*` in the weekly full-corpus job; ADR-038).
 - Synthetic truth: recovery error of planted effects, with and without hidden confounders.
-- Patch backtests: share of item changes whose estimate moved in the right direction.
+- Patch backtests: share of item changes whose estimate moved in the right direction (`backtest.direction_share`), and share of contrasts with the same sign on two patches (`backtest.sign_agreement`, ADR-055).
 - Coverage: champion and role pairs with enough data for a confident estimate.
 
 A floor can be raised, never lowered without an entry in `docs/decisions.md`. CI fails when a metric falls below its floor.

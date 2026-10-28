@@ -113,7 +113,7 @@ All models are gradient-boosted trees on tabular data. A full patch runs in well
 | **Synthetic truth** (`tools/synth`) | Planted effects are recovered, including when hidden skill and situational buying are simulated |
 | **Oracle agreement** | `reference` and `fast` implementations give the same results |
 | **Calibration** | The win probability model's predictions match observed win rates |
-| **Patch backtests** | When an item is nerfed or buffed, its estimate moves in the right direction and by a plausible amount, while unchanged items stay stable (difference-in-differences) |
+| **Patch backtests** | When an item is nerfed or buffed, its estimate moves in the right direction and by a plausible amount, while unchanged items stay stable (difference-in-differences). The stability half runs today (`backtest.run`, ADR-055): the share of head-to-head contrasts with the same sign on two patches; the change half needs a list of each patch's changes |
 | **Within-player check** | For players who vary their builds, within-player comparisons agree with the main estimate |
 | **Sensitivity (E-values)** | How strong a hidden confounder would need to be to overturn a result; fragile results get the `fragile` flag |
 | **Damage sanity check** | Large disagreements with damage calculations are investigated (damage measures raw power, not winning, so it is never the truth) |

@@ -382,3 +382,20 @@ Architecture decision log. One entry per decision: context, decision, consequenc
 - **Context:** Riot grants a production key only to a product with a verified website (a text string in `riot.txt` at the site's root), and reviews its privacy policy and terms; a GitHub repository is not accepted instead. ADR-018 planned riot.txt on the web build viewer, which doesn't exist yet. The owner has a personal domain.
 - **Decision:** `site/` holds plain HTML and one stylesheet in `public/` (product page, method, privacy policy, terms, 404), no build step and no JavaScript; every page carries Riot's legal notice in its footer. It is served at `stronk.christophercastel.com` by Cloudflare Workers static assets (`site/wrangler.jsonc`; Cloudflare builds `main` with root directory `site` and `npx wrangler deploy`), next to the R2 storage planned for the data. `just site` previews it on 127.0.0.1 with the same URL handling. The page's screenshot is the app on real data, without Riot artwork. The web build viewer (ADR-018) can join the site later; riot.txt no longer waits for it.
 - **Consequences:** the production key application no longer waits on M4's viewer. The site's claims about the app (what it reads and writes, what stays local) must change with the app; they mirror docs/production-key.md. A domain change means a new Riot verification and, for the data, a new URL in the app.
+
+### ADR-055 · Patch backtest, stability half: do contrasts keep their sign on the next patch?
+
+- **Context:** M5 plans patch backtests with the floor `backtest.direction_share`: items Riot nerfed or buffed should move the right way, unchanged ones stay put (docs/wpa-method.md, section 6). That needs a list of each patch's changes, which the pipeline doesn't have. Meanwhile a second patch was crawled (16.21, 23,675 games, EUW, KR, NA, like 16.20's 22,954), and the simplest question it answers is whether the estimates replicate at all.
+- **Decision:** `backtest.run` (`just backtest <earlier> <later>`) reads two estimate files and pairs every head-to-head contrast (option against its point's most played, ADR-036) that both patches measured with the same most played option. It reports the share whose `contrast` has the same sign on both (`backtest.sign_agreement`), the same among contrasts whose earlier interval excludes zero (`clear_sign_agreement`), correlation and slope of later on earlier, and what happened to each claim (q at most the FDR) of the earlier patch. Metrics go to `metrics/out/backtest.json`; `backtest.sign_agreement` is a pending floor, and `backtest.direction_share` keeps its meaning for the change half.
+- **Measured (2026-10-28, 16.20 -> 16.21, each patch's own win probability model):**
+
+  | | v1 | overlap-weighted | class pooling |
+  |---|---|---|---|
+  | paired contrasts | 84 | 84 | 228 |
+  | sign agreement | 0.655 | 0.643 | 0.570 |
+  | among clear on 16.20 | 7 of 8 | 7 of 9 | 16 of 22 |
+  | correlation / slope | 0.31 / 0.38 | 0.26 / 0.32 | 0.16 / 0.18 |
+  | claims 16.20 -> held / clear again | 0 | 0 | 1 -> 1 / 0 |
+
+  The 16.20 win probability model on 16.21's test matches: log loss 0.5188 against 0.5183 for a 16.21 model (difference 0.0005, interval -0.0003 to 0.0013).
+- **Consequences:** signal is real but weak at this size: about a third of an effect carries over, so most of one patch's estimate is noise; v1 replicates at least as well as the overlap-weighted estimator (it stays the default, ADR-037), and class pooling worst (it stays off the default, ADR-039). Enforcing the floor needs a second pinned corpus (`crawl-all-16.21`) so CI can rerun it; a value is set then, with the owner's approval. Win probability transfers across one patch, so its model can be trained on several.
