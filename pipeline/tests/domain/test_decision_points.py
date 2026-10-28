@@ -1,4 +1,5 @@
 from collections import Counter
+from dataclasses import replace
 
 from riot_builders import Json, buy, domain_match, domain_static, undo
 
@@ -47,6 +48,26 @@ def test_the_rest_of_the_page_is_one_decision_per_row() -> None:
     ]
     assert {p.timestamp for p in page} == {0}
     assert sum(1 for p in points if is_rune_slot(p.slot)) == 70
+
+
+def test_a_missing_tree_adds_no_rows_and_never_an_item_slot() -> None:
+    """Regression: the API sent a secondary tree of 0 (9 of 229,540 players on 16.20), whose
+    pair encoded as slot 5, an item slot, and broke publish."""
+    match = domain_match()
+    first = replace(match.participants[0], sub_style=0)
+    points = decision_points(
+        replace(match, participants=(first, *match.participants[1:])), STATIC, Counter()
+    )
+    mine = [p for p in points if p.participant_id == 1]
+    assert all(p.slot == 0 or is_rune_slot(p.slot) for p in mine)
+    assert [p.slot for p in mine if is_rune_slot(p.slot)] == [
+        81001,
+        81002,
+        81003,
+        50001,
+        50002,
+        50003,
+    ]
 
 
 def test_slot_is_anchored_at_the_first_component() -> None:

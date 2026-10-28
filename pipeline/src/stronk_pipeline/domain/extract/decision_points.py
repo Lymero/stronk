@@ -31,6 +31,13 @@ SHARD_SLOTS = 50_000
 """`SHARD_SLOTS + row` is a stat shard row's slot."""
 
 
+def is_tree(tree: int) -> bool:
+    """A rune tree id (8000 to 8400 today). The API sometimes sends 0 for a tree, which would
+    encode as an item slot, so such a tree's rows are left out; so is one that would land on
+    the shard slots."""
+    return tree >= 1_000 and tree != SHARD_SLOTS // 10
+
+
 def rune_slot(tree: int, row: int) -> int:
     """A primary tree's row (1 to 3), or its secondary pair (`SECONDARY_ROW`)."""
     return tree * 10 + row
@@ -83,12 +90,15 @@ def _rune_rows(
     then two secondary runes; a page that isn't whole adds nothing."""
     if len(perks) != 6 or len(shards) != 3:
         return []
-    rows = [
-        DecisionPoint(participant_id, rune_slot(primary, row), 0, str(rune))
-        for row, rune in enumerate(perks[1:4], start=1)
-    ]
-    pair = ",".join(str(r) for r in sorted(perks[4:6]))
-    rows.append(DecisionPoint(participant_id, rune_slot(secondary, SECONDARY_ROW), 0, pair))
+    rows: list[DecisionPoint] = []
+    if is_tree(primary):
+        rows.extend(
+            DecisionPoint(participant_id, rune_slot(primary, row), 0, str(rune))
+            for row, rune in enumerate(perks[1:4], start=1)
+        )
+    if is_tree(secondary):
+        pair = ",".join(str(r) for r in sorted(perks[4:6]))
+        rows.append(DecisionPoint(participant_id, rune_slot(secondary, SECONDARY_ROW), 0, pair))
     rows.extend(
         DecisionPoint(participant_id, SHARD_SLOTS + row, 0, str(shard))
         for row, shard in enumerate(shards, start=1)
