@@ -65,3 +65,18 @@ export const share = (v: number): string => `${Math.round(v * 100)}%`;
 /** True when every choice is the most played one: nothing beat it clearly. */
 export const allPopular = (plan: Plan): boolean =>
   [plan.runes, plan.spells, ...plan.items].every((c: Choice<unknown> | null) => c === null || c.label === "popular");
+
+/** The option the others are compared with: the slot's most played. */
+export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
+  slot.rows.find((r) => r.confidence === "most_played") ?? slot.rows[0];
+
+/** What the import writes for a slot: the player's pick, else Stronk's choice. */
+export const selected = <T>(slot: Slot<T>): Shown<T> | undefined => slot.rows.find((r) => r.selected);
+
+/** A clear result as the player reads it, "▲ +2.1%"; nothing for the rest (ADR-056). */
+export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "negative" } | null {
+  if (row.wpa === null) return null;
+  if (row.confidence === "clearly_better") return { text: `▲ ${percent(row.wpa)}`, tone: "positive" };
+  if (row.confidence === "clearly_worse") return { text: `▼ ${percent(row.wpa)}`, tone: "negative" };
+  return null;
+}

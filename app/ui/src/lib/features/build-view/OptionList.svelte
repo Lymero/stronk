@@ -1,8 +1,10 @@
 <script lang="ts" generics="T">
+  // A slot's options as a list to pick from (ADR-049, ADR-051): the short list first, the rest on
+  // request. One marker for what the import writes (the highlighted row); a number only when the
+  // difference with the most played option is clear (ADR-056).
   import Icon from "../../ui/Icon.svelte";
   import { games } from "../../ui/labels.ts";
-  import type { Confidence } from "../../backend/backend.ts";
-  import { percent, type Shown, type Slot, share } from "./options.ts";
+  import { percent, type Shown, type Slot, share, verdict } from "./options.ts";
 
   let {
     slot,
@@ -22,68 +24,48 @@
     onpick: (value: T) => void;
   } = $props();
 
-  const CONFIDENCE: Record<Confidence, { text: string; title: string }> = {
-    clearly_better: {
-      text: "Clearly better",
-      title: "Wins more often than the most played option, and the difference holds once false discoveries are controlled",
-    },
-    clearly_worse: {
-      text: "Clearly worse",
-      title: "Wins less often than the most played option, and the difference holds once false discoveries are controlled",
-    },
-    most_played: { text: "Most played", title: "The option the others are compared with" },
-    no_clear_difference: {
-      text: "No clear difference",
-      title: "Not distinguishable from the most played option with the games so far",
-    },
-    too_few_games: { text: "Too few games", title: "Too few comparable games for its numbers to mean much" },
-    not_estimated: { text: "Not estimated", title: "No win impact is published for this yet" },
-  };
-
   /** Every option, after the player asked for them; the short list otherwise. */
   let all = $state(false);
   const rows = $derived(all ? slot.rows : slot.rows.filter((r) => r.shown));
 
-  const impactTitle = (r: Shown<T>) => {
-    const against = r.versus === "most_played" ? "against the most played option" : "against the alternatives";
+  const title = (r: Shown<T>) => {
+    if (r.confidence === "too_few_games") return "Too few comparable games for its numbers to mean much";
+    if (r.wpa === null || !verdict(r)) return "Not distinguishable from the most played option with the games so far";
     const interval = r.ci ? `, 95% interval ${percent(r.ci[0])} to ${percent(r.ci[1])}` : "";
-    return `Win probability added ${against}${interval}`;
+    const word = r.confidence === "clearly_better" ? "more" : "less";
+    return `Wins ${word} often than the most played option: ${percent(r.wpa)} win probability${interval}`;
   };
 </script>
 
 <ol class="options">
   {#each rows as row (row.key)}
     {@const more = detail?.(row.value)}
+    {@const clear = verdict(row)}
     <li>
       <button
         type="button"
         class="option"
         class:selected={row.selected}
+        class:few={row.confidence === "too_few_games"}
         aria-pressed={row.selected}
-        title={row.selected ? "What the import writes" : "Import this instead"}
+        title={title(row)}
         onclick={() => onpick(row.value)}
       >
-        <span class="line">
-          {#each icons?.(row.value) ?? [] as i, n (n)}<Icon src={i.src} name={i.name} />{/each}
-          <span class="name">{label(row.value)}</span>
-          {#if row.chosen}<span class="pick">Stronk's pick</span>{/if}
-          {#if row.selected && !row.chosen}<span class="pick yours">Your pick</span>{/if}
-          <span class="confidence {row.confidence}" title={CONFIDENCE[row.confidence].title}>
-            {CONFIDENCE[row.confidence].text}{#if row.fragile}<span title="A modest hidden factor could overturn this">{" · fragile"}</span>{/if}
+        <span class="mark" aria-hidden="true"></span>
+        <span class="body">
+          <span class="line">
+            {#each icons?.(row.value) ?? [] as i, n (n)}<Icon src={i.src} name={i.name} size="sm" />{/each}
+            <span class="name">{label(row.value)}</span>
+            {#if row.chosen && !row.selected}<span class="hint">Stronk's pick</span>{/if}
+            {#if clear}<span class="verdict {clear.tone}">{clear.text}</span>{/if}
           </span>
-        </span>
-        {#if more}<span class="detail">{more}</span>{/if}
-        <span class="line stats">
-          <span class="bar" aria-hidden="true"><span style:width={share(row.share)}></span></span>
-          <span>{share(row.share)} · {games(row.played)}</span>
-          {#if row.wpa !== null}
-            <span
-              class="impact"
-              class:positive={row.confidence === "clearly_better"}
-              class:negative={row.confidence === "clearly_worse"}
-              title={impactTitle(row)}>{percent(row.wpa)} win</span
-            >
-          {/if}
+          {#if more}<span class="detail">{more}</span>{/if}
+          <span class="line stats">
+            <span class="bar" aria-hidden="true"><span style:width={share(row.share)}></span></span>
+            <span>{share(row.share)} · {games(row.played)}</span>
+            {#if row.confidence === "too_few_games"}<span>· few games</span>{/if}
+            {#if row.fragile}<span title="A modest hidden factor could overturn this">· fragile</span>{/if}
+          </span>
         </span>
       </button>
     </li>
@@ -91,20 +73,22 @@
 </ol>
 {#if slot.more > 0}
   <button type="button" class="more" aria-expanded={all} onclick={() => (all = !all)}>
-    {all ? "Fewer options" : `${slot.more} more ${slot.more === 1 ? "option" : "options"}, each played less`}
+    {all ? "Show fewer" : `Show ${slot.more} more`}
   </button>
 {/if}
 
 <style>
   .options {
     display: grid;
-    gap: var(--space-1);
+    gap: 2px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
   .option {
-    display: block;
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
     width: 100%;
     padding: var(--space-2) var(--space-3);
     border: 1px solid transparent;
@@ -116,7 +100,7 @@
     cursor: pointer;
   }
   .option:hover {
-    border-color: var(--color-border);
+    background: var(--color-bg);
   }
   .option:focus-visible {
     outline: 2px solid var(--color-accent);
@@ -126,59 +110,72 @@
     border-color: var(--color-accent);
     background: var(--color-accent-bg);
   }
+  .option.few .name {
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+  .mark {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    margin-top: 3px;
+    border: 2px solid var(--color-border);
+    border-radius: 50%;
+  }
+  .selected .mark {
+    border: 4px solid var(--color-accent);
+    background: var(--color-surface);
+  }
+  .body {
+    display: grid;
+    flex: 1 1 auto;
+    gap: 2px;
+    min-width: 0;
+  }
   .line {
     display: flex;
     gap: var(--space-2);
     align-items: center;
+    min-width: 0;
   }
   .name {
+    flex: 0 1 auto;
+    min-width: 0;
     font-weight: 600;
   }
-  .pick.yours {
-    background: var(--color-positive);
-  }
-  .pick {
-    padding: 0 var(--space-2);
-    border-radius: var(--radius);
-    background: var(--color-accent);
-    color: var(--color-surface);
+  .hint {
+    color: var(--color-accent);
     font-size: var(--text-xs);
     font-weight: 600;
     white-space: nowrap;
   }
-  .confidence {
+  .verdict {
     margin-left: auto;
-    color: var(--color-muted);
     font-size: var(--text-sm);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
-  .confidence.clearly_better {
+  .verdict.positive {
     color: var(--color-positive);
-    font-weight: 600;
   }
-  .confidence.clearly_worse {
+  .verdict.negative {
     color: var(--color-negative);
-    font-weight: 600;
-  }
-  .confidence.too_few_games {
-    color: var(--color-warning);
   }
   .detail {
-    display: block;
-    margin: 0;
     color: var(--color-muted);
     font-size: var(--text-sm);
   }
   .stats {
-    margin-top: var(--space-1);
     color: var(--color-muted);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
   }
   .bar {
-    flex: 0 0 72px;
-    height: 6px;
+    flex: 0 0 56px;
+    height: 4px;
     overflow: hidden;
-    border-radius: var(--radius);
+    border-radius: 2px;
     background: var(--color-track);
   }
   .bar span {
@@ -186,28 +183,18 @@
     height: 100%;
     background: var(--color-muted);
   }
-  .option.selected .bar span {
+  .selected .bar span {
     background: var(--color-accent);
   }
-  .impact {
-    margin-left: auto;
-    font-variant-numeric: tabular-nums;
-  }
-  .impact.positive {
-    color: var(--color-positive);
-  }
-  .impact.negative {
-    color: var(--color-negative);
-  }
   .more {
-    margin: var(--space-1) var(--space-2) 0;
-    padding: 0 var(--space-1);
+    justify-self: start;
+    margin: var(--space-1) 0 0 calc(var(--space-3) + 14px + var(--space-3));
+    padding: 0;
     border: none;
     background: none;
     color: var(--color-accent);
     font: inherit;
     font-size: var(--text-sm);
-    text-align: left;
     cursor: pointer;
   }
   .more:hover {

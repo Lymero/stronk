@@ -32,13 +32,13 @@ test.beforeEach(async ({ page }) => {
 
 test("a replayed lobby leads to the Lee Sin jungle import", async ({ page }) => {
   await expect(page.getByText("Waiting for champion select")).toBeVisible();
-  await expect(page.getByText("Data 16.20")).toBeVisible();
+  await expect(page.getByText("Builds for patch 16.20 are ready.")).toBeVisible();
   await step(page);
   await expect(page.getByRole("heading", { name: "Graves" })).toBeVisible();
   await step(page);
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible(); // the client's name
   await expect(page.getByText("Jungle · Hovering · Bans and picks")).toBeVisible();
-  await expect(page.getByLabel("Build").getByText("Precision", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Build").getByRole("button", { name: /^Runes .*Precision/ })).toBeVisible();
   // Icons from the client's game data, as PNG data URLs through the core.
   const portrait = page.getByLabel("Champion select").locator("img");
   await expect(portrait).toHaveAttribute("src", /^data:image\/png;base64,/);

@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Plan, Row } from "../../backend/backend.ts";
-import { allPopular, options, percent, share } from "./options.ts";
+import { allPopular, mostPlayed, options, percent, selected, share, verdict } from "./options.ts";
 
 const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   value,
@@ -77,6 +77,28 @@ describe("options", () => {
       [70, false, false],
     ]);
     expect(o.spells.rows.map((r) => r.selected)).toEqual([true, false]); // same pair, other keys
+  });
+
+  it("gives a verdict only for a clear difference", () => {
+    expect(verdict(row(1, { wpa: 0.021, confidence: "clearly_better" }))).toEqual({ text: "▲ +2.1%", tone: "positive" });
+    expect(verdict(row(1, { wpa: -0.018, confidence: "clearly_worse" }))).toEqual({ text: "▼ −1.8%", tone: "negative" });
+    for (const confidence of ["most_played", "no_clear_difference", "too_few_games", "not_estimated"] as const) {
+      expect(verdict(row(1, { wpa: 0.05, confidence }))).toBeNull();
+    }
+    expect(verdict(row(1, { wpa: null, confidence: "clearly_better" }))).toBeNull();
+  });
+
+  it("finds a slot's most played option and the one the import writes", () => {
+    const slot = {
+      rows: [
+        { ...row(1, { confidence: "no_clear_difference" }), key: "1", selected: false, shown: true },
+        { ...row(2), key: "2", selected: true, shown: true },
+      ],
+      more: 0,
+    };
+    expect(mostPlayed(slot)?.value).toBe(2);
+    expect(selected(slot)?.value).toBe(2);
+    expect(mostPlayed({ rows: [], more: 0 })).toBeUndefined();
   });
 
   it("formats win impact and shares", () => {

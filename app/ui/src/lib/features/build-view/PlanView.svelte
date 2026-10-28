@@ -1,10 +1,13 @@
 <script lang="ts">
+  // The build Stronk would import, one line per slot (ADR-056): the option the import writes,
+  // a verdict only when it clearly beats the most played one or is the player's own pick, and
+  // the slot's options behind a click.
   import type { Choice, GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
   import OptionList from "./OptionList.svelte";
   import type { Pick, Picks } from "../../state/picks.ts";
-  import { allPopular, options as ranked } from "./options.ts";
+  import { allPopular, mostPlayed, options as ranked, percent, selected, type Slot, verdict } from "./options.ts";
 
   let {
     plan,
@@ -13,9 +16,7 @@
     picks,
     imported,
     changed,
-    onimport,
     onpick,
-    onreset,
   }: {
     plan: Plan;
     names: GameNames | null;
@@ -24,35 +25,27 @@
     imported: Imported | null;
     /** The picks changed since that import. */
     changed: boolean;
-    onimport: () => void;
     onpick: (pick: Pick) => void;
-    /** Back to Stronk's choices everywhere. */
-    onreset: () => void;
   } = $props();
 
-  const percent = (v: number) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
-  const why = (c: Choice<unknown>) =>
-    c.label === "clearly_better" ? `Clearly better · ${percent(c.wpa)} win` : c.label === "picked" ? "Your pick" : "Popular";
-  /** The evidence behind "Clearly better": the interval and how many games it rests on. */
-  const evidence = (c: Choice<unknown>) => {
-    if (c.label === "popular") return "The most played option";
-    if (c.label === "picked") return "Your pick instead of Stronk's";
-    const interval = c.ci ? ` (95% interval ${percent(c.ci[0])} to ${percent(c.ci[1])})` : "";
-    return `Win impact ${percent(c.wpa)} against the most played option${interval}, from ${c.games.toLocaleString("en-US")} games`;
-  };
+  /** Slots opened by the player to see their options; all closed at first. */
+  let open = $state<Record<string, boolean>>({});
+  const toggle = (key: string) => (open = { ...open, [key]: !open[key] });
 
-  const source = $derived([`Patch ${plan.patch}`, games(plan.games), elo(plan.elo), region(plan.region)].join(" · "));
+  const source = $derived([plan.patch, games(plan.games), elo(plan.elo), region(plan.region)].join(" · "));
+  const how = $derived(
+    (allPopular(plan)
+      ? "No option beats the most played one clearly yet, so Stronk imports the most played build."
+      : "Stronk imports the most played options, except where another one is clearly better.") +
+      " Open a slot and click any option to import it instead.",
+  );
   const options = $derived(ranked(plan, picks));
-  const picked = $derived(picks.runes !== undefined || picks.spells !== undefined || Object.keys(picks.items).length > 0);
-  const shownPage = $derived(picks.runes ?? plan.runes?.value);
-  /** The item each slot imports: the player's pick, else Stronk's. */
-  const slotItem = (slot: number) => picks.items[slot] ?? plan.items.find((i) => i.slot === slot)?.value;
-  /** Other slots importing the same item, so a duplicate the player picks is visible. */
-  const alsoIn = (slot: number) => (id: number) => {
-    const others = plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => `item ${i.slot}`);
-    return others.length ? `Also in ${others.join(" and ")}` : "";
-  };
-  const popularOnly = $derived(allPopular(plan));
+
+  /** The evidence behind a clear result: the interval and how many games it rests on. */
+  const evidence = (c: Choice<unknown> | null) =>
+    c?.label === "clearly_better"
+      ? `Win impact ${percent(c.wpa)} against the most played option${c.ci ? ` (95% interval ${percent(c.ci[0])} to ${percent(c.ci[1])})` : ""}, from ${c.games.toLocaleString("en-US")} games`
+      : "";
 
   const page = (p: Page) => {
     const [primary, secondary] = runePage(names, p);
@@ -75,13 +68,25 @@
   ];
   const spellIcons = (pair: [number, number]) => pair.map((id) => shown("spells", id));
   const itemIcons = (id: number) => [shown("items", id)];
-  /** The icons of a page summary's lines: each tree's, then each rune's. */
-  const lineIcons = (p: Page) => [
-    { tree: shown("rune_styles", p.primary_style), runes: p.perks.slice(0, 4).map((id) => shown("runes", id)) },
-    { tree: shown("rune_styles", p.sub_style), runes: p.perks.slice(4, 6).map((id) => shown("runes", id)) },
-    { tree: null, runes: p.perks.slice(6).map((id) => shown("runes", id)) },
-  ];
-  const itemSlot = (slot: number) => options.items.find((s) => s.slot === slot);
+
+  /** The item each slot imports: the player's pick, else Stronk's. */
+  const slotItem = (slot: number) => picks.items[slot] ?? plan.items.find((i) => i.slot === slot)?.value;
+  /** Other slots importing the same item, so a duplicate the player picks is visible. */
+  const alsoIn = (slot: number) => (id: number) => {
+    const others = plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => `item ${i.slot}`);
+    return others.length ? `Also in ${others.join(" and ")}` : "";
+  };
+
+  /** What a closed slot says after its value: the player's pick, or a clear result. */
+  function note<T>(slot: Slot<T>, label: (value: T) => string): { text: string; tone: string } | null {
+    const row = selected(slot);
+    if (!row) return null;
+    if (!row.chosen) return { text: "Your pick", tone: "picked" };
+    const clear = verdict(row);
+    const base = mostPlayed(slot);
+    if (!clear || !base || base === row) return null;
+    return { text: `${clear.text} vs ${label(base.value)}`, tone: clear.tone };
+  }
 
   const parts = $derived(
     imported
@@ -98,32 +103,43 @@
   );
 </script>
 
-{#snippet label(c: Choice<unknown>)}
-  <span class="label" class:better={c.label === "clearly_better"} class:picked={c.label === "picked"} title={evidence(c)}
-    >{why(c)}</span
+{#snippet summary(
+  key: string,
+  title: string,
+  value: { icons: { src: string | null; name: string }[]; name: string; detail: string },
+  said: { text: string; tone: string } | null,
+  why: string,
+  count: number,
+)}
+  <button
+    type="button"
+    class="summary"
+    aria-expanded={count > 1 ? !!open[key] : undefined}
+    aria-controls="slot-{key}"
+    disabled={count < 2}
+    onclick={() => toggle(key)}
   >
+    <span class="slot-name" aria-hidden="true">{title}</span>
+    <span class="icons" aria-hidden="true">
+      {#each value.icons as i, n (n)}<Icon src={i.src} name={i.name} />{/each}
+    </span>
+    <span class="value">
+      <span class="caption">{title}</span>
+      <span class="name">{value.name}</span>
+      {#if value.detail}<span class="detail">{value.detail}</span>{/if}
+    </span>
+    {#if said}<span class="said {said.tone}" title={why}>{said.text}</span>{/if}
+    {#if count > 1}
+      <span class="count">{count} {count === 1 ? "option" : "options"}</span>
+      <span class="chevron" aria-hidden="true"></span>
+    {/if}
+  </button>
 {/snippet}
 
 <section class="plan" aria-label="Build">
-  <header>
-    <div>
-      <h2>Recommended build</h2>
-      <p class="meta">{source}</p>
-    </div>
-    <div class="actions">
-      {#if picked}<button type="button" class="quiet" onclick={onreset}>Use Stronk's picks</button>{/if}
-      <button type="button" class="primary" onclick={onimport}>Import</button>
-    </div>
-  </header>
-
-  <p class="note">
-    {#if popularOnly}
-      No option beats the most played one clearly yet, so Stronk imports the most played build. The
-      alternatives below show what else is played and how far the numbers go.
-    {:else}
-      Stronk imports the most played options, except where another one is clearly better.
-    {/if}
-    Click any option to import it instead.
+  <p class="meta">
+    {source}
+    <span class="how" title={how} aria-label={how}>How Stronk picks</span>
   </p>
 
   {#if imported}
@@ -137,68 +153,71 @@
     </p>
   {/if}
 
-  <div class="cards">
+  <ul class="build">
     {#if plan.runes}
-      <article class="card wide">
-        <header>
-          <h3>Runes</h3>
-          {@render label(picks.runes ? { value: null, label: "picked" } : plan.runes)}
-        </header>
-        <div class="page">
-          {#each runePage(names, shownPage ?? plan.runes.value) as line, n (line.title)}
-            {@const lineIcon = lineIcons(shownPage ?? plan.runes.value)[n]}
-            <div class="tree-line">
-              <span class="icons" aria-hidden="true">
-                {#if lineIcon?.tree}<Icon src={lineIcon.tree.src} name={lineIcon.tree.name} />{/if}
-                {#each lineIcon?.runes ?? [] as r, k (k)}<Icon src={r.src} name={r.name} size={k === 0 && n === 0 ? "md" : "sm"} />{/each}
-              </span>
-              <p><span class="tree">{line.title}</span> {line.runes.join(" · ")}</p>
-            </div>
-          {/each}
-        </div>
-        {#if options.runes.rows.length}
-          <h4>Pages played</h4>
-          <OptionList
-            slot={options.runes}
-            label={page}
-            detail={pageDetail}
-            icons={pageIcons}
-            onpick={(p) => onpick({ runes: p })}
-          />
+      {@const value = picks.runes ?? plan.runes.value}
+      <li class:open={open.runes}>
+        {@render summary(
+          "runes",
+          "Runes",
+          { icons: pageIcons(value), name: page(value), detail: pageDetail(value) },
+          note(options.runes, page),
+          evidence(plan.runes),
+          options.runes.rows.length,
+        )}
+        {#if open.runes}
+          <div class="choices" id="slot-runes">
+            <OptionList
+              slot={options.runes}
+              label={page}
+              detail={pageDetail}
+              icons={pageIcons}
+              onpick={(p) => onpick({ runes: p })}
+            />
+          </div>
         {/if}
-      </article>
+      </li>
     {/if}
 
     {#if plan.spells}
-      <article class="card">
-        <header>
-          <h3>Spells</h3>
-          {@render label(picks.spells ? { value: null, label: "picked" } : plan.spells)}
-        </header>
-        {#if options.spells.rows.length}
-          <OptionList
-            slot={options.spells}
-            label={spells}
-            icons={spellIcons}
-            onpick={(pair) => onpick({ spells: pair })}
-          />
-        {:else}
-          <p class="value">
-            {#each spellIcons(plan.spells.value) as i, n (n)}<Icon src={i.src} name={i.name} />{/each}
-            {spells(plan.spells.value)}
-          </p>
+      {@const value = picks.spells ?? plan.spells.value}
+      <li class:open={open.spells}>
+        {@render summary(
+          "spells",
+          "Spells",
+          { icons: spellIcons(value), name: spells(value), detail: "" },
+          note(options.spells, spells),
+          evidence(plan.spells),
+          options.spells.rows.length,
+        )}
+        {#if open.spells}
+          <div class="choices" id="slot-spells">
+            <OptionList
+              slot={options.spells}
+              label={spells}
+              icons={spellIcons}
+              onpick={(pair) => onpick({ spells: pair })}
+            />
+          </div>
         {/if}
-      </article>
+      </li>
     {/if}
 
     {#each plan.items as choice (choice.slot)}
-        {@const alts = itemSlot(choice.slot)}
-        <article class="card">
-          <header>
-            <h3>Item {choice.slot}</h3>
-            {@render label(picks.items[choice.slot] !== undefined ? { value: null, label: "picked" } : choice)}
-          </header>
-          {#if alts?.rows.length}
+      {@const key = `item-${choice.slot}`}
+      {@const alts = options.items.find((s) => s.slot === choice.slot) ?? { rows: [], more: 0 }}
+      {@const value = slotItem(choice.slot) ?? choice.value}
+      <li class:open={open[key]}>
+        {@render summary(
+          key,
+          `Item ${choice.slot}`,
+          { icons: itemIcons(value), name: item(value), detail: alsoIn(choice.slot)(value) },
+          note(alts, item),
+          evidence(choice),
+          alts.rows.length,
+        )}
+        {#if open[key]}
+          <div class="choices" id="slot-{key}">
             <OptionList
               slot={alts}
               label={item}
@@ -206,133 +225,151 @@
               icons={itemIcons}
               onpick={(id) => onpick({ slot: choice.slot, item: id })}
             />
-          {:else}
-            <p class="value"><Icon src={icon(icons, "items", choice.value)} name={item(choice.value)} /> {item(choice.value)}</p>
-          {/if}
-        </article>
-      {/each}
-  </div>
+          </div>
+        {/if}
+      </li>
+    {/each}
+  </ul>
 </section>
 
 <style>
   .plan {
     display: grid;
-    gap: var(--space-4);
-  }
-  .plan > header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-  }
-  h2 {
-    margin: 0;
-    font-size: var(--text-lg);
-  }
-  h3,
-  h4 {
-    margin: 0;
-    font-size: var(--text-md);
-  }
-  h4 {
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-    font-weight: 600;
-  }
-  .card h4 + :global(.options) {
-    margin-top: var(--space-1);
-  }
-  .meta {
-    margin: var(--space-1) 0 0;
-    color: var(--color-muted);
-  }
-  .note {
-    margin: 0;
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-  }
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: var(--space-3);
   }
-  .card {
-    display: grid;
-    align-content: start;
-    gap: var(--space-2);
-    padding: var(--space-3);
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    align-items: baseline;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+  }
+  .how {
+    border-bottom: 1px dotted var(--color-muted);
+    cursor: help;
+  }
+  .build {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
+    list-style: none;
   }
-  .card > header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    padding: 0 var(--space-1);
+  .build > li + li {
+    border-top: 1px solid var(--color-border);
   }
-  .card.wide {
-    grid-column: 1 / -1;
-  }
-  .page {
-    display: grid;
-    gap: var(--space-2);
-    padding: 0 var(--space-1);
-  }
-  .tree-line {
+  .summary {
     display: flex;
     gap: var(--space-3);
     align-items: center;
+    width: 100%;
+    min-height: 56px;
+    padding: var(--space-2) var(--space-4);
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .summary:disabled {
+    cursor: default;
+  }
+  .summary:not(:disabled):hover {
+    background: var(--color-bg);
+  }
+  .summary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+  .slot-name {
+    flex: 0 0 56px;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
   }
   .icons {
     display: flex;
     flex: 0 0 auto;
     gap: var(--space-1);
-    align-items: center;
-    min-width: calc(var(--icon-md) * 2 + var(--icon-sm) * 3 + var(--space-1) * 4);
-  }
-  .page p,
-  .value {
-    margin: 0;
   }
   .value {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    padding: 0 var(--space-1);
+    display: grid;
+    flex: 1 1 auto;
+    min-width: 0;
   }
-  .tree {
+  .name {
+    font-weight: 600;
+  }
+  /* The slot's name for screen readers and narrow windows; wide ones show it in a column. */
+  .caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
     color: var(--color-muted);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+  }
+  .detail {
+    overflow: hidden;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .said {
+    flex: 0 1 auto;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-align: right;
+  }
+  .said.positive {
+    color: var(--color-positive);
+  }
+  .said.negative {
+    color: var(--color-negative);
+  }
+  .said.picked {
+    color: var(--color-accent);
+  }
+  .count {
+    flex: 0 0 auto;
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+  }
+  .chevron {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--color-muted);
+    border-bottom: 2px solid var(--color-muted);
+    margin: 0 2px 4px;
+    transform: rotate(45deg);
+    transition: transform 0.15s;
+  }
+  .open .chevron {
+    margin: 4px 2px 0;
+    transform: rotate(-135deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chevron {
+      transition: none;
+    }
+  }
+  .choices {
+    padding: 0 var(--space-3) var(--space-3);
   }
   .result {
     margin: 0;
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius);
     background: var(--color-positive-bg);
-  }
-  .skipped {
-    margin: 0;
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius);
-    background: var(--color-warning-bg);
-    color: var(--color-warning);
-  }
-  .label {
-    padding: 0 var(--space-2);
-    border-radius: var(--radius);
-    background: var(--color-bg);
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-    white-space: nowrap;
-  }
-  .label.better {
-    background: var(--color-positive-bg);
-    color: var(--color-positive);
-  }
-  .label.picked {
-    background: var(--color-accent-bg);
-    color: var(--color-accent);
   }
   .result.stale {
     background: var(--color-warning-bg);
@@ -341,28 +378,30 @@
     display: block;
     color: var(--color-warning);
   }
-  .actions {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-  }
-  .quiet {
+  .skipped {
+    margin: 0;
     padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: inherit;
-    cursor: pointer;
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
   }
-  .primary {
-    padding: var(--space-2) var(--space-6);
-    border: 1px solid var(--color-accent);
-    border-radius: var(--radius);
-    background: var(--color-accent);
-    color: var(--color-surface);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
+  @media (max-width: 480px) {
+    .summary {
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+    }
+    .slot-name,
+    .count {
+      display: none;
+    }
+    .caption {
+      position: static;
+      width: auto;
+      height: auto;
+      clip-path: none;
+    }
+    .choices {
+      padding: 0 var(--space-1) var(--space-2);
+    }
   }
 </style>

@@ -41,6 +41,11 @@ function setup(name: keyof typeof scenarios, store = memory(), picks = memoryPic
   return { backend, app, next, store };
 }
 
+/** Opens a slot of the build (`Runes`, `Spells`, `Item 2`) to show its options. */
+async function openSlot(build: HTMLElement, slot: string) {
+  await fireEvent.click(within(build).getByRole("button", { name: new RegExp(`^${slot} `) }));
+}
+
 const imports = (backend: MockBackend) => backend.calls.filter((c) => c.id === "build.import").length;
 
 describe("App with MockBackend", () => {
@@ -54,7 +59,7 @@ describe("App with MockBackend", () => {
     const { app } = setup("ranked-jungle");
     await app.refresh();
     expect(await screen.findByText("Waiting for champion select")).toBeInTheDocument();
-    expect(screen.getByText("Data 16.20")).toBeInTheDocument();
+    expect(screen.getByText("Builds for patch 16.20 are ready.")).toBeInTheDocument();
   });
 
   it("plans the hovered champion's build once, and lock-in reuses it", async () => {
@@ -73,13 +78,18 @@ describe("App with MockBackend", () => {
     ]);
   });
 
-  it("labels each choice Popular or Clearly better with its win impact", async () => {
+  it("shows the build one slot a line, with a verdict only where an option is clearly better", async () => {
     const { app, next } = setup("ranked-jungle");
     await app.refresh();
     await next();
     await next();
-    expect(await screen.findAllByText("Popular")).toHaveLength(4); // runes, spells, items 1 and 3
-    const better = screen.getByText("Clearly better · +2.1% win");
+    const build = screen.getByLabelText("Build");
+    for (const slot of ["Runes", "Spells", "Item 1", "Item 2", "Item 3"]) {
+      expect(within(build).getByRole("button", { name: new RegExp(`^${slot} `) })).toHaveAttribute("aria-expanded", "false");
+    }
+    expect(within(build).queryByRole("button", { pressed: true })).toBeNull(); // options stay closed
+    expect(within(build).queryByText(/Popular|Most played|No clear difference/)).toBeNull();
+    const better = within(build).getByText("▲ +2.1% vs Black Cleaver"); // item 2, the only one
     expect(better).toHaveAttribute(
       "title",
       "Win impact +2.1% against the most played option (95% interval +0.8% to +3.4%), from 640 games",
@@ -92,15 +102,17 @@ describe("App with MockBackend", () => {
     await next();
     await next();
     const build = screen.getByLabelText("Build");
-    expect(await within(build).findByText("Patch 16.20 · 1,840 games · Master+ · All regions")).toBeInTheDocument();
+    expect(await within(build).findByText(/16\.20 · 1,840 games · Master\+ · All regions/)).toBeInTheDocument();
+    expect(within(build).getByTitle(/Stronk imports the most played options, except where another one is clearly better\./)).toBeInTheDocument();
+    for (const slot of ["Runes", "Item 2", "Item 3"]) await openSlot(build, slot);
     expect(within(build).getByText("Electrocute · Domination + Precision")).toBeInTheDocument();
-    expect(within(build).getAllByText("Death's Dance", { selector: ".name" })).toHaveLength(2); // slots 2 and 3
-    expect(within(build).getAllByText("Clearly worse")).toHaveLength(1); // Death's Dance at slot 3
-    expect(within(build).getAllByText("Too few games").length).toBeGreaterThan(0);
-    expect(within(build).getByText(/Stronk imports the most played options, except where another one is clearly better\./)).toBeInTheDocument();
+    expect(within(build).getAllByRole("button", { name: /^Death's Dance/ })).toHaveLength(2); // slots 2 and 3
+    expect(within(build).getAllByText("▼ −1.8%")).toHaveLength(1); // Death's Dance at slot 3
+    expect(within(build).getAllByText("· few games").length).toBeGreaterThan(0);
     // Sundered Sky, the pick at slot 2: 640 of 1,790 picks, +2.1% against Black Cleaver.
-    const pick = within(build).getAllByText("Stronk's pick").map((el) => el.closest("li")?.textContent ?? "");
-    expect(pick.some((t) => t.includes("Sundered Sky") && t.includes("36% · 640 games") && t.includes("+2.1% win"))).toBe(true);
+    const pick = within(build).getByRole("button", { name: /^Sundered Sky/, pressed: true });
+    expect(pick).toHaveTextContent("36% · 640 games");
+    expect(pick).toHaveTextContent("▲ +2.1%");
     // The rows come with the plan: nothing else is asked for them.
     expect(backend.calls.filter((c) => c.id === "build.get")).toEqual([]);
   });
@@ -110,16 +122,19 @@ describe("App with MockBackend", () => {
     await app.refresh();
     for (let i = 0; i < 3; i++) await next(); // Lee Sin, locked in
     const build = screen.getByLabelText("Build");
-    const cleaver = within(build).getByRole("button", { name: /^Black Cleaver/ }); // slot 2
+    await openSlot(build, "Item 2");
+    const cleaver = within(build).getByRole("button", { name: /^Black Cleaver/ });
     await fireEvent.click(cleaver);
     expect(cleaver).toHaveAttribute("aria-pressed", "true");
-    expect(within(cleaver).getByText("Your pick")).toBeInTheDocument();
+    expect(within(build).getByRole("button", { name: /^Item 2 Black Cleaver/ })).toHaveTextContent("Your pick");
+    expect(within(build).getByRole("button", { name: /^Sundered Sky/ })).toHaveTextContent("Stronk's pick");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     const sent = () => backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
     expect(sent()).toEqual([{ items: [{ slot: 2, item: 3071 }] }]);
     expect(await screen.findByRole("status")).toHaveTextContent("Imported: Rune page, Item set, Spells.");
 
     // Changing a pick after the import says so; Stronk's picks come back with one click.
+    await openSlot(build, "Spells");
     const smiteIgnite = within(build).getByRole("button", { name: /^Smite · Ignite/ });
     await fireEvent.click(smiteIgnite);
     expect(screen.getByRole("status")).toHaveTextContent("Your picks changed since: import again to use them.");
@@ -135,13 +150,15 @@ describe("App with MockBackend", () => {
     await next();
     await next();
     const build = screen.getByLabelText("Build");
-    expect(within(build).getByText("2 more options, each played less")).toBeInTheDocument(); // rune pages
-    expect(within(build).getAllByText("1 more option, each played less")).toHaveLength(3); // items
+    for (const slot of ["Runes", "Item 1", "Item 2", "Item 3"]) await openSlot(build, slot);
+    expect(within(build).getByText("Show 2 more")).toBeInTheDocument(); // rune pages
+    expect(within(build).getAllByText("Show 1 more")).toHaveLength(3); // items
     const deathsDance = () => within(build).getAllByRole("button", { name: /^Death's Dance/ });
     await fireEvent.click(deathsDance()[0] as HTMLElement); // slot 2
     await fireEvent.click(deathsDance()[1] as HTMLElement); // slot 3
-    expect(within(build).getByText("Also in item 3")).toBeInTheDocument();
-    expect(within(build).getByText("Also in item 2")).toBeInTheDocument();
+    // On the slot's line and on the option.
+    expect(within(build).getAllByText("Also in item 3")).toHaveLength(2);
+    expect(within(build).getAllByText("Also in item 2")).toHaveLength(2);
   });
 
   it("lists every option on request, and imports one past the short list", async () => {
@@ -149,17 +166,17 @@ describe("App with MockBackend", () => {
     await app.refresh();
     for (let i = 0; i < 3; i++) await next();
     const build = screen.getByLabelText("Build");
+    await openSlot(build, "Item 1");
     expect(within(build).queryByRole("button", { name: /^The Collector/ })).toBeNull();
-    const slot1 = within(build).getAllByRole("button", { name: "1 more option, each played less" })[0] as HTMLElement;
-    expect(slot1).toHaveAttribute("aria-expanded", "false");
-    await fireEvent.click(slot1);
+    const more = within(build).getByRole("button", { name: "Show 1 more" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    await fireEvent.click(more);
     const collector = within(build).getByRole("button", { name: /^The Collector/ });
-    expect(collector).toHaveTextContent("Too few games");
+    expect(collector).toHaveTextContent("few games");
     await fireEvent.click(collector);
     // Picked, it joins the short list: nothing is left out of that slot any more.
     expect(collector).toHaveAttribute("aria-pressed", "true");
-    expect(within(build).getAllByRole("button", { name: "1 more option, each played less" })).toHaveLength(2);
-    expect(within(build).queryByRole("button", { name: "Fewer options" })).toBeNull();
+    expect(within(build).queryByRole("button", { name: /^Show/ })).toBeNull();
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     const sent = backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
     expect(sent).toEqual([{ items: [{ slot: 1, item: 6676 }] }]);
@@ -204,7 +221,7 @@ describe("App with MockBackend", () => {
     const { app, next } = setup("ranked-jungle");
     await app.refresh();
     await next(); // Graves: every choice popular
-    expect(await screen.findByText(/No option beats the most played one clearly yet/)).toBeInTheDocument();
+    expect(await screen.findByTitle(/No option beats the most played one clearly yet/)).toBeInTheDocument();
   });
 
   it("shows names from the client instead of ids, and readable phases", async () => {
@@ -213,9 +230,8 @@ describe("App with MockBackend", () => {
     await next();
     await next();
     expect(await screen.findByText("Jungle · Hovering · Bans and picks")).toBeInTheDocument();
-    expect(screen.getByText("Conqueror · Triumph · Legend: Alacrity · Coup de Grace")).toBeInTheDocument();
-    expect(screen.getByText("Magical Footwear · Cosmic Insight")).toBeInTheDocument();
-    expect(screen.getByText("Attack Speed · Adaptive Force · Health Scaling")).toBeInTheDocument();
+    expect(screen.getByText("Conqueror · Precision + Inspiration")).toBeInTheDocument();
+    expect(screen.getByText("Triumph · Legend: Alacrity · Coup de Grace · Magical Footwear · Cosmic Insight")).toBeInTheDocument();
     expect(screen.getByText("Smite · Flash")).toBeInTheDocument();
     expect(screen.getByText("Sundered Sky")).toBeInTheDocument();
   });
@@ -313,10 +329,13 @@ describe("App with MockBackend", () => {
     expect(imports(backend)).toBe(1); // once, not on every refresh
   });
 
-  it("says when the League client isn't running", async () => {
+  it("waits calmly for the League client instead of showing an error", async () => {
     const { app } = setup("no-client");
     await app.refresh();
-    expect(await screen.findByRole("alert")).toHaveTextContent("is the League client running?");
+    const waiting = await screen.findByRole("status");
+    expect(waiting).toHaveTextContent("League of Legends isn't open");
+    expect(waiting).toHaveAttribute("title", "no lockfile: is the League client running?");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("refuses data that failed verification", async () => {

@@ -66,3 +66,8 @@ export const region = (id: string): string => (id === "all" ? "All regions" : id
 
 /** A count of games, `1 game` or `1,840 games`. */
 export const games = (n: number): string => `${n.toLocaleString("en-US")} ${n === 1 ? "game" : "games"}`;
+
+/** True when an error only means the League client isn't open yet: the app waits for it and
+ * says so calmly instead of showing the error. */
+export const clientMissing = (error: { code: string; message: string } | null): boolean =>
+  error?.code === "unavailable" && /lockfile|League client/i.test(error.message);

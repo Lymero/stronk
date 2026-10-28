@@ -116,3 +116,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
 - 2026-10-28: patch 16.21 crawled (23,675 games); `backtest.run` / `just backtest` compares two patches' contrasts (ADR-055): v1 sign agreement 0.655 over 84, overlap-weighted 0.643, class 0.570; winprob transfers across the patch.
   Then: `crawl-all-16.21` pinned, the weekly job runs the backtest, `backtest.sign_agreement` enforced at min 0.55.
   Open: the change half (`backtest.direction_share`) deferred until more data per patch; UI review proposed (collapsed build, one marker), awaiting go.
+- 2026-10-28: UI redesign (ADR-056): one line per slot with options behind a click, numbers only for clear differences, Import next to the champion, a calm "League of Legends isn't open" state, works down to 420 px; layout bugs fixed (wrapping names, overflowing card).
+  Open: check it on Windows against the real client (the shell window size, real icons); stat shards are no longer shown.
