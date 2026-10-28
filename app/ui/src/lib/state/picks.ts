@@ -24,12 +24,14 @@ export const samePage = (a: Page, b: Page): boolean =>
 export const samePair = (a: readonly number[], b: readonly number[]): boolean =>
   [...a].sort().join() === [...b].sort().join();
 
-/** The picks among the plan's options; any other (the data changed) is dropped. The core
- * refuses unpublished picks anyway; this keeps the view from showing one it would refuse. */
+/** The picks among the plan's options; any other (the data changed) is dropped. A rune page
+ * can be one the player built (ADR-059): kept when whole, the core checks it against the
+ * client's trees. The core refuses other unpublished picks anyway; this keeps the view from
+ * showing one it would refuse. */
 export function published(plan: Plan, picks: Picks): Picks {
-  const { runes, spells, items } = plan.alternatives;
+  const { spells, items } = plan.alternatives;
   const kept: Picks = { items: {} };
-  if (picks.runes && runes.rows.some((r) => samePage(r.value, picks.runes as Page))) kept.runes = picks.runes;
+  if (picks.runes && picks.runes.perks.length === 9) kept.runes = picks.runes;
   if (picks.spells && spells.rows.some((r) => samePair(r.value, picks.spells as [number, number]))) {
     kept.spells = picks.spells;
   }

@@ -275,7 +275,8 @@ export interface BuildGetParams {
   role: Role;
 }
 /**
- * The player's picks, each one of the published options; Stronk's choice where none is given.
+ * The player's picks: published spells and items, and any rune page the client's trees allow;
+ * Stronk's choice where none is given.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
  * via the `definition` "ImportParams".

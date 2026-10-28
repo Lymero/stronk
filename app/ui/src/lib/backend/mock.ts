@@ -71,7 +71,7 @@ function selecting(champion: string, champion_id: number, phase: string, locked 
  * serves are a subset. */
 const names: GameNames = {
   champions: { "64": "Lee Sin", "104": "Graves" },
-  rune_styles: { "8000": "Precision", "8100": "Domination", "8300": "Inspiration", "8400": "Resolve" },
+  rune_styles: { "8000": "Precision", "8100": "Domination", "8200": "Sorcery", "8300": "Inspiration", "8400": "Resolve" },
   runes: {
     "8010": "Conqueror",
     "9111": "Triumph",
@@ -163,6 +163,7 @@ const names: GameNames = {
     "6333": "Death's Dance",
     "3026": "Guardian Angel",
     "6694": "Serylda's Grudge",
+    "3078": "Trinity Force",
   },
 };
 
@@ -310,8 +311,9 @@ const leeSinAlternatives: Alternatives = {
         row(6631, 410, 1840, { wpa: -0.004, ci: [-0.018, 0.01], versus: "most_played" }),
         row(6698, 210, 1840, { confidence: "too_few_games" }),
         rare(6676, 100, 1840),
+        rare(3078, 20, 1840), // under 2% of games: behind "+1"
       ],
-      more: 1,
+      more: 2,
     },
     {
       slot: 2,

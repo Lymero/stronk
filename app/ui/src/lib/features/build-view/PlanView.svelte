@@ -1,13 +1,13 @@
 <script lang="ts">
-  // The build Stronk would import, one line per slot (ADR-056): the option the import writes,
-  // a verdict only when it clearly beats the most played one or is the player's own pick, and
-  // the slot's options behind a click.
+  // The build Stronk would import as a board of panels (ADR-059): the rune page built by clicking
+  // runes, the spells and each item slot as rows of options, every option with its numbers and
+  // the lit ones what the import writes. Nothing to open or scroll through.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
   import Icon from "../../ui/Icon.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
-  import OptionList from "./OptionList.svelte";
-  import RuneTree from "./RuneTree.svelte";
+  import ChoicePanel from "./ChoicePanel.svelte";
+  import RunesPanel from "./RunesPanel.svelte";
   import type { Pick, Picks } from "../../state/picks.ts";
   import {
     allPopular,
@@ -15,7 +15,6 @@
     figure,
     mostPlayed,
     options as ranked,
-    runeRows,
     selected,
     type Slot,
     verdict,
@@ -40,10 +39,6 @@
     onpick: (pick: Pick) => void;
   } = $props();
 
-  /** Slots opened by the player to see their options; all closed at first. */
-  let open = $state<Record<string, boolean>>({});
-  const toggle = (key: string) => (open = { ...open, [key]: !open[key] });
-
   const source = $derived([`Patch ${plan.patch}`, games(plan.games), elo(plan.elo), region(plan.region)]);
   const how = $derived(
     (allPopular(plan)
@@ -52,26 +47,16 @@
       " Open a slot and click any option to import it instead.",
   );
   const options = $derived(ranked(plan, picks));
-  /** The rune rows of the page the import writes. */
-  const byRune = $derived(plan.runes ? runeRows(plan, picks.runes ?? plan.runes.value) : []);
+  /** The page the import writes: the player's, else Stronk's. */
+  const shownPage = $derived(picks.runes ?? plan.runes?.value ?? null);
+  /** The client's layout of that page's trees, without which pages are picked whole. */
+  const laidOut = $derived(!!names && !!shownPage && !!names.rune_trees[String(shownPage.primary_style)]);
 
   const page = (p: Page) => {
     const [primary, secondary] = runePage(names, p);
     return `${primary?.runes[0] ?? ""} (${primary?.title ?? ""} + ${secondary?.title ?? ""})`;
   };
-  const pageDetail = (p: Page) => {
-    const [primary, secondary] = runePage(names, p);
-    return [...(primary?.runes.slice(1) ?? []), ...(secondary?.runes ?? [])].join(", ");
-  };
   const spells = (pair: [number, number]) => pair.map((id) => name(names, "spells", id)).join(" + ");
-  const runes = (ids: number[]) => ids.map((id) => name(names, "runes", id)).join(" + ");
-  const runeIcons = (ids: number[]) => ids.map((id) => shown("runes", id));
-  const SHARD_ROWS = ["Offense shard", "Flex shard", "Defense shard"];
-  /** A rune row's name: "Precision row 1", "Inspiration, secondary", "Flex shard". */
-  const rowTitle = (r: { kind: string; style: number | null; row: number | null }) =>
-    r.kind === "shard"
-      ? (SHARD_ROWS[(r.row ?? 1) - 1] ?? "Shard")
-      : `${name(names, "rune_styles", r.style ?? 0)} ${r.kind === "secondary" ? "secondary" : `row ${r.row ?? ""}`}`;
   const item = (id: number) => name(names, "items", id);
   const shown = (kind: "rune_styles" | "runes" | "spells" | "items", id: number) => ({
     src: icon(icons, kind, id),
@@ -126,38 +111,6 @@
   );
 </script>
 
-{#snippet summary(
-  key: string,
-  title: string,
-  value: { icons: { src: string | null; name: string }[]; name: string; detail: string },
-  said: { text: string; tone: string; title: string } | null,
-  count: number,
-)}
-  <button
-    type="button"
-    class="summary"
-    aria-expanded={count > 1 ? !!open[key] : undefined}
-    aria-controls="slot-{key}"
-    disabled={count < 2}
-    onclick={() => toggle(key)}
-  >
-    <span class="slot-name" aria-hidden="true">{title}</span>
-    <span class="icons" aria-hidden="true">
-      {#each value.icons as i, n (n)}<Icon src={i.src} name={i.name} />{/each}
-    </span>
-    <span class="value">
-      <span class="caption">{title}</span>
-      <span class="name">{value.name}</span>
-      {#if value.detail}<span class="detail">{value.detail}</span>{/if}
-    </span>
-    {#if said}<span class="said {said.tone}" title={said.title}>{said.text}</span>{/if}
-    {#if count > 1}
-      <span class="count">{count} {count === 1 ? "option" : "options"}</span>
-      <span class="chevron" aria-hidden="true"></span>
-    {/if}
-  </button>
-{/snippet}
-
 <section class="plan" aria-label="Build">
   <p class="meta">
     <Facts facts={source} />
@@ -175,106 +128,58 @@
     </p>
   {/if}
 
-  <ul class="build">
-    {#if plan.runes}
-      {@const value = picks.runes ?? plan.runes.value}
-      <li class:open={open.runes}>
-        {@render summary(
-          "runes",
-          "Runes",
-          { icons: pageIcons(value), name: page(value), detail: pageDetail(value) },
-          note(options.runes, page),
-          options.runes.rows.length,
-        )}
-        {#if open.runes}
-          <div class="choices" id="slot-runes">
-            {#if names && names.rune_trees[String(value.primary_style)]}
-              <RuneTree
-                page={value}
-                keystones={options.runes.rows.map((r) => ({ page: r.value, row: r }))}
-                rows={byRune}
-                {names}
-                {icons}
-                onpick={(p) => onpick({ runes: p })}
-              />
-              <h4 class="pages">Pages by keystone</h4>
-            {/if}
-            <OptionList
-              slot={options.runes}
-              label={page}
-              detail={pageDetail}
-              icons={pageIcons}
-              onpick={(p) => onpick({ runes: p })}
-            />
-            {#if byRune.length && !(names && names.rune_trees[String(value.primary_style)])}
-              <section class="by-rune" aria-label="Rune by rune">
-                <h4>Rune by rune</h4>
-                <p class="hint">
-                  Each row of the page above against the other choices in that row. For reading: the import
-                  writes a whole page.
-                </p>
-                {#each byRune as r (r.key)}
-                  <div class="rune-row">
-                    <h5>{rowTitle(r)}</h5>
-                    <OptionList slot={r.slot} label={runes} icons={runeIcons} />
-                  </div>
-                {/each}
-              </section>
-            {/if}
-          </div>
-        {/if}
-      </li>
-    {/if}
+  <div class="board">
+    <div class="column">
+      {#if shownPage && laidOut && names}
+        <section aria-label="Runes">
+          <h3>Runes</h3>
+          <RunesPanel
+            {plan}
+            page={shownPage}
+            stronk={plan.runes?.value ?? null}
+            {names}
+            {icons}
+            onpage={(p) => onpick({ runes: p })}
+          />
+        </section>
+      {:else if plan.runes}
+        <ChoicePanel
+          title="Runes"
+          note={note(options.runes, page)}
+          slot={options.runes}
+          label={page}
+          icons={pageIcons}
+          onpick={(p) => onpick({ runes: p })}
+        />
+      {/if}
+      {#if plan.spells}
+        <ChoicePanel
+          title="Summoner spells"
+          note={note(options.spells, spells)}
+          slot={options.spells}
+          label={spells}
+          icons={spellIcons}
+          onpick={(pair) => onpick({ spells: pair })}
+        />
+      {/if}
+    </div>
 
-    {#if plan.spells}
-      {@const value = picks.spells ?? plan.spells.value}
-      <li class:open={open.spells}>
-        {@render summary(
-          "spells",
-          "Spells",
-          { icons: spellIcons(value), name: spells(value), detail: "" },
-          note(options.spells, spells),
-          options.spells.rows.length,
-        )}
-        {#if open.spells}
-          <div class="choices" id="slot-spells">
-            <OptionList
-              slot={options.spells}
-              label={spells}
-              icons={spellIcons}
-              onpick={(pair) => onpick({ spells: pair })}
-            />
-          </div>
-        {/if}
-      </li>
-    {/if}
-
-    {#each plan.items as choice (choice.slot)}
-      {@const key = `item-${choice.slot}`}
-      {@const alts = options.items.find((s) => s.slot === choice.slot) ?? { rows: [], more: 0 }}
-      {@const value = slotItem(choice.slot) ?? choice.value}
-      <li class:open={open[key]}>
-        {@render summary(
-          key,
-          `Item ${choice.slot}`,
-          { icons: itemIcons(value), name: item(value), detail: alsoIn(choice.slot)(value) },
-          note(alts, item),
-          alts.rows.length,
-        )}
-        {#if open[key]}
-          <div class="choices" id="slot-{key}">
-            <OptionList
-              slot={alts}
-              label={item}
-              detail={alsoIn(choice.slot)}
-              icons={itemIcons}
-              onpick={(id) => onpick({ slot: choice.slot, item: id })}
-            />
-          </div>
-        {/if}
-      </li>
-    {/each}
-  </ul>
+    <section class="column" aria-label="Items">
+      <h3>Items</h3>
+      {#each plan.items as choice (choice.slot)}
+        {@const alts = options.items.find((s) => s.slot === choice.slot) ?? { rows: [], more: 0 }}
+        {@const also = alsoIn(choice.slot)(slotItem(choice.slot) ?? choice.value)}
+        <ChoicePanel
+          title={`Item ${choice.slot}${also ? `, ${also.toLowerCase()}` : ""}`}
+          note={note(alts, item)}
+          slot={alts}
+          label={item}
+          icons={itemIcons}
+          onpick={(id) => onpick({ slot: choice.slot, item: id })}
+        />
+      {/each}
+    </section>
+  </div>
 </section>
 
 <style>
@@ -295,158 +200,24 @@
     border-bottom: 1px dotted var(--color-muted);
     cursor: help;
   }
-  .build {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
-    list-style: none;
-  }
-  .build > li + li {
-    border-top: 1px solid var(--color-border);
-  }
-  .summary {
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
-    width: 100%;
-    min-height: 56px;
-    padding: var(--space-2) var(--space-4);
-    border: none;
-    background: none;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .summary:disabled {
-    cursor: default;
-  }
-  .summary:not(:disabled):hover {
-    background: var(--color-bg);
-  }
-  .summary:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: -2px;
-  }
-  .slot-name {
-    flex: 0 0 56px;
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-  }
-  .icons {
-    display: flex;
-    flex: 0 0 auto;
-    gap: var(--space-1);
-  }
-  .value {
+  .board {
     display: grid;
-    flex: 1 1 auto;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+  .column {
+    display: grid;
+    gap: var(--space-3);
     min-width: 0;
   }
-  .name {
-    font-weight: 600;
-  }
-  /* The slot's name for screen readers and narrow windows; wide ones show it in a column. */
-  .caption {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    color: var(--color-muted);
-    font-size: var(--text-xs);
-    white-space: nowrap;
-  }
-  .detail {
-    overflow: hidden;
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .said {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    font-size: var(--text-sm);
-    font-weight: 600;
-    text-align: right;
-  }
-  .said.muted {
-    color: var(--color-muted);
-    font-weight: 400;
-    font-variant-numeric: tabular-nums;
-  }
-  .said.positive {
-    color: var(--color-positive);
-  }
-  .said.negative {
-    color: var(--color-negative);
-  }
-  .said.picked {
-    color: var(--color-accent);
-  }
-  .count {
-    flex: 0 0 auto;
-    color: var(--color-muted);
-    font-size: var(--text-xs);
-    white-space: nowrap;
-  }
-  .chevron {
-    flex: 0 0 auto;
-    width: 8px;
-    height: 8px;
-    border-right: 2px solid var(--color-muted);
-    border-bottom: 2px solid var(--color-muted);
-    margin: 0 2px 4px;
-    transform: rotate(45deg);
-    transition: transform 0.15s;
-  }
-  .open .chevron {
-    margin: 4px 2px 0;
-    transform: rotate(-135deg);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chevron {
-      transition: none;
-    }
-  }
-  .choices {
-    padding: 0 var(--space-3) var(--space-3);
-  }
-  .pages {
-    margin: var(--space-3) var(--space-3) var(--space-1);
-    color: var(--color-muted);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  .by-rune {
+  .column > section {
     display: grid;
     gap: var(--space-2);
-    margin-top: var(--space-3);
-    padding-top: var(--space-3);
-    border-top: 1px dashed var(--color-border);
   }
-  .by-rune h4 {
-    margin: 0 var(--space-3);
-    font-size: var(--text-md);
-  }
-  .by-rune .hint {
-    margin: 0 var(--space-3);
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-  }
-  .rune-row h5 {
-    margin: var(--space-2) var(--space-3) var(--space-1);
-    color: var(--color-muted);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+  h3 {
+    margin: 0;
+    font-size: var(--text-lg);
   }
   .result {
     margin: 0;
@@ -468,37 +239,9 @@
     background: var(--color-warning-bg);
     color: var(--color-warning);
   }
-  @media (max-width: 480px) {
-    .summary {
-      gap: var(--space-2);
-      padding: var(--space-2) var(--space-3);
-    }
-    .summary {
-      flex-wrap: wrap;
-    }
-    .slot-name,
-    .count {
-      display: none;
-    }
-    .value {
-      flex: 1 1 0;
-    }
-    /* The number goes under the name, so the name keeps the width. */
-    .said {
-      order: 1;
-      flex-basis: 100%;
-      padding-left: calc(var(--icon-md) + var(--space-2));
-      text-align: left;
-      white-space: normal;
-    }
-    .caption {
-      position: static;
-      width: auto;
-      height: auto;
-      clip-path: none;
-    }
-    .choices {
-      padding: 0 var(--space-1) var(--space-2);
+  @media (max-width: 900px) {
+    .board {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>

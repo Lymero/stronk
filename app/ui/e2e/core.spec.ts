@@ -38,7 +38,9 @@ test("a replayed lobby leads to the Lee Sin jungle import", async ({ page }) => 
   await step(page);
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible(); // the client's name
   await expect(page.getByLabel("Champion select").locator(".facts > span")).toHaveText(["Jungle", "Hovering", "Bans and picks"]);
-  await expect(page.getByLabel("Build").getByRole("button", { name: /^Runes .*Precision/ })).toBeVisible();
+  // The rune trees as the real core reads them from lcu-mock's game data.
+  await expect(page.getByLabel("Rune page").getByRole("heading", { name: "Precision" })).toBeVisible();
+  await expect(page.getByLabel("Rune page").locator(".cell.on")).toHaveCount(9);
   // Icons from the client's game data, as PNG data URLs through the core.
   const portrait = page.getByLabel("Champion select").locator("img");
   await expect(portrait).toHaveAttribute("src", /^data:image\/png;base64,/);

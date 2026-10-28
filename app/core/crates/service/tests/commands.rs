@@ -495,7 +495,27 @@ fn import_writes_the_players_picks_instead_of_stronks() {
     let ours: Value = serde_json::from_str(&state.item_sets.unwrap()).unwrap();
     let block = &ours["itemSets"][1]["blocks"][0];
     assert_eq!(block["items"], json!([{"id": "6672", "count": 1}]));
-    assert_eq!(block["type"], "Item 1 · Your pick");
+    assert_eq!(block["type"], "Item 1: Your pick");
+}
+
+#[test]
+fn import_writes_a_page_the_player_built_rune_by_rune() {
+    // Not a published page, but one the client's trees allow (ADR-059).
+    let page = json!({"primary_style": 8000, "sub_style": 8300,
+        "perks": [8005, 8009, 9104, 8014, 8304, 8347, 5005, 5008, 5011]});
+    let (out, client, _) = import_picks(
+        FakeClient::new(Some(viego((4, 14)))),
+        FakeBackups::default(),
+        json!({"runes": page}),
+    );
+    assert_eq!(out["runes"]["status"], "imported");
+    assert_eq!(out["runes"]["label"], "picked");
+    let written = client.state().pages.last().unwrap().1.clone().unwrap();
+    assert_eq!(
+        written.perks,
+        vec![8005, 8009, 9104, 8014, 8304, 8347, 5005, 5008, 5011]
+    );
+    assert_eq!((written.primary_style, written.sub_style), (8000, 8300));
 }
 
 #[test]
@@ -506,6 +526,9 @@ fn a_pick_that_isnt_published_writes_nothing() {
         json!({"items": [{"slot": 1, "item": 6672}, {"slot": 1, "item": 6693}]}),
         json!({"spells": [4, 14]}),
         json!({"runes": {"primary_style": 8000, "sub_style": 8100, "perks": [8010]}}),
+        // Two secondary runes from the same row: no client would take it.
+        json!({"runes": {"primary_style": 8000, "sub_style": 8300,
+            "perks": [8005, 8009, 9104, 8014, 8304, 8321, 5005, 5008, 5011]}}),
     ] {
         let client = Arc::new(FakeClient::new(Some(viego((4, 14)))));
         let backups = Arc::new(FakeBackups::default());

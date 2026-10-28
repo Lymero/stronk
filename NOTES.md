@@ -124,3 +124,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: rebuild the real data (`just data-real`) so the rows appear in the app; picking single runes is not supported.
 - 2026-10-28: the rune page drawn as the client's trees (ADR-058): `names.get` gives `rune_trees` and `shard_rows` from the client's perkstyles; every rune with its number under its icon, the page's choices lit, keystones pick their page; the row list stays as the fallback.
   Open: check the trees on the real client (icons, real layout).
+- 2026-10-28: the build as one board (ADR-059): runes as the client's trees with a tree switcher, spells and item slots as rows of icons, every option with its number, precision bars and games; rune pages built by clicking, `build.import` checks them with `select::valid_page`; window 1200 by 900.
+  Open: check the board on the real client; starter items, boots and components aren't estimated yet (the Coachless panels we can't fill).

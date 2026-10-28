@@ -1,6 +1,8 @@
 //! What to import (ADR-043): the most played whole combination, unless an option is clearly
 //! better than it. Pure: the service turns published build files into [`Candidate`]s.
 
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 /// Why an option was chosen; shown next to it in the UI.
@@ -304,6 +306,46 @@ pub fn plan_rune_page(pages: &[PageInfo], capacity: usize) -> Option<PagePlan> {
     (theirs < capacity).then_some(PagePlan { delete: ours })
 }
 
+/// Whether a rune page is one the client accepts, by the client's own layout (ADR-059): a
+/// keystone and one rune per row of the primary tree, two runes from two different rows of
+/// another tree, and one shard per shard row. `trees` maps a tree to its rows, keystones first;
+/// `shards` holds the shard rows. The reason when it isn't.
+pub fn valid_page(
+    primary: i64,
+    secondary: i64,
+    perks: &[i64],
+    trees: &BTreeMap<i64, Vec<Vec<i64>>>,
+    shards: &[Vec<i64>],
+) -> Result<(), String> {
+    let (Some(main), Some(side)) = (trees.get(&primary), trees.get(&secondary)) else {
+        return Err("unknown rune tree".into());
+    };
+    if primary == secondary {
+        return Err("the secondary tree must differ from the primary".into());
+    }
+    let [k, r1, r2, r3, s1, s2, f1, f2, f3] = perks else {
+        return Err("a page has nine runes".into());
+    };
+    for (row, rune) in [k, r1, r2, r3].into_iter().enumerate() {
+        if !main.get(row).is_some_and(|r| r.contains(rune)) {
+            return Err(format!("rune {rune} isn't in row {row} of its tree"));
+        }
+    }
+    let row_of =
+        |rune: &i64| (1..side.len()).find(|&i| side.get(i).is_some_and(|r| r.contains(rune)));
+    match (row_of(s1), row_of(s2)) {
+        (Some(a), Some(b)) if a != b => {}
+        (Some(_), Some(_)) => return Err("the two secondary runes share a row".into()),
+        _ => return Err("a secondary rune isn't in its tree".into()),
+    }
+    for (row, shard) in [f1, f2, f3].into_iter().enumerate() {
+        if !shards.get(row).is_some_and(|r| r.contains(shard)) {
+            return Err(format!("shard {shard} isn't in shard row {}", row + 1));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -581,5 +623,55 @@ mod tests {
         assert_eq!(rank(&c, Some(&20)).more, 2);
         // A rare option keeps its numbers and confidence like the listed ones.
         assert_eq!(ranked.rows[3].confidence, Confidence::NoClearDifference);
+    }
+
+    /// Trees by id, and the shard rows.
+    type Layout = (BTreeMap<i64, Vec<Vec<i64>>>, Vec<Vec<i64>>);
+
+    fn layout() -> Layout {
+        let trees = BTreeMap::from([
+            (
+                8000,
+                vec![
+                    vec![8005, 8010],
+                    vec![9111, 8009],
+                    vec![9104, 9105],
+                    vec![8014, 8017],
+                ],
+            ),
+            (
+                8300,
+                vec![
+                    vec![8369],
+                    vec![8304, 8321],
+                    vec![8345, 8313],
+                    vec![8347, 8410],
+                ],
+            ),
+        ]);
+        (
+            trees,
+            vec![vec![5008, 5005], vec![5008, 5010], vec![5011, 5001]],
+        )
+    }
+
+    #[test]
+    fn a_page_is_valid_only_in_the_clients_layout() {
+        let (trees, shards) = layout();
+        let ok = [8010, 9111, 9104, 8014, 8304, 8347, 5005, 5008, 5001];
+        assert_eq!(valid_page(8000, 8300, &ok, &trees, &shards), Ok(()));
+        let with = |i: usize, v: i64| {
+            let mut p = ok;
+            p[i] = v;
+            valid_page(8000, 8300, &p, &trees, &shards)
+        };
+        assert!(with(0, 9111).is_err()); // not a keystone
+        assert!(with(2, 9111).is_err()); // a row 1 rune in row 2
+        assert!(with(5, 8321).is_err()); // two secondary runes from the same row
+        assert!(with(5, 9104).is_err()); // a secondary rune from the primary tree
+        assert!(with(8, 5005).is_err()); // an offense shard in the defense row
+        assert!(valid_page(8000, 8000, &ok, &trees, &shards).is_err());
+        assert!(valid_page(8000, 8100, &ok, &trees, &shards).is_err()); // unknown tree
+        assert!(valid_page(8000, 8300, &ok[..8], &trees, &shards).is_err());
     }
 }

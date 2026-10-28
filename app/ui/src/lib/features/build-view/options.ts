@@ -84,7 +84,10 @@ export function figure(row: Row<unknown>): string | null {
 /** Why an option's number reads as it does: what it's measured against, its interval, and
  * whether the difference is clear. */
 export function explain(row: Row<unknown>): string {
-  if (row.wpa === null) return "Too few comparable games to estimate its win impact";
+  if (row.wpa === null)
+    return row.confidence === "too_few_games"
+      ? "Too few comparable games to estimate its win impact"
+      : "No win impact is estimated for this yet";
   const against =
     row.versus === "most_played" ? "against the most played option" : "against the other options at this point";
   const interval = row.ci ? `, 95% interval ${percent(row.ci[0])} to ${percent(row.ci[1])}` : "";
@@ -107,52 +110,4 @@ export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "
   if (row.confidence === "clearly_better") return { text: `▲ ${figure(row)}`, tone: "positive" };
   if (row.confidence === "clearly_worse") return { text: `▼ ${figure(row)}`, tone: "negative" };
   return null;
-}
-
-export interface RuneRowSlot {
-  key: string;
-  kind: "primary" | "secondary" | "shard";
-  /** The tree for primary rows and secondary pairs, the row for primary rows and shards. */
-  style: number | null;
-  row: number | null;
-  slot: Slot<number[]>;
-}
-
-const sameRunes = (a: number[], b: number[]) => a.length === b.length && a.every((v, i) => v === b[i]);
-
-/** The rune rows of `page`, row by row (ADR-057): its primary tree's rows, its secondary tree's
- * pairs, then the shard rows; each choice in the page selected. Rows of other trees are left out. */
-export function runeRows(plan: Plan, page: Page): RuneRowSlot[] {
-  const inPage = (kind: string, row: number | null): number[] | null => {
-    const at = (i: number) => page.perks[i];
-    if (kind === "secondary") {
-      const pair = [at(4), at(5)].filter((v): v is number => v !== undefined);
-      return pair.length === 2 ? pair.sort((a, b) => a - b) : null;
-    }
-    const v = row === null ? undefined : at(kind === "shard" ? row + 5 : row);
-    return v === undefined ? null : [v];
-  };
-  const order = { primary: 0, secondary: 1, shard: 2 } as const;
-  return plan.alternatives.rune_rows
-    .filter(
-      (r) =>
-        r.kind === "shard" ||
-        (r.kind === "primary" && r.style === page.primary_style) ||
-        (r.kind === "secondary" && r.style === page.sub_style),
-    )
-    .sort((a, b) => order[a.kind] - order[b.kind] || (a.row ?? 0) - (b.row ?? 0))
-    .map((r) => {
-      const mine = inPage(r.kind, r.row ?? null);
-      const rows = r.rows.map((x) => {
-        const selected = mine !== null && sameRunes(x.value, mine);
-        return { ...x, key: x.value.join("+"), selected, shown: x.listed || selected };
-      });
-      return {
-        key: `${r.kind}-${r.style ?? ""}-${r.row ?? ""}`,
-        kind: r.kind,
-        style: r.style ?? null,
-        row: r.row ?? null,
-        slot: { rows, more: rows.filter((x) => !x.shown).length },
-      };
-    });
 }

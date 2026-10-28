@@ -1,13 +1,14 @@
 //! `build.import`: writes the plan (`build.plan`) for the current champion select into the
 //! client: Stronk's own rune page, Stronk's own item set, and the summoner spells with Flash
 //! on the player's key (ADR-043). The player's pages and item sets are never changed. The
-//! player can pick other published options instead of Stronk's (ADR-050).
+//! player can pick other published options instead of Stronk's (ADR-050), and build any rune
+//! page the client's own trees allow (ADR-059).
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use stronk_contracts::build_v1::Build;
 use stronk_domain::Role;
-use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page};
+use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page, valid_page};
 
 use crate::commands::build_get;
 use crate::commands::build_plan::{Page, Plan, SlotChoice, plan};
@@ -16,7 +17,8 @@ use crate::ports::{LeagueClient, NewRunePage};
 use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
 
-/// The player's picks, each one of the published options; Stronk's choice where none is given.
+/// The player's picks: published spells and items, and any rune page the client's trees allow;
+/// Stronk's choice where none is given.
 #[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "ImportParams")]
@@ -84,7 +86,7 @@ fn run(ctx: &Context, params: Params) -> Result<Imported, CommandError> {
     }
     let champion = client.champion_key(session.champion_id)?;
     let build = build_get::fetch(ctx, &champion, role, None, None, None)?;
-    let plan = with_picks(plan(&build, role), &build, &params)?;
+    let plan = with_picks(plan(&build, role), &build, &params, client)?;
     let runes = runes(client, &plan)?;
     let (item_set, item_set_backup) = item_set(ctx, &plan, session.champion_id);
     Ok(Imported {
@@ -97,9 +99,15 @@ fn run(ctx: &Context, params: Params) -> Result<Imported, CommandError> {
     })
 }
 
-/// The plan with the player's picks in place of Stronk's choices. A pick that isn't a published
-/// option is refused before anything is written; one equal to Stronk's choice keeps its label.
-fn with_picks(mut plan: Plan, build: &Build, params: &Params) -> Result<Plan, CommandError> {
+/// The plan with the player's picks in place of Stronk's choices. A spell pair or item that isn't
+/// published, or a rune page the client's trees don't allow, is refused before anything is
+/// written; a pick equal to Stronk's choice keeps its label.
+fn with_picks(
+    mut plan: Plan,
+    build: &Build,
+    params: &Params,
+    client: &dyn LeagueClient,
+) -> Result<Plan, CommandError> {
     let invalid = |what: String| CommandError::new(ErrorCode::InvalidParams, what);
     let id = |v: u64| i64::try_from(v).unwrap_or(-1);
     if let Some(page) = &params.runes {
@@ -113,7 +121,16 @@ fn with_picks(mut plan: Plan, build: &Build, params: &Params) -> Result<Plan, Co
                     .eq(page.perks.iter().copied())
         });
         if !published {
-            return Err(invalid("runes: not a published rune page".into()));
+            // A page the player built rune by rune: checked against the client's own layout.
+            let names = client.game_names()?;
+            valid_page(
+                page.primary_style,
+                page.sub_style,
+                &page.perks,
+                &names.rune_trees,
+                &names.shard_rows,
+            )
+            .map_err(|why| invalid(format!("runes: {why}")))?;
         }
         if plan.runes.as_ref().map(|c| &c.value) != Some(page) {
             plan.runes = Some(picked(page.clone()));
@@ -263,7 +280,7 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
                 Label::Picked => "Your pick".to_owned(),
                 Label::ClearlyBetter { wpa, .. } => format!("Clearly better, {:+.1}% win", wpa * 100.0),
             };
-            json!({"type": format!("Item {} · {why}", s.slot), "items": [{"id": s.choice.value.to_string(), "count": 1}]})
+            json!({"type": format!("Item {}: {why}", s.slot), "items": [{"id": s.choice.value.to_string(), "count": 1}]})
         })
         .collect();
     json!({

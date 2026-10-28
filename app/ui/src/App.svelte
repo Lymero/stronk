@@ -73,7 +73,7 @@
   main {
     display: grid;
     gap: var(--space-3);
-    max-width: 720px;
+    max-width: 1180px;
     margin: 0 auto;
     padding: var(--space-4);
   }
