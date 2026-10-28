@@ -104,7 +104,7 @@ describe("App with MockBackend", () => {
     expect(sky).toHaveAttribute("aria-pressed", "true");
     expect(sky).toHaveTextContent("▲+2.1");
     expect(sky).toHaveAttribute("title", expect.stringMatching(/: \d+% of games \(640\)/)); // games on hover
-    expect(sky.querySelector(".interval")).toHaveClass("positive"); // its interval, clear of zero
+    expect(sky).toHaveTextContent("±1.3"); // its uncertainty under it
     const cleaver = within(item2).getByRole("button", { name: /^Black Cleaver/ });
     expect(cleaver.querySelector(".num")).not.toHaveClass("positive"); // unclear: grey
     expect(within(build).getByRole("region", { name: "Item 3" })).toHaveTextContent("▼−1.8");
@@ -131,7 +131,7 @@ describe("App with MockBackend", () => {
     expect(tree.querySelectorAll(".cell.on")).toHaveLength(9); // the page's nine choices
     expect(within(precision).getByRole("button", { name: "Triumph +0.2 ± 0.8 wins per 100" })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100" })).toHaveAttribute("aria-pressed", "false");
-    expect(within(tree).getByRole("button", { name: "Last Stand, too few games" }).querySelector(".few")).not.toBeNull();
+    expect(within(tree).getByRole("button", { name: "Last Stand, too few games" })).toHaveTextContent("few games");
     expect(within(tree).getByText("+0.1 ± 1.1 wins per 100 vs others")).toBeInTheDocument(); // the secondary pair
     const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);
     expect(asked).toContain(8021); // Fleet Footwork: in no published page, its icon still asked for

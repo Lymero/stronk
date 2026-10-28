@@ -130,3 +130,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the mock's Precision rows still count all 1740 games while its Precision keystones count 1000.
 - 2026-10-28: Stronk's own look (ADR-060): a strip of what Stronk changes from the most played build, cells as a share ring, an interval line against zero and the estimate, numbers in wins per 100 games; precision bars and game counts moved to titles.
   Open: owner to look on the real client and keep or revert parts; next candidates are items as a build path with a forest plot per slot, the client's line through the picked runes, settings as a header icon.
+- 2026-10-28: ADR-060 iterated: the share ring is an SVG arc (the CSS gradient looked pixelated), and the interval line is gone, replaced by the ± written under each number.
+  Open: owner to check the cells on the real client.

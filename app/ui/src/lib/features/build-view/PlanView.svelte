@@ -159,8 +159,8 @@
       </ul>
     {/if}
     <p class="legend">
-      <span class="key ring" aria-hidden="true"></span>ring: share of games
-      <span class="key line" aria-hidden="true"></span>line: 95% interval, wins per 100 games against zero
+      <svg class="key ring" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" class="track" /><circle cx="6" cy="6" r="4.5" class="arc" pathLength="100" stroke-dasharray="35 100" /></svg>ring: share of games
+      <span class="key num" aria-hidden="true">+2.1</span>wins per 100 games, ± how sure (95%)
       <span class="key clear" aria-hidden="true">▲</span>colour only when clearly better or worse
     </p>
   </div>
@@ -291,16 +291,23 @@
     margin-left: 0;
   }
   .key.ring {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: conic-gradient(var(--color-muted) 0.3turn, var(--color-track) 0);
+    width: 12px;
+    height: 12px;
+    transform: rotate(-90deg);
   }
-  .key.line {
-    width: 18px;
-    height: 2px;
-    border-radius: 1px;
-    background: var(--color-muted);
+  .key.ring circle {
+    fill: none;
+    stroke-width: 2;
+  }
+  .key.ring .track {
+    stroke: var(--color-track);
+  }
+  .key.ring .arc {
+    stroke: var(--color-muted);
+  }
+  .key.num {
+    color: var(--color-text);
+    font-weight: 600;
   }
   .key.clear {
     color: var(--color-positive);

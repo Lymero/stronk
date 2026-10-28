@@ -1,7 +1,7 @@
 <script lang="ts">
   // One option as its icon and its estimate (ADR-060): a ring around the icon filled by its share
-  // of games, its 95% interval drawn against zero, and its wins per 100 games, coloured only when
-  // clearly better or worse. Games and the full reading are in its title. Lit when the import
+  // of games, its wins per 100 games (coloured only when clearly better or worse) and, under it,
+  // the ± of its 95% interval. Games and the full reading are in its title. Lit when the import
   // writes it; clicking it picks it.
   import type { Row } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
@@ -30,11 +30,6 @@
     bare?: boolean;
     onpick?: () => void;
   } = $props();
-
-  /** The interval's scale: ±2.5 wins per 100 games across the glyph; wider intervals run off it. */
-  const RANGE = 0.025;
-  const W = 52;
-  const x = (v: number) => W / 2 + (Math.max(-RANGE, Math.min(RANGE, v)) / RANGE) * (W / 2 - 2);
 
   const clear = $derived(row ? verdict(row) : null);
   const tone = $derived(clear?.tone ?? "");
@@ -72,24 +67,24 @@
 >
   <span class="icons">
     {#each icons as i, n (n)}
-      <span class="ring" style:--share={bare || !row ? 0 : row.share}>
+      <span class="ring">
+        {#if !bare}
+          <svg viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="track" cx="18" cy="18" r="16.5" />
+            {#if row && row.share > 0}
+              <circle class="arc" cx="18" cy="18" r="16.5" pathLength="100" stroke-dasharray={`${row.share * 100} 100`} />
+            {/if}
+          </svg>
+        {/if}
         <Icon src={i.src} name={i.name} size={size === "sm" ? "sm" : "md"} />
       </span>
     {/each}
   </span>
   {#if !bare}
-    <svg class="interval {tone}" viewBox={`0 0 ${W} 10`} width={W} height="10" aria-hidden="true">
-      {#if row?.wpa != null}
-        <line class="zero" x1={W / 2} x2={W / 2} y1="1" y2="9" />
-        {#if row.ci}<line class="ci" x1={x(row.ci[0])} x2={x(row.ci[1])} y1="5" y2="5" />{/if}
-        <circle cx={x(row.wpa)} cy="5" r="2.5" />
-      {:else if row?.confidence === "too_few_games"}
-        <line class="few" x1="2" x2={W - 2} y1="5" y2="5" />
-      {/if}
-    </svg>
-    <span class="num {tone}">
-      {#if row?.wpa != null}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{wins(row.wpa)}{/if}
+    <span class="num {tone}" class:few={row?.wpa == null}>
+      {#if row?.wpa != null}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{wins(row.wpa)}{:else if row?.confidence === "too_few_games"}few games{/if}
     </span>
+    <span class="pm">{#if row?.wpa != null && half !== null}±{half.toFixed(1)}{/if}</span>
   {/if}
 </button>
 
@@ -97,7 +92,7 @@
   .cell {
     position: relative;
     display: grid;
-    grid-template-rows: auto 10px 14px;
+    grid-template-rows: auto 14px 13px;
     align-content: start;
     justify-items: center;
     gap: 2px;
@@ -132,18 +127,30 @@
   }
   /* The share of games as an arc around the icon, from the top, clockwise. */
   .ring {
+    position: relative;
     display: grid;
     padding: 4px;
-    border-radius: 50%;
-    background:
-      radial-gradient(closest-side, var(--color-surface) calc(100% - 3px), transparent calc(100% - 3px)),
-      conic-gradient(var(--ring, var(--color-muted)) calc(var(--share) * 1turn), var(--color-track) 0);
   }
-  .bare .ring {
-    background: none;
+  .ring svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
   }
-  .on .ring {
-    --ring: var(--color-accent);
+  .ring circle {
+    fill: none;
+    stroke-width: 2.5;
+  }
+  .ring .track {
+    stroke: var(--color-track);
+  }
+  .ring .arc {
+    stroke: var(--color-muted);
+    stroke-linecap: round;
+  }
+  .on .ring .arc {
+    stroke: var(--color-accent);
   }
   .ring :global(.icon) {
     border-radius: 50%;
@@ -169,37 +176,6 @@
     background: var(--color-accent);
     content: "";
   }
-  .interval {
-    overflow: visible;
-    color: var(--color-muted);
-  }
-  .interval .zero {
-    stroke: var(--color-border);
-    stroke-width: 1;
-  }
-  .interval .ci {
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    opacity: 0.55;
-  }
-  .interval circle {
-    fill: currentColor;
-  }
-  .interval .few {
-    stroke: var(--color-border);
-    stroke-width: 2;
-    stroke-dasharray: 2 3;
-  }
-  .on .interval {
-    color: var(--color-text);
-  }
-  .interval.positive {
-    color: var(--color-positive);
-  }
-  .interval.negative {
-    color: var(--color-negative);
-  }
   .num {
     color: var(--color-muted);
     font-size: var(--text-xs);
@@ -218,6 +194,17 @@
   .num.negative {
     color: var(--color-negative);
     font-weight: 600;
+  }
+  .num.few {
+    font-size: 10px;
+    font-weight: 400;
+  }
+  .pm {
+    color: var(--color-muted);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    line-height: 13px;
+    white-space: nowrap;
   }
   @media (prefers-reduced-motion: reduce) {
     .ring :global(.icon) {
