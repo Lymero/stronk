@@ -131,36 +131,54 @@ describe("App with MockBackend", () => {
     expect(backend.calls.filter((c) => c.id === "build.get")).toEqual([]);
   });
 
-  it("shows the page rune by rune, each row with its numbers, for reading only", async () => {
-    const { app, next } = setup("ranked-jungle");
+  it("shows the page as the client lays it out, every rune with its number", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     for (let i = 0; i < 3; i++) await next();
     const build = screen.getByLabelText("Build");
     await openSlot(build, "Runes");
-    const byRune = within(build).getByRole("region", { name: "Rune by rune" });
-    const titles = within(byRune).getAllByRole("heading", { level: 5 }).map((h) => h.textContent);
-    expect(titles).toEqual([
-      "Precision row 1",
-      "Precision row 2",
-      "Precision row 3",
-      "Inspiration secondary",
-      "Offense shard",
-      "Flex shard",
-      "Defense shard",
-    ]);
-    expect(within(byRune).queryAllByRole("button", { pressed: true })).toEqual([]); // nothing to click
-    const triumph = within(byRune).getByText("Triumph").closest(".option") as HTMLElement;
-    expect(triumph).toHaveAttribute("aria-current", "true"); // in the page the import writes
-    expect(triumph).toHaveTextContent("+0.2% ± 0.8 vs others");
-    const moveSpeed = within(byRune).getByText("Move Speed").closest(".option") as HTMLElement;
-    expect(moveSpeed).toHaveTextContent("−1.1% ± 1.9");
-    expect(moveSpeed).toHaveAttribute("title", expect.stringMatching(/^Win probability added against the most played option/));
-    expect(within(byRune).getByText("Magical Footwear + Cosmic Insight")).toBeInTheDocument();
+    const tree = within(build).getByLabelText("Rune page");
+    // Precision with its four keystones and three rows, Inspiration's rows, the shard rows.
+    const precision = within(tree).getByRole("region", { name: "Precision" });
+    expect(precision.querySelectorAll(".row")).toHaveLength(4);
+    expect(precision.querySelector(".row")?.querySelectorAll(".cell")).toHaveLength(4);
+    expect(within(tree).getByRole("region", { name: "Inspiration" }).querySelectorAll(".row")).toHaveLength(3);
+    expect(within(tree).getByRole("region", { name: "Shards" }).querySelectorAll(".row")).toHaveLength(3);
+    // The page's nine choices are lit: four primary, two secondary, three shards.
+    expect(tree.querySelectorAll(".cell.on")).toHaveLength(9);
+    const triumph = within(precision).getByTitle(/^Triumph: 85% of games/);
+    expect(triumph).toHaveTextContent("+0.2% ± 0.8");
+    expect(within(tree).getByTitle(/^Move Speed: /)).toHaveTextContent("−1.1% ± 1.9");
+    expect(within(tree).getByTitle(/^Last Stand: /)).toHaveTextContent("few");
+    expect(within(tree).getByText("+0.1% ± 1.1 vs others")).toBeInTheDocument(); // the secondary pair
+    // Every rune of the trees gets its icon asked for, played or not.
+    const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);
+    expect(asked).toContain(8021); // Fleet Footwork, in no published page
 
-    // Another page picked: its own trees' rows, the shards stay.
-    await fireEvent.click(within(build).getByRole("button", { name: /^Electrocute/ }));
-    const rows = within(byRune).getAllByRole("heading", { level: 5 }).map((h) => h.textContent);
-    expect(rows).toEqual(["Domination row 1", "Offense shard", "Flex shard", "Defense shard"]);
+    // A keystone with a published page picks that page; the tree follows it. Lethal Tempo has
+    // none: it's only to look at.
+    expect(within(precision).getByRole("button", { name: "Conqueror +0.4% ± 1.0" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(precision).queryByRole("button", { name: /^Lethal Tempo/ })).toBeNull();
+    await fireEvent.click(within(precision).getByRole("button", { name: /^Press the Attack/ }));
+    expect(within(build).getByRole("button", { name: /^Runes Press the Attack/ })).toHaveTextContent("Your pick");
+    expect(within(build).getByLabelText("Rune page")).toContainElement(within(build).getByRole("region", { name: "Resolve" }));
+  });
+
+  it("lists the page row by row when the client gives no tree layout", async () => {
+    const backend = new MockBackend({ ...scenarios["ranked-jungle"], names: { code: "unavailable", message: "no names" } });
+    const app = createApp(backend, memory(), memoryPicks());
+    render(App, { app, onstep: () => void (backend.step(), app.refresh()) });
+    await app.refresh();
+    for (let i = 0; i < 3; i++) {
+      backend.step();
+      await app.refresh();
+    }
+    const build = screen.getByLabelText("Build");
+    await openSlot(build, "Runes");
+    expect(within(build).queryByLabelText("Rune page")).toBeNull();
+    const byRune = within(build).getByRole("region", { name: "Rune by rune" });
+    expect(within(byRune).getAllByRole("heading", { level: 5 })).toHaveLength(7);
+    expect(within(byRune).queryAllByRole("button", { pressed: true })).toEqual([]); // nothing to click
   });
 
   it("imports the option the player clicks instead of Stronk's, until reset", async () => {
@@ -198,7 +216,7 @@ describe("App with MockBackend", () => {
     const build = screen.getByLabelText("Build");
     for (const slot of ["Runes", "Item 1", "Item 2", "Item 3"]) await openSlot(build, slot);
     expect(within(build).getByText("Show 2 more")).toBeInTheDocument(); // rune pages
-    expect(within(build).getAllByText("Show 1 more")).toHaveLength(4); // items, and Precision row 2
+    expect(within(build).getAllByText("Show 1 more")).toHaveLength(3); // items
     const deathsDance = () => within(build).getAllByRole("button", { name: /^Death's Dance/ });
     await fireEvent.click(deathsDance()[0] as HTMLElement); // slot 2
     await fireEvent.click(deathsDance()[1] as HTMLElement); // slot 3

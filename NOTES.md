@@ -122,3 +122,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the real-client check on Windows.
 - 2026-10-28: runes and shards row by row (ADR-057): extract adds a decision per primary row, secondary pair and shard row; `runeChoices` in build.v1; `build.plan` ranks `rune_rows`; the runes slot shows "Rune by rune" with every choice's number, for reading; no middle dots in the UI (`Facts`).
   Open: rebuild the real data (`just data-real`) so the rows appear in the app; picking single runes is not supported.
+- 2026-10-28: the rune page drawn as the client's trees (ADR-058): `names.get` gives `rune_trees` and `shard_rows` from the client's perkstyles; every rune with its number under its icon, the page's choices lit, keystones pick their page; the row list stays as the fallback.
+  Open: check the trees on the real client (icons, real layout).

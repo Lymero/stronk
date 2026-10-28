@@ -30,8 +30,8 @@ export type Backup = Core.Backup;
 export type Restored = Core.Restored;
 export type Build = Commands["build.get"]["result"];
 
-/** What a name or icon is of. */
-export type GameKind = keyof GameNames;
+/** What a name or icon is of (the rest of `GameNames` is the rune trees' layout). */
+export type GameKind = Exclude<keyof GameNames, "rune_trees" | "shard_rows">;
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 

@@ -30,7 +30,7 @@ const ROLES: Record<Role, string> = {
 
 export const role = (r: Role): string => ROLES[r];
 
-export type Kind = keyof GameNames;
+export type Kind = Exclude<keyof GameNames, "rune_trees" | "shard_rows">;
 
 /** The name of `id` in `kind`, or the id itself. */
 export const name = (names: GameNames | null, kind: Kind, id: number): string =>

@@ -16,7 +16,15 @@ describe("labels", () => {
 
   it("falls back to the id without a name", () => {
     expect(name(null, "items", 6692)).toBe("6692");
-    const names = { champions: {}, rune_styles: {}, runes: {}, spells: { "4": "Flash" }, items: {} };
+    const names = {
+      champions: {},
+      rune_styles: {},
+      runes: {},
+      spells: { "4": "Flash" },
+      items: {},
+      rune_trees: {},
+      shard_rows: [],
+    };
     expect(name(names, "spells", 4)).toBe("Flash");
     expect(name(names, "spells", 99)).toBe("99");
   });

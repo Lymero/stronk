@@ -134,7 +134,64 @@ pub struct Named {
 #[derive(Debug, Deserialize, Default)]
 #[serde(default)]
 pub struct PerkStyles {
-    pub styles: Vec<Named>,
+    pub styles: Vec<PerkStyle>,
+}
+
+/// A rune tree: its name and icon, and its rows as the client lays them out.
+#[derive(Debug, Deserialize, Default)]
+#[serde(default)]
+pub struct PerkStyle {
+    #[serde(flatten)]
+    pub named: Named,
+    pub slots: Vec<PerkSlot>,
+}
+
+/// One row of a tree: `kKeyStone`, `kMixedRegularSplashable` (the three rows after it) or
+/// `kStatMod` (the shard rows, the same in every tree).
+#[derive(Debug, Deserialize, Default)]
+#[serde(default)]
+pub struct PerkSlot {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub perks: Vec<i64>,
+}
+
+impl PerkStyles {
+    /// Each tree's rows, keystones first, then the three rows after them; trees whose layout
+    /// isn't four rows are left out.
+    pub fn trees(&self) -> BTreeMap<i64, Vec<Vec<i64>>> {
+        self.styles
+            .iter()
+            .filter_map(|s| {
+                let rows: Vec<Vec<i64>> = s
+                    .slots
+                    .iter()
+                    .filter(|slot| slot.kind != "kStatMod" && !slot.perks.is_empty())
+                    .map(|slot| slot.perks.clone())
+                    .collect();
+                (rows.len() == 4).then_some((s.named.id, rows))
+            })
+            .collect()
+    }
+
+    /// The stat shard rows (offense, flex, defense), from the first tree that has three.
+    pub fn shard_rows(&self) -> Vec<Vec<i64>> {
+        self.styles
+            .iter()
+            .map(|s| {
+                s.slots
+                    .iter()
+                    .filter(|slot| slot.kind == "kStatMod")
+                    .map(|slot| slot.perks.clone())
+                    .collect::<Vec<_>>()
+            })
+            .find(|rows| rows.len() == 3)
+            .unwrap_or_default()
+    }
+
+    pub fn named(&self) -> impl Iterator<Item = &Named> {
+        self.styles.iter().map(|s| &s.named)
+    }
 }
 
 /// Id to name, leaving out entries without a name.
@@ -223,7 +280,8 @@ mod tests {
             r#"{"schemaVersion": 2, "styles": [{"id": 8000, "name": "Precision"}]}"#,
         )
         .unwrap();
-        assert_eq!(by_id(&styles.styles)[&8000], "Precision");
+        assert_eq!(by_id(styles.named())[&8000], "Precision");
+        assert!(styles.trees().is_empty()); // no layout: no tree
     }
 
     #[test]
@@ -261,5 +319,33 @@ mod tests {
         let local = s.local();
         assert_eq!(local.champion_id, 0);
         assert_eq!(local.role, None);
+    }
+
+    #[test]
+    fn perk_styles_give_each_trees_rows_and_the_shard_rows() {
+        let styles: PerkStyles = serde_json::from_str(
+            r#"{"styles": [{"id": 8000, "name": "Precision", "slots": [
+                {"type": "kKeyStone", "slotLabel": "", "perks": [8005, 8008, 8021, 8010]},
+                {"type": "kMixedRegularSplashable", "perks": [9101, 9111, 8009]},
+                {"type": "kMixedRegularSplashable", "perks": [9104, 9105, 9103]},
+                {"type": "kMixedRegularSplashable", "perks": [8014, 8017, 8299]},
+                {"type": "kStatMod", "slotLabel": "Offense", "perks": [5008, 5005, 5007]},
+                {"type": "kStatMod", "slotLabel": "Flex", "perks": [5008, 5010, 5001]},
+                {"type": "kStatMod", "slotLabel": "Defense", "perks": [5011, 5013, 5001]}
+            ]}, {"id": 9000, "name": "Odd", "slots": [{"type": "kKeyStone", "perks": [1]}]}]}"#,
+        )
+        .unwrap();
+        let trees = styles.trees();
+        assert_eq!(trees.len(), 1); // a tree without four rows is left out
+        assert_eq!(trees[&8000][0], vec![8005, 8008, 8021, 8010]);
+        assert_eq!(trees[&8000][3], vec![8014, 8017, 8299]);
+        assert_eq!(
+            styles.shard_rows(),
+            vec![
+                vec![5008, 5005, 5007],
+                vec![5008, 5010, 5001],
+                vec![5011, 5013, 5001]
+            ]
+        );
     }
 }

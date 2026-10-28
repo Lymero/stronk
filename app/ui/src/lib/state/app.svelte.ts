@@ -145,6 +145,13 @@ export function createApp(
         ids.rune_styles.add(page.primary_style).add(page.sub_style);
         for (const perk of page.perks) ids.runes.add(perk);
       }
+      // The rune rows, and every rune of the trees the client lays out (ADR-058).
+      for (const r of plan.alternatives.rune_rows) for (const row of r.rows) for (const id of row.value) ids.runes.add(id);
+      for (const [style, rows] of Object.entries(state.names?.rune_trees ?? {})) {
+        ids.rune_styles.add(Number(style));
+        for (const row of rows) for (const id of row) ids.runes.add(id);
+      }
+      for (const row of state.names?.shard_rows ?? []) for (const id of row) ids.runes.add(id);
       for (const pair of [...spells.rows.map((r) => r.value), ...(plan.spells ? [plan.spells.value] : [])]) {
         for (const spell of pair) ids.spells.add(spell);
       }

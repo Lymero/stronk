@@ -51,7 +51,7 @@ test("lists every option on request, and keeps picks after a restart", async ({ 
   const build = page.getByLabel("Build");
   await openSlot(page, "Runes");
   await build.getByRole("button", { name: "Show 2 more" }).click();
-  await build.getByRole("button", { name: /^Press the Attack/ }).click();
+  await build.locator(".options").getByRole("button", { name: /^Press the Attack/ }).click();
   await openSlot(page, "Item 1");
   await build.locator("#slot-item-1").getByRole("button", { name: "Show 1 more" }).click();
   await build.getByRole("button", { name: /^The Collector/ }).click();
@@ -71,14 +71,14 @@ test("lists every option on request, and keeps picks after a restart", async ({ 
   await expect(build.getByRole("button", { name: /^Item 1 Eclipse/ })).toBeVisible();
 });
 
-test("shows the page rune by rune", async ({ page }) => {
+test("shows the rune page as the client lays it out", async ({ page }) => {
   await page.goto("/?scenario=ranked-jungle");
   for (let i = 0; i < 3; i++) await next(page);
   await openSlot(page, "Runes");
-  const byRune = page.getByRole("region", { name: "Rune by rune" });
-  await expect(byRune.getByRole("heading", { level: 5 })).toHaveCount(7);
-  await expect(byRune.locator(".option[aria-current]")).toHaveCount(7); // the page's choice in each row
-  await screenshot(page, "mock-rune-by-rune");
+  const tree = page.getByLabel("Rune page");
+  await expect(tree.locator(".cell.on")).toHaveCount(9); // the page's nine choices
+  await expect(tree.getByRole("region", { name: "Precision" }).locator(".row")).toHaveCount(4);
+  await screenshot(page, "mock-rune-tree");
 });
 
 test("fits a narrow window, one slot a line", async ({ page }) => {

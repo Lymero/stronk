@@ -141,6 +141,11 @@ impl LeagueClient for FakeClient {
             runes: BTreeMap::from([(8010, "Conqueror".to_owned())]),
             spells: BTreeMap::from([(4, "Flash".to_owned()), (11, "Smite".to_owned())]),
             items: BTreeMap::from([(6692, "Eclipse".to_owned())]),
+            rune_trees: BTreeMap::from([(
+                8000,
+                vec![vec![8005, 8010], vec![9111, 8009], vec![9104], vec![8014]],
+            )]),
+            shard_rows: vec![vec![5008, 5005], vec![5008], vec![5011]],
         })
     }
 

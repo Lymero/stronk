@@ -7,6 +7,7 @@
   import Icon from "../../ui/Icon.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
   import OptionList from "./OptionList.svelte";
+  import RuneTree from "./RuneTree.svelte";
   import type { Pick, Picks } from "../../state/picks.ts";
   import {
     allPopular,
@@ -187,6 +188,17 @@
         )}
         {#if open.runes}
           <div class="choices" id="slot-runes">
+            {#if names && names.rune_trees[String(value.primary_style)]}
+              <RuneTree
+                page={value}
+                keystones={options.runes.rows.map((r) => ({ page: r.value, row: r }))}
+                rows={byRune}
+                {names}
+                {icons}
+                onpick={(p) => onpick({ runes: p })}
+              />
+              <h4 class="pages">Pages by keystone</h4>
+            {/if}
             <OptionList
               slot={options.runes}
               label={page}
@@ -194,7 +206,7 @@
               icons={pageIcons}
               onpick={(p) => onpick({ runes: p })}
             />
-            {#if byRune.length}
+            {#if byRune.length && !(names && names.rune_trees[String(value.primary_style)])}
               <section class="by-rune" aria-label="Rune by rune">
                 <h4>Rune by rune</h4>
                 <p class="hint">
@@ -403,6 +415,14 @@
   }
   .choices {
     padding: 0 var(--space-3) var(--space-3);
+  }
+  .pages {
+    margin: var(--space-3) var(--space-3) var(--space-1);
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .by-rune {
     display: grid;

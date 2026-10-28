@@ -84,6 +84,10 @@ pub struct GameNames {
     pub runes: BTreeMap<i64, String>,
     pub spells: BTreeMap<i64, String>,
     pub items: BTreeMap<i64, String>,
+    /// Each tree's rows as the client shows them: keystones, then the three rows after them.
+    pub rune_trees: BTreeMap<i64, Vec<Vec<i64>>>,
+    /// The stat shard rows: offense, flex, defense.
+    pub shard_rows: Vec<Vec<i64>>,
 }
 
 /// What an icon is of (`icons.get`).

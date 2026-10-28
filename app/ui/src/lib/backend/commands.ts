@@ -774,6 +774,16 @@ export interface GameNames {
     [k: string]: string;
   };
   /**
+   * Each tree's rows as the client shows them: keystones, then the three rows after them.
+   */
+  rune_trees: {
+    /**
+     * This interface was referenced by `undefined`'s JSON-Schema definition
+     * via the `patternProperty` "^-?\d+$".
+     */
+    [k: string]: number[][];
+  };
+  /**
    * Runes and stat shards.
    */
   runes: {
@@ -783,6 +793,10 @@ export interface GameNames {
      */
     [k: string]: string;
   };
+  /**
+   * The stat shard rows: offense, flex, defense.
+   */
+  shard_rows: number[][];
   spells: {
     /**
      * This interface was referenced by `undefined`'s JSON-Schema definition

@@ -159,7 +159,8 @@ impl LcuClient {
             return Ok(data.clone());
         }
         let champions: Vec<ChampionSummary> = self.game_data(CHAMPION_SUMMARY)?;
-        let styles = self.game_data::<PerkStyles>(PERK_STYLES)?.styles;
+        let perk_styles = self.game_data::<PerkStyles>(PERK_STYLES)?;
+        let styles: Vec<&Named> = perk_styles.named().collect();
         let runes = self.game_data::<Vec<Named>>(PERKS)?;
         let spells = self.game_data::<Vec<Named>>(SPELLS)?;
         let items = self.game_data::<Vec<Named>>(ITEMS)?;
@@ -172,7 +173,9 @@ impl LcuClient {
                     .filter(|c| !c.name.is_empty())
                     .map(|c| (c.id, c.name.clone()))
                     .collect(),
-                rune_styles: by_id(&styles),
+                rune_styles: by_id(styles.iter().copied()),
+                rune_trees: perk_styles.trees(),
+                shard_rows: perk_styles.shard_rows(),
                 runes: by_id(&runes),
                 spells: by_id(&spells),
                 items: by_id(&items),
@@ -186,7 +189,10 @@ impl LcuClient {
                             .map(|c| (c.id, c.square_portrait_path.as_str())),
                     ),
                 ),
-                (IconKind::RuneStyle, paths(&styles)),
+                (
+                    IconKind::RuneStyle,
+                    icons_by_id(styles.iter().map(|e| (e.id, e.icon_path.as_str()))),
+                ),
                 (IconKind::Rune, paths(&runes)),
                 (IconKind::Spell, paths(&spells)),
                 (IconKind::Item, paths(&items)),
