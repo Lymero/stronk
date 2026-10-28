@@ -137,6 +137,20 @@ describe("App with MockBackend", () => {
     expect(asked).toContain(8021); // Fleet Footwork: in no published page, its icon still asked for
   });
 
+  it("moves the secondary runes to any two rows, replacing the one picked first", async () => {
+    const { app, next } = setup("ranked-jungle");
+    await app.refresh();
+    for (let i = 0; i < 3; i++) await next();
+    const secondary = () =>
+      within(within(screen.getByLabelText("Build")).getByRole("region", { name: "Inspiration, secondary" }));
+    const lit = () => secondary().getAllByRole("button", { pressed: true }).map((b) => b.getAttribute("aria-label"));
+    expect(lit()).toEqual(["Magical Footwear", "Cosmic Insight"]); // rows 1 and 3
+    await fireEvent.click(secondary().getByRole("button", { name: /^Biscuit Delivery/ })); // row 2: the upper one goes
+    expect(lit()).toEqual(["Biscuit Delivery", "Cosmic Insight"]);
+    await fireEvent.click(secondary().getByRole("button", { name: /^Hextech Flashtraption/ })); // row 1: Cosmic Insight goes
+    expect(lit()).toEqual(["Hextech Flashtraption", "Biscuit Delivery"]);
+  });
+
   it("builds a rune page by clicking runes, as the client does", async () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();

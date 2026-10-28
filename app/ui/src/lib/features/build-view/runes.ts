@@ -58,8 +58,10 @@ export function withPrimaryRune(page: Page, row: number, rune: number): Page {
 
 /** The page with `rune` among its two secondary runes. A rune from a row already taken
  * replaces the one in that row; otherwise it replaces the one picked before the other, as in
- * the client. The two stay in row order. */
-export function withSecondaryRune(trees: Trees, page: Page, rune: number): Page {
+ * the client: `last` is the secondary rune the player picked last, kept when it's still on the
+ * page (without it, the upper one goes). The two stay in row order, so the page alone can't
+ * tell which came last. */
+export function withSecondaryRune(trees: Trees, page: Page, rune: number, last: number | null = null): Page {
   const rows = rowsOf(trees, page.sub_style);
   const rowOf = (r: number) => rows.findIndex((row, i) => i > 0 && row.includes(r));
   const row = rowOf(rune);
@@ -68,7 +70,7 @@ export function withSecondaryRune(trees: Trees, page: Page, rune: number): Page 
   let pair: number[];
   if (rowOf(first) === row) pair = [rune, second];
   else if (rowOf(second) === row) pair = [first, rune];
-  else pair = [second, rune];
+  else pair = [last === first ? first : second, rune];
   pair.sort((a, b) => rowOf(a) - rowOf(b));
   const perks = [...page.perks];
   perks.splice(4, 2, ...pair);

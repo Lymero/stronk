@@ -45,6 +45,12 @@
   const ours = (id: number, from: number, to: number) => !!stronk && stronk.perks.slice(from, to).includes(id);
   const rune = (id: number) => [{ src: icon(icons, "runes", id), name: name(names, "runes", id) }];
   const tree = (id: number) => name(names, "rune_styles", id);
+  /** The secondary rune picked last, which the next pick from a new row keeps. */
+  let lastSecondary = $state<number | null>(null);
+  const pickSecondary = (id: number) => {
+    onpage(withSecondaryRune(trees, page, id, lastSecondary));
+    lastSecondary = id;
+  };
 </script>
 
 {#snippet switcher(current: number, others: number[], pickTree: (style: number) => void, tag: string)}
@@ -104,7 +110,7 @@
               bare
               on={on(id, 4, 6)}
               stronk={ours(id, 4, 6)}
-              onpick={() => onpage(withSecondaryRune(trees, page, id))}
+              onpick={() => pickSecondary(id)}
             />
           {/each}
         </div>
