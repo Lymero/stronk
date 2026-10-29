@@ -1,10 +1,12 @@
 """The UI in a browser against the real core (ADR-048): `just e2e` serves this for Playwright.
 
     core_bridge.py <session.json> --core <stronk-core> [--port 8790] [--dir runs/core-bridge]
+        [--data fixtures/data --key fixtures/data.pub]
 
 Starts lcu-mock on the session and serves HTTP on 127.0.0.1 for the UI's `CoreBackend`:
 `POST /run` with `{"id", "params"}` runs `stronk-core run` against lcu-mock and the signed
-fixture data, and answers `{"ok": true, "value"}` or `{"ok": false, "error"}`, the shape of the
+data (the fixture data, or the real data for `just e2e-real`), and answers
+`{"ok": true, "value"}` or `{"ok": false, "error"}`, the shape of the
 Backend port. For the tests: `POST /mock/step` moves the session on, `POST /mock/reset` starts a
 fresh lcu-mock (account state and backups too), `GET /mock/recorded` lists the writes the core
 made, `GET /mock/state` says which step is playing.
@@ -15,6 +17,7 @@ Test tooling only: it listens on 127.0.0.1 and runs nothing but the given core b
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import shutil
@@ -35,10 +38,12 @@ MAX_BODY = 1 << 20
 class Bridge:
     """One lcu-mock and the core run against it; `reset` replaces both's state."""
 
-    def __init__(self, session: Path, core: Path, directory: Path) -> None:
+    def __init__(self, session: Path, core: Path, directory: Path, data: Path, key: Path) -> None:
         self.session = session
         self.core = core
         self.directory = directory
+        self.data = data
+        self.key = key
         self.lock = threading.Lock()
         self.mock = self._start()
 
@@ -60,8 +65,8 @@ class Bridge:
             **os.environ,
             "STRONK_LCU_LOCKFILE": str(mock.lockfile),
             "STRONK_LCU_CERT": str(mock.root),
-            "STRONK_DATA_DIR": str(ROOT / "fixtures/data"),
-            "STRONK_DATA_KEY": str(ROOT / "fixtures/data.pub"),
+            "STRONK_DATA_DIR": str(self.data),
+            "STRONK_DATA_KEY": str(self.key),
             "STRONK_BACKUP_DIR": str(self.directory / "backups"),
             "STRONK_CACHE_DIR": str(self.directory / "cache"),
         }
@@ -90,7 +95,9 @@ def make_handler(bridge: Bridge) -> type[BaseHTTPRequestHandler]:
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
-            self.wfile.write(data)
+            # The page may move on (a test's next step) before the answer arrives.
+            with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+                self.wfile.write(data)
 
         def do_GET(self) -> None:
             replay = bridge.mock.replay
@@ -136,9 +143,11 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--core", type=Path, required=True)
     parser.add_argument("--port", type=int, default=8790)
     parser.add_argument("--dir", type=Path, default=ROOT / "runs/core-bridge")
+    parser.add_argument("--data", type=Path, default=ROOT / "fixtures/data")
+    parser.add_argument("--key", type=Path, default=ROOT / "fixtures/data.pub")
     args = parser.parse_args(argv)
     try:
-        bridge = Bridge(args.session, args.core, args.dir)
+        bridge = Bridge(args.session, args.core, args.dir, args.data.resolve(), args.key.resolve())
         server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(bridge))
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as e:
         print(f"core-bridge: {e}", file=sys.stderr)

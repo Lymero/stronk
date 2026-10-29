@@ -275,6 +275,23 @@ e2e *args:
     if (Test-Path runs/e2e) { Remove-Item -Recurse -Force runs/e2e }
     $env:STRONK_CORE_BIN = "$PWD/app/core/target/debug/stronk-core.exe"; pnpm --filter @stronk/ui exec playwright test {{ args }}
 
+# The board on real data (ADR-061): every build checked for what a player must not see, then
+# Playwright on a few picks against the real core and lcu-mock, screenshots in
+# runs/e2e-real/screenshots/. Run after a UI change. Not in `check`: CI has no real data.
+[unix]
+e2e-real data="runs/real/data" key="runs/real/data.pub" picks="":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    if [ ! -f "{{ key }}" ]; then echo "no {{ key }}: run \`just data-real\` first" >&2; exit 1; fi
+    cargo build {{ core_rs }} --locked --quiet -p stronk-cli
+    rm -rf runs/e2e-real
+    uv run python tools/lcu_mock/real_session.py --data "{{ data }}" --out runs/e2e-real/session.json {{ if picks != "" { "--picks " + picks } else { "" } }} || exit 1
+    uv run python tools/checks/board_sanity.py --core app/core/target/debug/stronk-core --data "{{ data }}" --key "{{ key }}"; sane=$?
+    STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" STRONK_REAL_DATA="{{ data }}" STRONK_REAL_KEY="{{ key }}" \
+        pnpm --filter @stronk/ui exec playwright test --config playwright.real.config.ts; shown=$?
+    echo "screenshots: runs/e2e-real/screenshots/"
+    exit $(( sane || shown ))
+
 # Fake League client replaying a session: just lcu-mock tools/lcu_mock/sessions/<file>.json
 lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":
     uv run python tools/lcu_mock/lcu_mock.py {{ session }}

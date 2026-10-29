@@ -148,3 +148,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: owner to check it on the real client.
 - 2026-10-29: picks framed instead of the baseline tile; "almost always" for a most played option flagged low_overlap (Triumph and Conqueror read "few games" at 97%); secondary runes show the numbers of the pair clicking them makes (ADR-060).
   Open: no UI test for "almost always" (the mock has no such row); covered by the core's rank test.
+- 2026-10-29: `just e2e-real` (ADR-061): every real board checked by `board_sanity.py`, then Playwright screenshots of six picks in runs/e2e-real/screenshots/; "almost always" now needs 300 games (it showed on a 1-game board).
+  Open: 43 options with 300+ games but under 300 comparable decisions read "few games" (`few-games-false`, so e2e-real fails until the wording is decided); "few games" clutter on thin item slots.

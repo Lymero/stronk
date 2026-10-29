@@ -57,8 +57,6 @@ export type Outcome =
       status: "skipped";
     };
 /**
- * How far an option's numbers can be trusted (docs/wpa-method.md, section 7).
- *
  * This interface was referenced by `Commands`'s JSON-Schema
  * via the `definition` "Confidence".
  */

@@ -59,6 +59,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `stronk-core record-champselect --out <file>` | Record one champion select from the real client, scrubbed (on Windows: docs/windows.md) |
 | `just core <command-id> <params>` | Run an app command from the terminal |
 | `just e2e` | Playwright: the UI against `MockBackend` and against the real core on lcu-mock; screenshots in `runs/e2e/screenshots/` (in `just check`) |
+| `just e2e-real [data] [key] [picks]` | The board on real data: every build checked for what a player must not see (`board_sanity.py`), then Playwright on a few picks with screenshots in `runs/e2e-real/screenshots/`. Run after any UI change and look at every screenshot (not in `check`: CI has no real data) |
 | `just bench` | Performance scenarios against `perf/budgets.toml`: the fixture pipeline and lock-in to import on lcu-mock |
 
 ## Rules
@@ -87,7 +88,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 - Tests added or updated.
 - Stats changed: metrics reviewed against floors.
 - Hot path changed: `just bench` run, budgets respected.
-- UI changed: viewed via `just app-mock` or a Playwright screenshot.
+- UI changed: viewed via `just app-mock` or a Playwright screenshot, and on real data with `just e2e-real` when it's available.
 - Capability added: status updated in `docs/gaps.md`.
 - Decision made: entry added to `docs/decisions.md`.
 - Two lines appended to `NOTES.md`: what landed, what's open.

@@ -209,7 +209,11 @@ class Replay:
         if not steps:
             raise ValueError(f"{path}: `steps` must be a non-empty list")
         champions: list[dict[str, Any]] = data.get("champions", [])
-        return cls(steps=steps, champions=with_portraits(champions))
+        # A session may replace game data documents by path (`e2e-real` gives every item).
+        extra: dict[str, object] = data.get("game_data", {})
+        return cls(
+            steps=steps, champions=with_portraits(champions), game_data={**game_data(), **extra}
+        )
 
     def icons(self) -> set[str]:
         """The icon paths the client would serve: the game data's and the champions'."""

@@ -10,6 +10,7 @@ const core = resolve(process.env.STRONK_CORE_BIN ?? `${ROOT}/app/core/target/deb
 
 export default defineConfig({
   testDir: "e2e",
+  testIgnore: "real.spec.ts", // `just e2e-real`: playwright.real.config.ts
   outputDir: `${ROOT}/runs/e2e/results`,
   fullyParallel: false,
   workers: 1, // one lcu-mock behind the bridge

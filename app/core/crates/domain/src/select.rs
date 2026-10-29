@@ -109,6 +109,10 @@ pub fn choose<T: Clone>(candidates: &[Candidate<T>]) -> Option<Choice<T>> {
 }
 
 /// How far an option's numbers can be trusted (docs/wpa-method.md, section 7).
+/// Games an option nearly everyone takes needs before it reads "almost always": the pipeline's
+/// `low_sample` line (`WpaSettings`), below which it really has few games.
+pub const ALMOST_ALWAYS_GAMES: u64 = 300;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Confidence {
@@ -122,8 +126,9 @@ pub enum Confidence {
     NoClearDifference,
     /// `low_sample` or `low_overlap`: too few comparable games for a number to mean much.
     TooFewGames,
-    /// The most played option, flagged `low_overlap`: chosen in nearly every comparable game, so
-    /// there is nothing to compare it with (not a lack of games).
+    /// The most played option, flagged `low_overlap` with at least [`ALMOST_ALWAYS_GAMES`]: chosen
+    /// in nearly every comparable game, so there is nothing to compare it with (not a lack of
+    /// games). On a thin board the same flag means too little data: [`Confidence::TooFewGames`].
     AlmostAlways,
     /// No estimate is published for it (spells have none yet).
     NotEstimated,
@@ -190,7 +195,9 @@ pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T
             let compared = c.comparison.filter(|k| k.versus == popular && !most_played);
             let clear = c.clear_against(popular).filter(|_| !most_played);
             let confidence = match clear {
-                _ if most_played && c.low_overlap => Confidence::AlmostAlways,
+                _ if most_played && c.low_overlap && c.played >= ALMOST_ALWAYS_GAMES => {
+                    Confidence::AlmostAlways
+                }
                 _ if c.too_few => Confidence::TooFewGames,
                 Some(k) if k.wpa > 0.0 => Confidence::ClearlyBetter,
                 Some(k) if k.wpa < 0.0 => Confidence::ClearlyWorse,
@@ -580,9 +587,14 @@ mod tests {
         (always.too_few, always.low_overlap, always.wpa) = (true, true, None);
         let mut rare = candidate(20, 9, None);
         (rare.too_few, rare.low_overlap, rare.wpa) = (true, true, None);
-        let rows = rank(&[always, rare], None).rows;
+        let rows = rank(&[always, rare.clone()], None).rows;
         let seen: Vec<Confidence> = rows.iter().map(|r| r.confidence).collect();
         assert_eq!(seen, [Confidence::AlmostAlways, Confidence::TooFewGames]);
+        // Ahri jungle: one game, flagged the same way, is too little data, not "almost always".
+        let mut once = candidate(10, 1, None);
+        (once.too_few, once.low_overlap, once.wpa) = (true, true, None);
+        let rows = rank(&[once, rare], None).rows;
+        assert_eq!(rows[0].confidence, Confidence::TooFewGames);
     }
 
     #[test]
