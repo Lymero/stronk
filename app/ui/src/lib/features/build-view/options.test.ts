@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Plan, Row } from "../../backend/backend.ts";
-import { allPopular, changes, explain, figure, mostPlayed, options, selected, share, verdict, wins } from "./options.ts";
+import { allPopular, changes, details, explain, figure, mostPlayed, options, selected, share, verdict, wins } from "./options.ts";
 
 const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   value,
@@ -140,6 +140,19 @@ describe("options", () => {
     const found = changes(options(p));
     expect(found.map((c) => [c.part, c.row.value, c.base?.value])).toEqual([[2, 11, 10]]);
     expect(changes(options(plan()))).toEqual([]);
+  });
+
+  it("lays an estimate out for its tooltip", () => {
+    const better = row(1, { played: 640, share: 0.348, wpa: 0.021, ci: [0.008, 0.034], versus: "most_played", confidence: "clearly_better" });
+    expect(details(better)).toEqual({
+      value: "+2.1 wins per 100 games",
+      against: "against the most played option",
+      range: "Likely between +0.8 and +3.4",
+      verdict: { text: "Clearly better", tone: "positive" },
+      games: "640 games, 35% of this choice",
+    });
+    const few = details(row(1, { wpa: null, confidence: "too_few_games" }));
+    expect([few.value, few.range, few.verdict]).toEqual([null, null, { text: "Too few games to tell", tone: "muted" }]);
   });
 
   it("knows when every choice is the most played one", () => {

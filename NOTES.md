@@ -136,3 +136,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the last pick is forgotten on restart, so the first new-row pick after one replaces the upper rune.
 - 2026-10-29: ADR-060 iterated again: the ± is off the board, on hover as "Likely between A and B (95%)" with the games; headers, the strip and the pair show the estimate alone.
   Open: the hover is the native title (slow, unstyled); a styled tooltip needs the panels' `overflow: hidden` reworked.
+- 2026-10-29: a styled tooltip on every option (ADR-060), on hover or focus: whose pick, the estimate and what it's against, its likely range, the verdict in words, games and share; fixed to the window, so the panels keep `overflow: hidden`.
+  Open: slot headers, the summary strip and the secondary pair still use the native title for their details.

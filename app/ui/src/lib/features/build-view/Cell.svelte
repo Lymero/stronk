@@ -1,11 +1,15 @@
+<script lang="ts" module>
+  let next = 0;
+</script>
+
 <script lang="ts">
   // One option as its icon and its estimate (ADR-060): a ring around the icon filled by its share
   // of games and its wins per 100 games (coloured only when clearly better or worse). Its games,
-  // its 95% interval and what they mean are in its title, on hover. Lit when the import writes
-  // it; clicking it picks it.
+  // its 95% interval and what they mean are in a tooltip on hover or focus, fixed to the window
+  // so no panel clips it. Lit when the import writes it; clicking it picks it.
   import type { Row } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
-  import { explain, spread, verdict, wins } from "./options.ts";
+  import { details, spread, verdict, wins } from "./options.ts";
 
   let {
     icons,
@@ -34,12 +38,29 @@
   const clear = $derived(row ? verdict(row) : null);
   const tone = $derived(clear?.tone ?? "");
   const half = $derived(row?.ci ? spread(row.ci) : null);
-  const games = $derived(row ? `${Math.round(row.share * 100)}% of games (${row.played.toLocaleString("en-US")})` : "");
-  const title = $derived(
-    `${name}${stronk && !on ? " (Stronk's pick)" : ""}${
-      bare ? "" : row ? `: ${games}. ${explain(row)}` : ": not played in these games"
-    }`,
-  );
+  const read = $derived(row ? details(row) : null);
+  /** Whose choice it is: Stronk's, the player's (imported instead of Stronk's), or neither. */
+  const pick = $derived(stronk ? (on ? "Stronk's pick, imported" : "Stronk's pick") : on ? "Your pick" : "");
+
+  const tipId = `cell-tip-${next++}`;
+  const TIP_WIDTH = 240;
+  let button: HTMLButtonElement | undefined = $state();
+  let tip: { x: number; y: number; above: boolean } | null = $state(null);
+  /** Shows the tooltip under the cell, or above it near the window's bottom, inside the window. */
+  function show() {
+    if (!button) return;
+    const r = button.getBoundingClientRect();
+    const above = r.bottom + 160 > window.innerHeight && r.top > 160;
+    const x = Math.min(Math.max(8, r.left + r.width / 2 - TIP_WIDTH / 2), window.innerWidth - TIP_WIDTH - 8);
+    tip = { x, y: above ? window.innerHeight - r.top + 6 : r.bottom + 6, above };
+  }
+  const hide = () => (tip = null);
+  // Fixed to the window, the tooltip would stay behind on scroll: it closes instead.
+  $effect(() => {
+    if (!tip) return;
+    window.addEventListener("scroll", hide, { capture: true, passive: true });
+    return () => window.removeEventListener("scroll", hide, { capture: true });
+  });
   const label = $derived(
     `${name}${
       bare || !row
@@ -61,9 +82,15 @@
   class:bare
   aria-pressed={on}
   aria-label={label}
-  {title}
+  aria-describedby={tip ? tipId : undefined}
   disabled={!onpick}
+  bind:this={button}
   onclick={() => onpick?.()}
+  onpointerenter={show}
+  onpointerleave={hide}
+  onfocus={show}
+  onblur={hide}
+  onkeydown={(e) => e.key === "Escape" && hide()}
 >
   <span class="icons">
     {#each icons as i, n (n)}
@@ -83,6 +110,35 @@
   {#if !bare}
     <span class="num {tone}" class:few={row?.wpa == null}>
       {#if row?.wpa != null}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{wins(row.wpa)}{:else if row?.confidence === "too_few_games"}few games{/if}
+    </span>
+  {/if}
+  {#if tip}
+    <span
+      class="tip"
+      id={tipId}
+      role="tooltip"
+      style:left={`${tip.x}px`}
+      style:top={tip.above ? null : `${tip.y}px`}
+      style:bottom={tip.above ? `${tip.y}px` : null}
+      style:width={`${TIP_WIDTH}px`}
+    >
+      <span class="tip-head">
+        <strong>{name}</strong>
+        {#if pick}<span class="tip-pick">{pick}</span>{/if}
+      </span>
+      {#if bare}
+        <span class="tip-muted">Measured with the other secondary rune, as a pair: see under the tree.</span>
+      {:else if !read}
+        <span class="tip-muted">Not played in these games.</span>
+      {:else}
+        {#if read.value}
+          <span class="tip-value {read.verdict.tone}">{read.value}</span>
+          <span class="tip-muted">{read.against}</span>
+        {/if}
+        {#if read.range}<span>{read.range}</span>{/if}
+        <span class="tip-verdict {read.verdict.tone}">{read.verdict.text}</span>
+        <span class="tip-muted">{read.games}</span>
+      {/if}
     </span>
   {/if}
 </button>
@@ -197,6 +253,55 @@
   .num.few {
     font-size: 10px;
     font-weight: 400;
+  }
+  .tip {
+    position: fixed;
+    z-index: 10;
+    display: grid;
+    gap: 2px;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow);
+    color: var(--color-text);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    line-height: 1.35;
+    text-align: left;
+    white-space: normal;
+    pointer-events: none;
+  }
+  .tip-head {
+    display: grid;
+    margin-bottom: 2px;
+  }
+  .tip-pick {
+    color: var(--color-accent);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+  .tip-value {
+    font-size: var(--text-md);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .tip-verdict {
+    margin-top: 2px;
+    font-weight: 600;
+  }
+  .tip-muted,
+  .tip-verdict.muted {
+    color: var(--color-muted);
+  }
+  .tip-verdict.muted {
+    font-weight: 400;
+  }
+  .positive {
+    color: var(--color-positive);
+  }
+  .negative {
+    color: var(--color-negative);
   }
   @media (prefers-reduced-motion: reduce) {
     .ring :global(.icon) {

@@ -77,6 +77,13 @@ test("shows the whole build at once, the runes as the client lays them out", asy
   const items = await page.getByRole("region", { name: "Items" }).boundingBox();
   expect(items && runes && items.x > runes.x + runes.width - 1).toBe(true);
   await screenshot(page, "mock-board");
+  // Hovering an option shows its reading in a tooltip, not clipped by its panel.
+  await page.getByRole("button", { name: /^Sundered Sky/ }).hover();
+  const tip = page.getByRole("tooltip");
+  await expect(tip).toContainText("Likely between +0.8 and +3.4");
+  const box = await tip.boundingBox();
+  expect(box && box.x >= 0 && box.x + box.width <= 1200 && box.y + box.height <= 900).toBe(true);
+  await screenshot(page, "mock-tooltip");
 });
 
 test("fits a narrow window, one column", async ({ page }) => {

@@ -14,6 +14,7 @@
   --color-positive-bg: #e3f3e9;
   --color-negative-bg: #fbe7e5;
   --color-track: #ecece6;
+  --shadow: 0 4px 16px rgb(0 0 0 / 12%);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -54,6 +55,7 @@
     --color-positive-bg: #17301f;
     --color-negative-bg: #3a1c1a;
     --color-track: #2c2c28;
+    --shadow: 0 4px 16px rgb(0 0 0 / 45%);
   }
 }
 

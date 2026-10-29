@@ -136,3 +136,33 @@ export function changes(options: Options): Change<unknown>[] {
     ...options.items.flatMap((s) => of(s.slot, s)),
   ];
 }
+
+/** An option's reading laid out for its tooltip (ADR-060): the estimate, what it's against, its
+ * likely range, the verdict in words, and the games behind it. */
+export interface Details {
+  value: string | null;
+  against: string | null;
+  range: string | null;
+  verdict: { text: string; tone: "positive" | "negative" | "muted" };
+  games: string;
+}
+
+export function details(row: Row<unknown>): Details {
+  const has = row.wpa !== null;
+  const tone = row.confidence === "clearly_better" ? "positive" : row.confidence === "clearly_worse" ? "negative" : "muted";
+  const text = {
+    clearly_better: "Clearly better",
+    clearly_worse: "Clearly worse",
+    most_played: "The most played option, the one the others are measured against",
+    no_clear_difference: "No clear difference from the most played option",
+    too_few_games: "Too few games to tell",
+    not_estimated: "Not estimated yet",
+  }[row.confidence];
+  return {
+    value: has ? `${wins(row.wpa ?? 0)} wins per 100 games` : null,
+    against: has ? (row.versus === "most_played" ? "against the most played option" : "against the other options") : null,
+    range: has && row.ci ? `Likely between ${wins(row.ci[0])} and ${wins(row.ci[1])}` : null,
+    verdict: { text: has || row.confidence === "too_few_games" ? text : "Not estimated yet", tone: has ? tone : "muted" },
+    games: `${row.played.toLocaleString("en-US")} games, ${share(row.share)} of this choice`,
+  };
+}
