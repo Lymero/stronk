@@ -143,10 +143,10 @@ describe("App with MockBackend", () => {
     expect(within(tree).getByRole("region", { name: "Inspiration, secondary" }).querySelectorAll(".row")).toHaveLength(3);
     expect(within(tree).getByRole("region", { name: "Shards" }).querySelectorAll(".row")).toHaveLength(3);
     expect(tree.querySelectorAll(".cell.on")).toHaveLength(9); // the page's nine choices
-    expect(within(precision).getByRole("button", { name: "Triumph +0.2 ± 0.8 wins per 100" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(precision).getByRole("button", { name: "Triumph, most played" })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100" })).toHaveAttribute("aria-pressed", "false");
     expect(within(tree).getByRole("button", { name: "Last Stand, too few games" })).toHaveTextContent("few games");
-    expect(within(tree).getByText("+0.1 wins per 100 vs others")).toBeInTheDocument(); // the secondary pair
+    expect(within(tree).getByText("the most played pair")).toBeInTheDocument(); // the secondary pair
     const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);
     expect(asked).toContain(8021); // Fleet Footwork: in no published page, its icon still asked for
   });
@@ -326,7 +326,7 @@ describe("App with MockBackend", () => {
       expect(within(tree).getByRole("button", { name: new RegExp(`^${rune}`), pressed: true })).toBeInTheDocument();
     }
     expect(within(tree).getByRole("heading", { name: "Precision" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Smite + Flash" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Smite + Flash, most played" })).toHaveAttribute("aria-pressed", "true");
     expect(document.body.textContent).not.toContain("·"); // no middle dots anywhere
     expect(screen.getByRole("button", { name: /^Sundered Sky/, pressed: true })).toBeInTheDocument();
   });

@@ -91,8 +91,18 @@ describe("options", () => {
   });
 
   it("shows every estimate with its uncertainty and what it's measured against", () => {
-    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives" }))).toBe("+0.4 wins per 100 vs others");
-    expect(figure(row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played" }))).toBe("−0.9 wins per 100");
+    const unsure = { confidence: "no_clear_difference" } as const;
+    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives", ...unsure }))).toBe("+0.4 wins per 100 vs others");
+    expect(figure(row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played", ...unsure }))).toBe("−0.9 wins per 100");
+    // The most played option is what the others are measured against: no number of its own.
+    const base = row(1, { wpa: -0.024, ci: [-0.041, -0.008], confidence: "most_played" });
+    expect(figure(base)).toBeNull();
+    expect(explain(base)).toBe("Most played, the others are compared with it.");
+    expect([details(base).value, details(base).range, details(base).verdict.text]).toEqual([
+      null,
+      null,
+      "Most played, the others are compared with it",
+    ]);
     expect(figure(row(1, { wpa: null }))).toBeNull();
     const unclear = row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played", confidence: "no_clear_difference" });
     expect(explain(unclear)).toBe(

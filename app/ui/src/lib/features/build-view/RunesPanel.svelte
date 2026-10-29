@@ -118,7 +118,7 @@
       <p class="pair" title={pair ? explain(pair) : "This pair isn't played in these games"}>
         These two together:
         <strong class={pair ? (verdict(pair)?.tone ?? "") : ""}>
-          {pair ? (figure(pair) ?? "few games") : "not played"}
+          {pair ? (pair.confidence === "most_played" ? "the most played pair" : (figure(pair) ?? "few games")) : "not played"}
         </strong>
         {#if pair}<span class="games">{games(pair.played)}</span>{/if}
       </p>

@@ -77,16 +77,18 @@ export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
 export const selected = <T>(slot: Slot<T>): Shown<T> | undefined => slot.rows.find((r) => r.selected);
 
 /** An option's win impact, "+0.4 wins per 100", ending "vs others" when it isn't compared with
- * the most played option; null without an estimate. Its uncertainty is in `explain`, shown on
- * hover (ADR-060). */
+ * the most played option; null without an estimate, and for the most played option itself: the
+ * others are measured against it, so its own number against them reads as a verdict it isn't
+ * (ADR-060). Its uncertainty is in `explain`, shown on hover. */
 export function figure(row: Row<unknown>): string | null {
-  if (row.wpa === null) return null;
+  if (row.wpa === null || row.confidence === "most_played") return null;
   return `${wins(row.wpa)} wins per 100${row.versus === "alternatives" ? " vs others" : ""}`;
 }
 
 /** Why an option's number reads as it does: what it's measured against, its interval, and
  * whether the difference is clear. */
 export function explain(row: Row<unknown>): string {
+  if (row.confidence === "most_played") return "Most played, the others are compared with it.";
   if (row.wpa === null)
     return row.confidence === "too_few_games"
       ? "Too few comparable games to estimate its win impact"
@@ -101,9 +103,7 @@ export function explain(row: Row<unknown>): string {
         ? "Clearly worse: the difference holds once false discoveries are controlled."
         : row.confidence === "too_few_games"
           ? "Too few comparable games for this number to mean much."
-          : row.confidence === "most_played"
-            ? "The most played option, which the others are compared with."
-            : "No clear difference: the interval is too wide to tell it apart from the most played option.";
+          : "No clear difference: the interval is too wide to tell it apart from the most played option.";
   return `${wins(row.wpa)} wins per 100 games ${against}.${interval} ${reading}`;
 }
 
@@ -148,12 +148,12 @@ export interface Details {
 }
 
 export function details(row: Row<unknown>): Details {
-  const has = row.wpa !== null;
+  const has = row.wpa !== null && row.confidence !== "most_played";
   const tone = row.confidence === "clearly_better" ? "positive" : row.confidence === "clearly_worse" ? "negative" : "muted";
   const text = {
     clearly_better: "Clearly better",
     clearly_worse: "Clearly worse",
-    most_played: "The most played option, the one the others are measured against",
+    most_played: "Most played, the others are compared with it",
     no_clear_difference: "No clear difference from the most played option",
     too_few_games: "Too few games to tell",
     not_estimated: "Not estimated yet",
@@ -162,7 +162,10 @@ export function details(row: Row<unknown>): Details {
     value: has ? `${wins(row.wpa ?? 0)} wins per 100 games` : null,
     against: has ? (row.versus === "most_played" ? "against the most played option" : "against the other options") : null,
     range: has && row.ci ? `Likely between ${wins(row.ci[0])} and ${wins(row.ci[1])}` : null,
-    verdict: { text: has || row.confidence === "too_few_games" ? text : "Not estimated yet", tone: has ? tone : "muted" },
+    verdict: {
+      text: has || row.confidence === "too_few_games" || row.confidence === "most_played" ? text : "Not estimated yet",
+      tone: has ? tone : "muted",
+    },
     games: `${row.played.toLocaleString("en-US")} games, ${share(row.share)} of this choice`,
   };
 }

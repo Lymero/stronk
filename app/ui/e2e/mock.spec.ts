@@ -14,7 +14,7 @@ test("follows champion select and shows the plan by name", async ({ page }) => {
   await next(page);
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible();
   await expect(page.getByLabel("Rune page").getByRole("button", { name: /^Conqueror/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Smite + Flash" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Smite + Flash, most played" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("▲ +2.1 wins per 100 vs Black Cleaver")).toBeVisible();
   await expect(page.getByLabel("Champion select").locator("img")).toHaveAttribute("src", /^data:image\/svg\+xml,/);
   await screenshot(page, "mock-hovering");

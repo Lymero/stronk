@@ -138,3 +138,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the hover is the native title (slow, unstyled); a styled tooltip needs the panels' `overflow: hidden` reworked.
 - 2026-10-29: a styled tooltip on every option (ADR-060), on hover or focus: whose pick, the estimate and what it's against, its likely range, the verdict in words, games and share; fixed to the window, so the panels keep `overflow: hidden`.
   Open: slot headers, the summary strip and the secondary pair still use the native title for their details.
+- 2026-10-29: the most played option shows "most played", not its number against the rest (ADR-060): that number read as a verdict (Coup de Grace, Stronk's pick, at −2.4).
+  Open: the shorter tooltip (title plus three lines, the base named) was proposed and not taken yet.

@@ -65,7 +65,9 @@
     `${name}${
       bare || !row
         ? ""
-        : row.wpa === null
+        : row.confidence === "most_played"
+          ? ", most played"
+          : row.wpa === null
           ? row.confidence === "too_few_games"
             ? ", too few games"
             : ""
@@ -108,8 +110,8 @@
     {/each}
   </span>
   {#if !bare}
-    <span class="num {tone}" class:few={row?.wpa == null}>
-      {#if row?.wpa != null}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{wins(row.wpa)}{:else if row?.confidence === "too_few_games"}few games{/if}
+    <span class="num {tone}" class:few={row?.wpa == null || row.confidence === "most_played"}>
+      {#if row?.confidence === "most_played"}most played{:else if row?.wpa != null}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{wins(row.wpa)}{:else if row?.confidence === "too_few_games"}few games{/if}
     </span>
   {/if}
   {#if tip}
