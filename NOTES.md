@@ -140,3 +140,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: slot headers, the summary strip and the secondary pair still use the native title for their details.
 - 2026-10-29: the most played option shows "most played", not its number against the rest (ADR-060): that number read as a verdict (Coup de Grace, Stronk's pick, at −2.4).
   Open: the shorter tooltip (title plus three lines, the base named) was proposed and not taken yet.
+- 2026-10-29: the option tooltip is gone and no game counts are shown (the ring shows play share): each option is its ring and one number, the range only in its accessible name (ADR-060).
+  Open: the range is now nowhere on screen; if players want it back, a details view on click rather than hover.

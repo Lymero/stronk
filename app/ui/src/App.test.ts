@@ -104,21 +104,7 @@ describe("App with MockBackend", () => {
     expect(sky).toHaveAttribute("aria-pressed", "true");
     expect(sky).toHaveTextContent("▲+2.1");
     expect(sky).not.toHaveTextContent("±"); // its uncertainty only on hover
-    expect(screen.queryByRole("tooltip")).toBeNull();
-    await fireEvent.pointerEnter(sky);
-    const tip = screen.getByRole("tooltip");
-    expect(sky).toHaveAttribute("aria-describedby", tip.id);
-    expect(tip).toHaveTextContent("Sundered Sky Stronk's pick, imported");
-    expect(tip).toHaveTextContent("+2.1 wins per 100 games against the most played option");
-    expect(tip).toHaveTextContent("Likely between +0.8 and +3.4");
-    expect(tip).toHaveTextContent("Clearly better");
-    expect(tip).toHaveTextContent(/640 games, \d+% of this choice/);
-    await fireEvent.pointerLeave(sky);
-    expect(screen.queryByRole("tooltip")).toBeNull();
-    await fireEvent.focus(sky); // and from the keyboard
-    expect(screen.getByRole("tooltip")).toBeInTheDocument();
-    await fireEvent.keyDown(sky, { key: "Escape" });
-    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(screen.queryByRole("tooltip")).toBeNull(); // nothing on hover either
     const cleaver = within(item2).getByRole("button", { name: /^Black Cleaver/ });
     expect(cleaver.querySelector(".num")).not.toHaveClass("positive"); // unclear: grey
     expect(within(build).getByRole("region", { name: "Item 3" })).toHaveTextContent("▼−1.8");

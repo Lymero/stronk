@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Plan, Row } from "../../backend/backend.ts";
-import { allPopular, changes, details, explain, figure, mostPlayed, options, selected, share, verdict, wins } from "./options.ts";
+import { allPopular, changes, explain, figure, mostPlayed, options, selected, share, verdict, wins } from "./options.ts";
 
 const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   value,
@@ -98,11 +98,6 @@ describe("options", () => {
     const base = row(1, { wpa: -0.024, ci: [-0.041, -0.008], confidence: "most_played" });
     expect(figure(base)).toBeNull();
     expect(explain(base)).toBe("Most played, the others are compared with it.");
-    expect([details(base).value, details(base).range, details(base).verdict.text]).toEqual([
-      null,
-      null,
-      "Most played, the others are compared with it",
-    ]);
     expect(figure(row(1, { wpa: null }))).toBeNull();
     const unclear = row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played", confidence: "no_clear_difference" });
     expect(explain(unclear)).toBe(
@@ -150,19 +145,6 @@ describe("options", () => {
     const found = changes(options(p));
     expect(found.map((c) => [c.part, c.row.value, c.base?.value])).toEqual([[2, 11, 10]]);
     expect(changes(options(plan()))).toEqual([]);
-  });
-
-  it("lays an estimate out for its tooltip", () => {
-    const better = row(1, { played: 640, share: 0.348, wpa: 0.021, ci: [0.008, 0.034], versus: "most_played", confidence: "clearly_better" });
-    expect(details(better)).toEqual({
-      value: "+2.1 wins per 100 games",
-      against: "against the most played option",
-      range: "Likely between +0.8 and +3.4",
-      verdict: { text: "Clearly better", tone: "positive" },
-      games: "640 games, 35% of this choice",
-    });
-    const few = details(row(1, { wpa: null, confidence: "too_few_games" }));
-    expect([few.value, few.range, few.verdict]).toEqual([null, null, { text: "Too few games to tell", tone: "muted" }]);
   });
 
   it("knows when every choice is the most played one", () => {

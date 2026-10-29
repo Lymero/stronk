@@ -5,7 +5,7 @@
   // each panel switch trees.
   import type { GameNames, Page, Plan } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
-  import { games, type Icons, icon, name } from "../../ui/labels.ts";
+  import { type Icons, icon, name } from "../../ui/labels.ts";
   import Cell from "./Cell.svelte";
   import { explain, figure, verdict } from "./options.ts";
   import {
@@ -120,7 +120,6 @@
         <strong class={pair ? (verdict(pair)?.tone ?? "") : ""}>
           {pair ? (pair.confidence === "most_played" ? "the most played pair" : (figure(pair) ?? "few games")) : "not played"}
         </strong>
-        {#if pair}<span class="games">{games(pair.played)}</span>{/if}
       </p>
     </section>
 
@@ -239,9 +238,6 @@
   }
   .pair strong.negative {
     color: var(--color-negative);
-  }
-  .pair .games {
-    display: block;
   }
   @media (max-width: 560px) {
     .runes {
