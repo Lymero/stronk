@@ -100,7 +100,7 @@ describe("App with MockBackend", () => {
       "title",
       "+2.1 wins per 100 games against the most played option. Likely between +0.8 and +3.4 (95%). Clearly better: the difference holds once false discoveries are controlled.",
     );
-    const sky = within(item2).getByRole("button", { name: "Sundered Sky +2.1 ± 1.3 wins per 100" });
+    const sky = within(item2).getByRole("button", { name: "Sundered Sky +2.1 ± 1.3 wins per 100 against the most played" });
     expect(sky).toHaveAttribute("aria-pressed", "true");
     expect(sky).toHaveTextContent("▲+2.1");
     expect(sky).not.toHaveTextContent("±"); // its uncertainty only on hover
@@ -129,8 +129,8 @@ describe("App with MockBackend", () => {
     expect(within(tree).getByRole("region", { name: "Inspiration, secondary" }).querySelectorAll(".row")).toHaveLength(3);
     expect(within(tree).getByRole("region", { name: "Shards" }).querySelectorAll(".row")).toHaveLength(3);
     expect(tree.querySelectorAll(".cell.on")).toHaveLength(9); // the page's nine choices
-    expect(within(precision).getByRole("button", { name: "Triumph, most played" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(precision).getByRole("button", { name: "Triumph, most played, 0" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100 against the most played" })).toHaveAttribute("aria-pressed", "false");
     expect(within(tree).getByRole("button", { name: "Last Stand, too few games" })).toHaveTextContent("few games");
     expect(within(tree).getByText("the most played pair")).toBeInTheDocument(); // the secondary pair
     const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);

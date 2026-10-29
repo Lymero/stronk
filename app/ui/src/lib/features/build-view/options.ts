@@ -76,14 +76,17 @@ export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
 /** What the import writes for a slot: the player's pick, else Stronk's choice. */
 export const selected = <T>(slot: Slot<T>): Shown<T> | undefined => slot.rows.find((r) => r.selected);
 
-/** An option's win impact, "+0.4 wins per 100", ending "vs others" when it isn't compared with
- * the most played option; null without an estimate, and for the most played option itself: the
- * others are measured against it, so its own number against them reads as a verdict it isn't
- * (ADR-060). Its uncertainty is in `explain`, shown on hover. */
+/** An option's win impact against its slot's most played option, "+0.4 wins per 100"; null when
+ * it isn't compared with it head to head (ADR-060). Every number on the board is on that one scale,
+ * the most played option at 0, so a row can be read in order; a number against the other options
+ * pooled is against a different mix for each option, and isn't shown. */
 export function figure(row: Row<unknown>): string | null {
-  if (row.wpa === null || row.confidence === "most_played") return null;
-  return `${wins(row.wpa)} wins per 100${row.versus === "alternatives" ? " vs others" : ""}`;
+  if (row.wpa === null || row.versus !== "most_played") return null;
+  return `${wins(row.wpa)} wins per 100`;
 }
+
+/** True when a slot has an option compared with its most played one: its numbers have a 0. */
+export const compared = <T>(slot: Slot<T>): boolean => slot.rows.some((r) => figure(r) !== null);
 
 /** Why an option's number reads as it does: what it's measured against, its interval, and
  * whether the difference is clear. */
@@ -109,9 +112,10 @@ export function explain(row: Row<unknown>): string {
 
 /** A clear result as the player reads it, "▲ +2.1 wins per 100"; nothing for the rest (ADR-056). */
 export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "negative" } | null {
-  if (row.wpa === null) return null;
-  if (row.confidence === "clearly_better") return { text: `▲ ${figure(row)}`, tone: "positive" };
-  if (row.confidence === "clearly_worse") return { text: `▼ ${figure(row)}`, tone: "negative" };
+  const number = figure(row);
+  if (number === null) return null;
+  if (row.confidence === "clearly_better") return { text: `▲ ${number}`, tone: "positive" };
+  if (row.confidence === "clearly_worse") return { text: `▼ ${number}`, tone: "negative" };
   return null;
 }
 

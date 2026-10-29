@@ -13,6 +13,7 @@
   import {
     allPopular,
     changes,
+    compared,
     explain,
     figure,
     mostPlayed,
@@ -87,8 +88,8 @@
     return others.length ? `Also in ${others.join(" and ")}` : "";
   };
 
-  /** What a closed slot says after its value: a clear result against the most played option,
-   * else the option's number with its uncertainty; "Your pick" first when it isn't Stronk's. */
+  /** What a slot's header says: what its numbers are compared with, a clear result against it,
+   * and "Your pick" when the import writes the player's choice (ADR-060). */
   function note<T>(
     slot: Slot<T>,
     label: (value: T) => string,
@@ -97,12 +98,14 @@
     if (!row) return null;
     const clear = verdict(row);
     const base = mostPlayed(slot);
-    const number =
-      clear && base && base !== row ? `${clear.text} vs ${label(base.value)}` : (figure(row) ?? "");
-    const tone = clear && base !== row ? clear.tone : "muted";
-    const text = row.chosen ? number : number ? `Your pick: ${number}` : "Your pick";
-    if (!text) return null;
-    return { text, tone: row.chosen ? tone : "picked", title: explain(row) };
+    const against = base && compared(slot) ? label(base.value) : null;
+    if (row.chosen && clear && base !== row && against)
+      return { text: `${clear.text} vs ${against}`, tone: clear.tone, title: explain(row) };
+    if (row.chosen)
+      return against ? { text: `Compared with ${against}`, tone: "muted", title: explain(row) } : null;
+    const number = figure(row);
+    const text = number && against ? `Your pick: ${number} vs ${against}` : "Your pick";
+    return { text, tone: "picked", title: explain(row) };
   }
 
   const parts = $derived(
@@ -159,7 +162,7 @@
     {/if}
     <p class="legend">
       <svg class="key ring" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" class="track" /><circle cx="6" cy="6" r="4.5" class="arc" pathLength="100" stroke-dasharray="35 100" /></svg>ring: share of games
-      <span class="key num" aria-hidden="true">+2.1</span>wins per 100 games against the most played option
+      <span class="key num" aria-hidden="true">+2.1</span>wins per 100 games compared with the most played option of its row, which reads 0
       <span class="key clear" aria-hidden="true">▲</span>colour only when clearly better or worse
     </p>
   </div>

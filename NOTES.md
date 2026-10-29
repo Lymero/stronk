@@ -142,3 +142,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the shorter tooltip (title plus three lines, the base named) was proposed and not taken yet.
 - 2026-10-29: the option tooltip is gone and no game counts are shown (the ring shows play share): each option is its ring and one number, the range only in its accessible name (ADR-060).
   Open: the range is now nowhere on screen; if players want it back, a details view on click rather than hover.
+- 2026-10-29: one scale per row (ADR-060): numbers only for head-to-head comparisons with the row's most played option, which reads 0; pooled numbers (each against a different mix) are hidden, headers say "Compared with X".
+  Open: Coachless's WPA is WR minus average pre-decision win probability (against the average choice, implicitly); a "vs the average pick" scale for Stronk would need the pipeline's estimand checked first.

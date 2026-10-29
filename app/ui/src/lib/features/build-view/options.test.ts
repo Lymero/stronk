@@ -83,16 +83,17 @@ describe("options", () => {
   it("gives a verdict only for a clear difference", () => {
     const better = row(1, { wpa: 0.021, ci: [0.008, 0.034], versus: "most_played", confidence: "clearly_better" });
     expect(verdict(better)).toEqual({ text: "▲ +2.1 wins per 100", tone: "positive" });
-    expect(verdict(row(1, { wpa: -0.018, confidence: "clearly_worse" }))).toEqual({ text: "▼ −1.8 wins per 100 vs others", tone: "negative" });
+    expect(verdict(row(1, { wpa: -0.018, versus: "most_played", confidence: "clearly_worse" }))).toEqual({ text: "▼ −1.8 wins per 100", tone: "negative" });
     for (const confidence of ["most_played", "no_clear_difference", "too_few_games", "not_estimated"] as const) {
-      expect(verdict(row(1, { wpa: 0.05, confidence }))).toBeNull();
+      expect(verdict(row(1, { wpa: 0.05, versus: "most_played", confidence }))).toBeNull();
     }
     expect(verdict(row(1, { wpa: null, confidence: "clearly_better" }))).toBeNull();
   });
 
-  it("shows every estimate with its uncertainty and what it's measured against", () => {
+  it("shows only numbers against the most played option, so a row reads on one scale", () => {
     const unsure = { confidence: "no_clear_difference" } as const;
-    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives", ...unsure }))).toBe("+0.4 wins per 100 vs others");
+    // Against the other options pooled: a different mix for each option, so no number.
+    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives", ...unsure }))).toBeNull();
     expect(figure(row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played", ...unsure }))).toBe("−0.9 wins per 100");
     // The most played option is what the others are measured against: no number of its own.
     const base = row(1, { wpa: -0.024, ci: [-0.041, -0.008], confidence: "most_played" });

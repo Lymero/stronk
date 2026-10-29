@@ -1,11 +1,12 @@
 <script lang="ts">
   // One option as its icon and its estimate (ADR-060): a ring around the icon filled by its share
-  // of games and its wins per 100 games, coloured only when clearly better or worse; "most played"
-  // for the option the others are measured against. Nothing on hover: the accessible name carries
-  // the range for screen readers. Lit when the import writes it; clicking it picks it.
+  // of games and its wins per 100 games against the most played option of its row, which reads 0;
+  // coloured only when clearly better or worse. Options not compared with it head to head have no
+  // number ("few games" when that's why). The accessible name carries the range for screen
+  // readers. Lit when the import writes it; clicking it picks it.
   import type { Row } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
-  import { spread, verdict, wins } from "./options.ts";
+  import { figure, spread, verdict, wins } from "./options.ts";
 
   let {
     icons,
@@ -34,17 +35,29 @@
   const clear = $derived(row ? verdict(row) : null);
   const tone = $derived(clear?.tone ?? "");
   const half = $derived(row?.ci ? spread(row.ci) : null);
+  /** Its number: against the most played option, or 0 for that option when it has an estimate. */
+  const number = $derived(
+    !row || bare
+      ? null
+      : row.confidence === "most_played"
+        ? row.wpa === null
+          ? null
+          : "0"
+        : figure(row) === null || row.wpa === null
+          ? null
+          : `${clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}${wins(row.wpa)}`,
+  );
   const label = $derived(
     `${name}${
       bare || !row
         ? ""
         : row.confidence === "most_played"
-          ? ", most played"
-          : row.wpa === null
-          ? row.confidence === "too_few_games"
+          ? `, most played${number === null ? "" : ", 0"}`
+          : row.confidence === "too_few_games"
             ? ", too few games"
-            : ""
-          : ` ${wins(row.wpa)}${half === null ? "" : ` ± ${half.toFixed(1)}`} wins per 100`
+            : number === null || row.wpa === null
+              ? ""
+              : ` ${wins(row.wpa)}${half === null ? "" : ` ± ${half.toFixed(1)}`} wins per 100 against the most played`
     }`,
   );
 </script>
@@ -76,8 +89,8 @@
     {/each}
   </span>
   {#if !bare}
-    <span class="num {tone}" class:few={row?.wpa == null || row.confidence === "most_played"}>
-      {#if row?.confidence === "most_played"}most played{:else if row?.wpa != null}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{wins(row.wpa)}{:else if row?.confidence === "too_few_games"}few games{/if}
+    <span class="num {tone}" class:few={number === null}>
+      {#if number !== null}{number}{:else if row?.confidence === "too_few_games"}few games{/if}
     </span>
   {/if}
 </button>
