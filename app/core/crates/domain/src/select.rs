@@ -109,9 +109,10 @@ pub fn choose<T: Clone>(candidates: &[Candidate<T>]) -> Option<Choice<T>> {
 }
 
 /// How far an option's numbers can be trusted (docs/wpa-method.md, section 7).
-/// Games an option nearly everyone takes needs before it reads "almost always": the pipeline's
-/// `low_sample` line (`WpaSettings`), below which it really has few games.
-pub const ALMOST_ALWAYS_GAMES: u64 = 300;
+/// Games above which an option without a number isn't short of games, only of comparable ones:
+/// the pipeline's `low_sample` line (`WpaSettings`). It decides [`Confidence::AlmostAlways`] and
+/// [`Confidence::TooFewToCompare`] against [`Confidence::TooFewGames`].
+pub const ENOUGH_GAMES: u64 = 300;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -126,7 +127,10 @@ pub enum Confidence {
     NoClearDifference,
     /// `low_sample` or `low_overlap`: too few comparable games for a number to mean much.
     TooFewGames,
-    /// The most played option, flagged `low_overlap` with at least [`ALMOST_ALWAYS_GAMES`]: chosen
+    /// The same flags on an option with at least [`ENOUGH_GAMES`]: plenty of games, too few of
+    /// them in situations comparable with the alternatives'.
+    TooFewToCompare,
+    /// The most played option, flagged `low_overlap` with at least [`ENOUGH_GAMES`]: chosen
     /// in nearly every comparable game, so there is nothing to compare it with (not a lack of
     /// games). On a thin board the same flag means too little data: [`Confidence::TooFewGames`].
     AlmostAlways,
@@ -195,9 +199,10 @@ pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T
             let compared = c.comparison.filter(|k| k.versus == popular && !most_played);
             let clear = c.clear_against(popular).filter(|_| !most_played);
             let confidence = match clear {
-                _ if most_played && c.low_overlap && c.played >= ALMOST_ALWAYS_GAMES => {
+                _ if most_played && c.low_overlap && c.played >= ENOUGH_GAMES => {
                     Confidence::AlmostAlways
                 }
+                _ if c.too_few && c.played >= ENOUGH_GAMES => Confidence::TooFewToCompare,
                 _ if c.too_few => Confidence::TooFewGames,
                 Some(k) if k.wpa > 0.0 => Confidence::ClearlyBetter,
                 Some(k) if k.wpa < 0.0 => Confidence::ClearlyWorse,
@@ -595,6 +600,11 @@ mod tests {
         (once.too_few, once.low_overlap, once.wpa) = (true, true, None);
         let rows = rank(&[once, rare], None).rows;
         assert_eq!(rows[0].confidence, Confidence::TooFewGames);
+        // Ashe's first shard: 594 games, under 300 of them comparable: not "few games".
+        let mut many = candidate(30, 594, None);
+        (many.too_few, many.wpa) = (true, None);
+        let rows = rank(&[candidate(40, 3000, None), many], None).rows;
+        assert_eq!(rows[1].confidence, Confidence::TooFewToCompare);
     }
 
     #[test]
@@ -615,7 +625,7 @@ mod tests {
         assert_eq!(
             seen,
             [
-                (Confidence::TooFewGames, false),
+                (Confidence::TooFewToCompare, false), // 500 games, too few comparable ones
                 (Confidence::NoClearDifference, true),
                 (Confidence::NoClearDifference, false),
                 (Confidence::NotEstimated, false),

@@ -278,8 +278,9 @@ e2e *args:
 # The board on real data (ADR-061): every build checked for what a player must not see, then
 # Playwright on a few picks against the real core and lcu-mock, screenshots in
 # runs/e2e-real/screenshots/. Run after a UI change. Not in `check`: CI has no real data.
+# Picks default to a popular champion per role and the sparsest board: `just e2e-real Ashe/BOTTOM,Nami/UTILITY`
 [unix]
-e2e-real data="runs/real/data" key="runs/real/data.pub" picks="":
+e2e-real picks="" data="runs/real/data" key="runs/real/data.pub":
     #!/usr/bin/env bash
     set -uo pipefail
     if [ ! -f "{{ key }}" ]; then echo "no {{ key }}: run \`just data-real\` first" >&2; exit 1; fi

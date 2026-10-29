@@ -58,6 +58,8 @@
           ? `, most played${number === null ? "" : ", 0"}`
           : row.confidence === "too_few_games"
             ? ", too few games"
+            : row.confidence === "too_few_to_compare"
+              ? ", too few to compare"
             : number === null || row.wpa === null
               ? ""
               : ` ${wins(row.wpa)}${half === null ? "" : ` ± ${half.toFixed(1)}`} wins per 100 against the most played`
@@ -93,7 +95,7 @@
   </span>
   {#if !bare}
     <span class="num {tone}" class:few={number === null}>
-      {#if number !== null}{number}{:else if row?.confidence === "almost_always"}almost always{:else if row?.confidence === "too_few_games"}few games{/if}
+      {#if number !== null}{number}{:else if row?.confidence === "almost_always"}almost always{:else if row?.confidence === "too_few_games"}few games{:else if row?.confidence === "too_few_to_compare"}too few to compare{/if}
     </span>
   {/if}
 </button>
@@ -102,7 +104,7 @@
   .cell {
     position: relative;
     display: grid;
-    grid-template-rows: auto 14px;
+    grid-template-rows: auto minmax(14px, auto);
     align-content: start;
     justify-items: center;
     gap: 2px;
@@ -211,8 +213,12 @@
     font-weight: 600;
   }
   .num.few {
+    max-width: 60px;
     font-size: 10px;
     font-weight: 400;
+    line-height: 12px;
+    text-align: center;
+    white-space: normal;
   }
   @media (prefers-reduced-motion: reduce) {
     .ring :global(.icon) {

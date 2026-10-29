@@ -66,6 +66,7 @@ export type Confidence =
   | "most_played"
   | "no_clear_difference"
   | "too_few_games"
+  | "too_few_to_compare"
   | "almost_always"
   | "not_estimated";
 /**

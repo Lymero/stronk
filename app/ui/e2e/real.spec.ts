@@ -14,7 +14,7 @@ const session = JSON.parse(readFileSync(resolve(ROOT, "runs/e2e-real/session.jso
 };
 
 /** What may sit under an option: its number, 0 for the baseline, or why it has none. */
-const NUMBER = /^(?:[▲▼]?[+−]\d+\.\d|0|few games|almost always|)$/;
+const NUMBER = /^(?:[▲▼]?[+−]\d+\.\d|0|few games|too few to compare|almost always|)$/;
 
 async function board(page: Page): Promise<string[]> {
   const problems: string[] = [];
