@@ -3,7 +3,8 @@
   // of games and its wins per 100 games against the most played option of its row, which reads 0;
   // coloured only when clearly better or worse. Options not compared with it head to head have no
   // number ("few games" when that's why). The accessible name carries the range for screen
-  // readers. Lit when the import writes it; clicking it picks it.
+  // readers. The 0 sits on its own tile: the baseline its row is read against. Lit when the import
+  // writes it; clicking it picks it.
   import type { Row } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
   import { figure, spread, verdict, wins } from "./options.ts";
@@ -47,6 +48,8 @@
           ? null
           : `${clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}${wins(row.wpa)}`,
   );
+  /** The row's baseline: the most played option, which the other numbers are measured against. */
+  const base = $derived(row?.confidence === "most_played" && number !== null);
   const label = $derived(
     `${name}${
       bare || !row
@@ -68,6 +71,7 @@
   class:on
   class:stronk={stronk && !on}
   class:bare
+  class:base
   aria-pressed={on}
   aria-label={label}
   disabled={!onpick}
@@ -111,6 +115,11 @@
     color: inherit;
     font: inherit;
     cursor: pointer;
+  }
+  /* The baseline of its row, set apart on its own tile. */
+  .cell.base {
+    border-color: var(--color-border);
+    background: var(--color-bg);
   }
   .cell.bare {
     grid-template-rows: auto;

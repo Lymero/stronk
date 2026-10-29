@@ -3,7 +3,7 @@
   // (ADR-059): the options played in at least 2% of games, the short list and the pick, the rest
   // behind "+N" in the same row. No list to scroll.
   import Cell from "./Cell.svelte";
-  import type { Slot } from "./options.ts";
+  import { compared, type Slot } from "./options.ts";
 
   let {
     title,
@@ -27,6 +27,9 @@
   const main = $derived(slot.rows.filter((r) => r.shown || r.share >= MIN_SHARE));
   const rows = $derived(all ? slot.rows : main);
   const hidden = $derived(slot.rows.length - main.length);
+  /** The baseline the other numbers are measured against, first in the row, set apart by a rule
+   * (ADR-060). */
+  const base = $derived(compared(slot) ? rows.find((r) => r.confidence === "most_played") : undefined);
 </script>
 
 <section class="panel" aria-label={title}>
@@ -36,6 +39,9 @@
   </header>
   <div class="cells">
     {#each rows as row (row.key)}
+      {#if base && row !== base && rows.indexOf(row) === rows.indexOf(base) + 1}
+        <span class="rule" aria-hidden="true"></span>
+      {/if}
       <Cell
         icons={icons(row.value)}
         name={label(row.value)}
@@ -100,6 +106,12 @@
     flex-wrap: wrap;
     gap: 2px;
     padding: var(--space-1) var(--space-2) var(--space-2);
+  }
+  .rule {
+    align-self: stretch;
+    width: 1px;
+    margin: var(--space-1) var(--space-1);
+    background: var(--color-border);
   }
   .more {
     align-self: start;
