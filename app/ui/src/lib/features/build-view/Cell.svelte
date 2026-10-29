@@ -1,8 +1,8 @@
 <script lang="ts">
   // One option as its icon and its estimate (ADR-060): a ring around the icon filled by its share
-  // of games, its wins per 100 games (coloured only when clearly better or worse) and, under it,
-  // the ± of its 95% interval. Games and the full reading are in its title. Lit when the import
-  // writes it; clicking it picks it.
+  // of games and its wins per 100 games (coloured only when clearly better or worse). Its games,
+  // its 95% interval and what they mean are in its title, on hover. Lit when the import writes
+  // it; clicking it picks it.
   import type { Row } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
   import { explain, spread, verdict, wins } from "./options.ts";
@@ -84,7 +84,6 @@
     <span class="num {tone}" class:few={row?.wpa == null}>
       {#if row?.wpa != null}{clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}{wins(row.wpa)}{:else if row?.confidence === "too_few_games"}few games{/if}
     </span>
-    <span class="pm">{#if row?.wpa != null && half !== null}±{half.toFixed(1)}{/if}</span>
   {/if}
 </button>
 
@@ -92,7 +91,7 @@
   .cell {
     position: relative;
     display: grid;
-    grid-template-rows: auto 14px 13px;
+    grid-template-rows: auto 14px;
     align-content: start;
     justify-items: center;
     gap: 2px;
@@ -198,13 +197,6 @@
   .num.few {
     font-size: 10px;
     font-weight: 400;
-  }
-  .pm {
-    color: var(--color-muted);
-    font-size: 10px;
-    font-variant-numeric: tabular-nums;
-    line-height: 13px;
-    white-space: nowrap;
   }
   @media (prefers-reduced-motion: reduce) {
     .ring :global(.icon) {

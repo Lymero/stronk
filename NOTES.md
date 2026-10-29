@@ -134,3 +134,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: owner to check the cells on the real client.
 - 2026-10-28: fix: a secondary rune from a new row replaced the upper rune every time (the page keeps the pair in row order), so the lowest row's rune stuck; the panel now remembers the last secondary pick and replaces the other.
   Open: the last pick is forgotten on restart, so the first new-row pick after one replaces the upper rune.
+- 2026-10-29: ADR-060 iterated again: the ± is off the board, on hover as "Likely between A and B (95%)" with the games; headers, the strip and the pair show the estimate alone.
+  Open: the hover is the native title (slow, unstyled); a styled tooltip needs the panels' `overflow: hidden` reworked.

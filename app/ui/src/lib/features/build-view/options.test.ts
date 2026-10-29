@@ -82,7 +82,7 @@ describe("options", () => {
 
   it("gives a verdict only for a clear difference", () => {
     const better = row(1, { wpa: 0.021, ci: [0.008, 0.034], versus: "most_played", confidence: "clearly_better" });
-    expect(verdict(better)).toEqual({ text: "▲ +2.1 ± 1.3 wins per 100", tone: "positive" });
+    expect(verdict(better)).toEqual({ text: "▲ +2.1 wins per 100", tone: "positive" });
     expect(verdict(row(1, { wpa: -0.018, confidence: "clearly_worse" }))).toEqual({ text: "▼ −1.8 wins per 100 vs others", tone: "negative" });
     for (const confidence of ["most_played", "no_clear_difference", "too_few_games", "not_estimated"] as const) {
       expect(verdict(row(1, { wpa: 0.05, confidence }))).toBeNull();
@@ -91,12 +91,12 @@ describe("options", () => {
   });
 
   it("shows every estimate with its uncertainty and what it's measured against", () => {
-    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives" }))).toBe("+0.4 ± 1.0 wins per 100 vs others");
-    expect(figure(row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played" }))).toBe("−0.9 ± 1.5 wins per 100");
+    expect(figure(row(1, { wpa: 0.004, ci: [-0.006, 0.014], versus: "alternatives" }))).toBe("+0.4 wins per 100 vs others");
+    expect(figure(row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played" }))).toBe("−0.9 wins per 100");
     expect(figure(row(1, { wpa: null }))).toBeNull();
     const unclear = row(1, { wpa: -0.009, ci: [-0.024, 0.006], versus: "most_played", confidence: "no_clear_difference" });
     expect(explain(unclear)).toBe(
-      "Wins per 100 games against the most played option: −0.9 (95% interval −2.4 to +0.6). No clear difference: the interval is too wide to tell it apart from the most played option.",
+      "−0.9 wins per 100 games against the most played option. Likely between −2.4 and +0.6 (95%). No clear difference: the interval is too wide to tell it apart from the most played option.",
     );
     expect(explain(row(1, { wpa: null, confidence: "too_few_games" }))).toBe("Too few comparable games to estimate its win impact");
   });

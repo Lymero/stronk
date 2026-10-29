@@ -94,17 +94,18 @@ describe("App with MockBackend", () => {
     // Nothing to open: every slot's options are on screen, what the import writes lit.
     expect(within(build).queryByRole("button", { expanded: false, name: /^Item|^Runes|^Spells/ })).toBeNull();
     const item2 = within(build).getByRole("region", { name: "Item 2" });
-    const better = within(item2).getByText("▲ +2.1 ± 1.3 wins per 100 vs Black Cleaver"); // the only clear one
+    const better = within(item2).getByText("▲ +2.1 wins per 100 vs Black Cleaver"); // the only clear one
     expect(better).toHaveClass("positive");
     expect(better).toHaveAttribute(
       "title",
-      "Wins per 100 games against the most played option: +2.1 (95% interval +0.8 to +3.4). Clearly better: the difference holds once false discoveries are controlled.",
+      "+2.1 wins per 100 games against the most played option. Likely between +0.8 and +3.4 (95%). Clearly better: the difference holds once false discoveries are controlled.",
     );
     const sky = within(item2).getByRole("button", { name: "Sundered Sky +2.1 ± 1.3 wins per 100" });
     expect(sky).toHaveAttribute("aria-pressed", "true");
     expect(sky).toHaveTextContent("▲+2.1");
     expect(sky).toHaveAttribute("title", expect.stringMatching(/: \d+% of games \(640\)/)); // games on hover
-    expect(sky).toHaveTextContent("±1.3"); // its uncertainty under it
+    expect(sky).not.toHaveTextContent("±"); // its uncertainty only on hover
+    expect(sky).toHaveAttribute("title", expect.stringContaining("Likely between +0.8 and +3.4 (95%)"));
     const cleaver = within(item2).getByRole("button", { name: /^Black Cleaver/ });
     expect(cleaver.querySelector(".num")).not.toHaveClass("positive"); // unclear: grey
     expect(within(build).getByRole("region", { name: "Item 3" })).toHaveTextContent("▼−1.8");
@@ -113,7 +114,7 @@ describe("App with MockBackend", () => {
     // It opens with what Stronk changes from the most played build, and what that beats.
     const take = within(build).getByLabelText("What Stronk changes");
     expect(take).toHaveTextContent("Stronk changes 1 thing from the most played build");
-    expect(take).toHaveTextContent("Item 2 Sundered Sky over Black Cleaver +2.1 ± 1.3 wins per 100 games");
+    expect(take).toHaveTextContent("Item 2 Sundered Sky over Black Cleaver +2.1 wins per 100 games");
     // The rows come with the plan: nothing else is asked for them.
     expect(backend.calls.filter((c) => c.id === "build.get")).toEqual([]);
   });
@@ -132,7 +133,7 @@ describe("App with MockBackend", () => {
     expect(within(precision).getByRole("button", { name: "Triumph +0.2 ± 0.8 wins per 100" })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100" })).toHaveAttribute("aria-pressed", "false");
     expect(within(tree).getByRole("button", { name: "Last Stand, too few games" })).toHaveTextContent("few games");
-    expect(within(tree).getByText("+0.1 ± 1.1 wins per 100 vs others")).toBeInTheDocument(); // the secondary pair
+    expect(within(tree).getByText("+0.1 wins per 100 vs others")).toBeInTheDocument(); // the secondary pair
     const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);
     expect(asked).toContain(8021); // Fleet Footwork: in no published page, its icon still asked for
   });

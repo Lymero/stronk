@@ -18,7 +18,6 @@
     mostPlayed,
     options as ranked,
     selected,
-    spread,
     type Slot,
     verdict,
     wins,
@@ -152,7 +151,7 @@
             <strong>{valueOf(c.part, c.row.value)}</strong>
             {#if c.base && c.base !== c.row}<span class="base">over {valueOf(c.part, c.base.value)}</span>{/if}
             <span class="gain">
-              {wins(c.row.wpa ?? 0)}{c.row.ci ? ` ± ${spread(c.row.ci).toFixed(1)}` : ""} wins per 100 games
+              {wins(c.row.wpa ?? 0)} wins per 100 games
             </span>
           </li>
         {/each}
@@ -160,7 +159,7 @@
     {/if}
     <p class="legend">
       <svg class="key ring" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" class="track" /><circle cx="6" cy="6" r="4.5" class="arc" pathLength="100" stroke-dasharray="35 100" /></svg>ring: share of games
-      <span class="key num" aria-hidden="true">+2.1</span>wins per 100 games, ± how sure (95%)
+      <span class="key num" aria-hidden="true">+2.1</span>wins per 100 games (hover any option for its games and how sure)
       <span class="key clear" aria-hidden="true">▲</span>colour only when clearly better or worse
     </p>
   </div>

@@ -76,12 +76,12 @@ export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
 /** What the import writes for a slot: the player's pick, else Stronk's choice. */
 export const selected = <T>(slot: Slot<T>): Shown<T> | undefined => slot.rows.find((r) => r.selected);
 
-/** An option's win impact with its uncertainty, "+0.4 ± 2.6 wins per 100", ending "vs others"
- * when it isn't compared with the most played option; null without an estimate. */
+/** An option's win impact, "+0.4 wins per 100", ending "vs others" when it isn't compared with
+ * the most played option; null without an estimate. Its uncertainty is in `explain`, shown on
+ * hover (ADR-060). */
 export function figure(row: Row<unknown>): string | null {
   if (row.wpa === null) return null;
-  const pm = row.ci ? ` ± ${spread(row.ci).toFixed(1)}` : "";
-  return `${wins(row.wpa)}${pm} wins per 100${row.versus === "alternatives" ? " vs others" : ""}`;
+  return `${wins(row.wpa)} wins per 100${row.versus === "alternatives" ? " vs others" : ""}`;
 }
 
 /** Why an option's number reads as it does: what it's measured against, its interval, and
@@ -93,7 +93,7 @@ export function explain(row: Row<unknown>): string {
       : "No win impact is estimated for this yet";
   const against =
     row.versus === "most_played" ? "against the most played option" : "against the other options at this point";
-  const interval = row.ci ? ` (95% interval ${wins(row.ci[0])} to ${wins(row.ci[1])})` : "";
+  const interval = row.ci ? ` Likely between ${wins(row.ci[0])} and ${wins(row.ci[1])} (95%).` : "";
   const reading =
     row.confidence === "clearly_better"
       ? "Clearly better: the difference holds once false discoveries are controlled."
@@ -104,10 +104,10 @@ export function explain(row: Row<unknown>): string {
           : row.confidence === "most_played"
             ? "The most played option, which the others are compared with."
             : "No clear difference: the interval is too wide to tell it apart from the most played option.";
-  return `Wins per 100 games ${against}: ${wins(row.wpa)}${interval}. ${reading}`;
+  return `${wins(row.wpa)} wins per 100 games ${against}.${interval} ${reading}`;
 }
 
-/** A clear result as the player reads it, "▲ +2.1 ± 1.3 wins per 100"; nothing for the rest (ADR-056). */
+/** A clear result as the player reads it, "▲ +2.1 wins per 100"; nothing for the rest (ADR-056). */
 export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "negative" } | null {
   if (row.wpa === null) return null;
   if (row.confidence === "clearly_better") return { text: `▲ ${figure(row)}`, tone: "positive" };
