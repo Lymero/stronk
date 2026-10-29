@@ -146,3 +146,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: Coachless's WPA is WR minus average pre-decision win probability (against the average choice, implicitly); a "vs the average pick" scale for Stronk would need the pipeline's estimand checked first.
 - 2026-10-29: the baseline set apart (ADR-060): the 0 on its own tile, and in item rows a rule between it and the options measured against it.
   Open: owner to check it on the real client.
+- 2026-10-29: picks framed instead of the baseline tile; "almost always" for a most played option flagged low_overlap (Triumph and Conqueror read "few games" at 97%); secondary runes show the numbers of the pair clicking them makes (ADR-060).
+  Open: no UI test for "almost always" (the mock has no such row); covered by the core's rank test.

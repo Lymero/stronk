@@ -3,8 +3,8 @@
   // of games and its wins per 100 games against the most played option of its row, which reads 0;
   // coloured only when clearly better or worse. Options not compared with it head to head have no
   // number ("few games" when that's why). The accessible name carries the range for screen
-  // readers. The 0 sits on its own tile: the baseline its row is read against. Lit when the import
-  // writes it; clicking it picks it.
+  // readers. What the import writes is lit and framed; clicking an option picks it. An option
+  // nearly everyone takes reads "almost always": there's nothing to compare it with.
   import type { Row } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
   import { figure, spread, verdict, wins } from "./options.ts";
@@ -28,7 +28,7 @@
     /** Stronk's choice, marked when the player picked another. */
     stronk?: boolean;
     size?: "sm" | "md";
-    /** No numbers of its own (a secondary rune: measured as a pair). */
+    /** No numbers at all. */
     bare?: boolean;
     onpick?: () => void;
   } = $props();
@@ -48,13 +48,13 @@
           ? null
           : `${clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}${wins(row.wpa)}`,
   );
-  /** The row's baseline: the most played option, which the other numbers are measured against. */
-  const base = $derived(row?.confidence === "most_played" && number !== null);
   const label = $derived(
     `${name}${
       bare || !row
         ? ""
-        : row.confidence === "most_played"
+        : row.confidence === "almost_always"
+          ? ", almost always taken"
+          : row.confidence === "most_played"
           ? `, most played${number === null ? "" : ", 0"}`
           : row.confidence === "too_few_games"
             ? ", too few games"
@@ -71,7 +71,6 @@
   class:on
   class:stronk={stronk && !on}
   class:bare
-  class:base
   aria-pressed={on}
   aria-label={label}
   disabled={!onpick}
@@ -94,7 +93,7 @@
   </span>
   {#if !bare}
     <span class="num {tone}" class:few={number === null}>
-      {#if number !== null}{number}{:else if row?.confidence === "too_few_games"}few games{/if}
+      {#if number !== null}{number}{:else if row?.confidence === "almost_always"}almost always{:else if row?.confidence === "too_few_games"}few games{/if}
     </span>
   {/if}
 </button>
@@ -116,10 +115,10 @@
     font: inherit;
     cursor: pointer;
   }
-  /* The baseline of its row, set apart on its own tile. */
-  .cell.base {
-    border-color: var(--color-border);
-    background: var(--color-bg);
+  /* What the import writes: framed, so the pick reads at a glance. */
+  .cell.on {
+    border-color: var(--color-accent);
+    background: var(--color-accent-bg);
   }
   .cell.bare {
     grid-template-rows: auto;
@@ -131,7 +130,7 @@
   .cell:disabled {
     cursor: default;
   }
-  .cell:not(:disabled):hover {
+  .cell:not(:disabled, .on):hover {
     border-color: var(--color-border);
   }
   .cell:focus-visible {

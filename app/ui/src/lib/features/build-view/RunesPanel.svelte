@@ -7,8 +7,7 @@
   import Icon from "../../ui/Icon.svelte";
   import { type Icons, icon, name } from "../../ui/labels.ts";
   import Cell from "./Cell.svelte";
-  import { explain, figure, verdict } from "./options.ts";
-  import {
+    import {
     runeStats,
     withPrimaryRune,
     withPrimaryTree,
@@ -40,7 +39,9 @@
   const primary = $derived(trees[String(page.primary_style)] ?? []);
   const secondary = $derived((trees[String(page.sub_style)] ?? []).slice(1));
   const stats = $derived(runeStats(plan));
-  const pair = $derived(stats.pair(page.sub_style, page.perks.slice(4, 6)));
+  /** A secondary rune's numbers: those of the pair clicking it makes (ADR-060), measured as a pair. */
+  const pairWith = (id: number) =>
+    stats.pair(page.sub_style, withSecondaryRune(trees, page, id, lastSecondary).perks.slice(4, 6));
   const on = (id: number, from: number, to: number) => page.perks.slice(from, to).includes(id);
   const ours = (id: number, from: number, to: number) => !!stronk && stronk.perks.slice(from, to).includes(id);
   const rune = (id: number) => [{ src: icon(icons, "runes", id), name: name(names, "runes", id) }];
@@ -106,8 +107,7 @@
             <Cell
               icons={rune(id)}
               name={name(names, "runes", id)}
-              row={undefined}
-              bare
+              row={pairWith(id)}
               on={on(id, 4, 6)}
               stronk={ours(id, 4, 6)}
               onpick={() => pickSecondary(id)}
@@ -115,12 +115,7 @@
           {/each}
         </div>
       {/each}
-      <p class="pair" title={pair ? explain(pair) : "This pair isn't played in these games"}>
-        These two together:
-        <strong class={pair ? (verdict(pair)?.tone ?? "") : ""}>
-          {pair ? (pair.confidence === "most_played" ? "the most played pair" : (figure(pair) ?? "few games")) : "not played"}
-        </strong>
-      </p>
+      <p class="pair">Measured in pairs: each number is for the pair you get by clicking it.</p>
     </section>
 
     <section class="panel" aria-label="Shards">
@@ -228,16 +223,6 @@
     color: var(--color-muted);
     font-size: var(--text-xs);
     text-align: center;
-  }
-  .pair strong {
-    color: var(--color-text);
-    font-variant-numeric: tabular-nums;
-  }
-  .pair strong.positive {
-    color: var(--color-positive);
-  }
-  .pair strong.negative {
-    color: var(--color-negative);
   }
   @media (max-width: 560px) {
     .runes {

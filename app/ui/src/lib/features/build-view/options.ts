@@ -92,6 +92,7 @@ export const compared = <T>(slot: Slot<T>): boolean => slot.rows.some((r) => fig
  * whether the difference is clear. */
 export function explain(row: Row<unknown>): string {
   if (row.confidence === "most_played") return "Most played, the others are compared with it.";
+  if (row.confidence === "almost_always") return "Almost always taken: there's nothing to compare it with.";
   if (row.wpa === null)
     return row.confidence === "too_few_games"
       ? "Too few comparable games to estimate its win impact"

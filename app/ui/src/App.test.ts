@@ -132,7 +132,9 @@ describe("App with MockBackend", () => {
     expect(within(precision).getByRole("button", { name: "Triumph, most played, 0" })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100 against the most played" })).toHaveAttribute("aria-pressed", "false");
     expect(within(tree).getByRole("button", { name: "Last Stand, too few games" })).toHaveTextContent("few games");
-    expect(within(tree).getByText("the most played pair")).toBeInTheDocument(); // the secondary pair
+    // Secondary runes carry their pair's numbers: the page's pair is the most played, so 0.
+    const inspiration = within(tree).getByRole("region", { name: "Inspiration, secondary" });
+    expect(within(inspiration).getByRole("button", { name: /^Magical Footwear/ })).toHaveTextContent(/^0$/);
     const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);
     expect(asked).toContain(8021); // Fleet Footwork: in no published page, its icon still asked for
   });
@@ -143,7 +145,7 @@ describe("App with MockBackend", () => {
     for (let i = 0; i < 3; i++) await next();
     const secondary = () =>
       within(within(screen.getByLabelText("Build")).getByRole("region", { name: "Inspiration, secondary" }));
-    const lit = () => secondary().getAllByRole("button", { pressed: true }).map((b) => b.getAttribute("aria-label"));
+    const lit = () => secondary().getAllByRole("button", { pressed: true }).map((b) => /^[^,+−]*?(?=,| [+−]|$)/.exec(b.getAttribute("aria-label") ?? "")?.[0]);
     expect(lit()).toEqual(["Magical Footwear", "Cosmic Insight"]); // rows 1 and 3
     await fireEvent.click(secondary().getByRole("button", { name: /^Biscuit Delivery/ })); // row 2: the upper one goes
     expect(lit()).toEqual(["Biscuit Delivery", "Cosmic Insight"]);
@@ -165,7 +167,8 @@ describe("App with MockBackend", () => {
     await click(/^Move Speed/); // flex shard
     expect(within(tree()).getByRole("button", { name: /^Lethal Tempo/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree()).getByRole("button", { name: /^Conqueror/ }).classList).toContain("stronk"); // Stronk's, marked
-    expect(within(tree()).getByText("not played")).toBeInTheDocument(); // this secondary pair: no numbers
+    const built = within(tree()).getByRole("region", { name: "Inspiration, secondary" });
+    expect(within(built).getByRole("button", { name: /^Approach Velocity/ })).toHaveTextContent(/^$/); // a pair nobody played: no numbers
     // Another secondary tree: its most played pair; another primary: its most played page.
     const switcher = (which: string) => within(within(tree()).getByRole("group", { name: `${which} tree` }));
     await fireEvent.click(switcher("Secondary").getByRole("button", { name: "Resolve" }));

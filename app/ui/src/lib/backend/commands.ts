@@ -63,7 +63,13 @@ export type Outcome =
  * via the `definition` "Confidence".
  */
 export type Confidence =
-  "clearly_better" | "clearly_worse" | "most_played" | "no_clear_difference" | "too_few_games" | "not_estimated";
+  | "clearly_better"
+  | "clearly_worse"
+  | "most_played"
+  | "no_clear_difference"
+  | "too_few_games"
+  | "almost_always"
+  | "not_estimated";
 /**
  * What a row's win impact is measured against.
  *

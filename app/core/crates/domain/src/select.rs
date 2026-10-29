@@ -47,6 +47,8 @@ pub struct Candidate<T> {
     pub ci: Option<(f64, f64)>,
     /// Flagged `low_sample` or `low_overlap`: too few comparable games.
     pub too_few: bool,
+    /// Flagged `low_overlap`: chosen in nearly every comparable game, or in nearly none.
+    pub low_overlap: bool,
     /// Flagged `no_clear_difference`.
     pub unclear: bool,
     /// Flagged `fragile`: a modest hidden confounder could overturn it.
@@ -120,6 +122,9 @@ pub enum Confidence {
     NoClearDifference,
     /// `low_sample` or `low_overlap`: too few comparable games for a number to mean much.
     TooFewGames,
+    /// The most played option, flagged `low_overlap`: chosen in nearly every comparable game, so
+    /// there is nothing to compare it with (not a lack of games).
+    AlmostAlways,
     /// No estimate is published for it (spells have none yet).
     NotEstimated,
 }
@@ -185,6 +190,7 @@ pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T
             let compared = c.comparison.filter(|k| k.versus == popular && !most_played);
             let clear = c.clear_against(popular).filter(|_| !most_played);
             let confidence = match clear {
+                _ if most_played && c.low_overlap => Confidence::AlmostAlways,
                 _ if c.too_few => Confidence::TooFewGames,
                 Some(k) if k.wpa > 0.0 => Confidence::ClearlyBetter,
                 Some(k) if k.wpa < 0.0 => Confidence::ClearlyWorse,
@@ -363,6 +369,7 @@ mod tests {
             wpa: Some(0.01),
             ci: Some((-0.01, 0.03)),
             too_few: false,
+            low_overlap: false,
             unclear: false,
             fragile: false,
             comparison,
@@ -564,6 +571,18 @@ mod tests {
                 Some(0.01)
             )
         );
+    }
+
+    #[test]
+    fn rank_tells_an_option_nearly_everyone_takes_from_one_with_too_few_games() {
+        // Triumph on Lee Sin: 97% of games, flagged low_overlap: nothing to compare it with.
+        let mut always = candidate(10, 4067, None);
+        (always.too_few, always.low_overlap, always.wpa) = (true, true, None);
+        let mut rare = candidate(20, 9, None);
+        (rare.too_few, rare.low_overlap, rare.wpa) = (true, true, None);
+        let rows = rank(&[always, rare], None).rows;
+        let seen: Vec<Confidence> = rows.iter().map(|r| r.confidence).collect();
+        assert_eq!(seen, [Confidence::AlmostAlways, Confidence::TooFewGames]);
     }
 
     #[test]
