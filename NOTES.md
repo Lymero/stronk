@@ -166,3 +166,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: owner to check on the real client, with the real icons.
 - 2026-10-30: "almost always" replaced by the share on every rune pick line ("Conqueror 97%"), chosen from three variants rendered on real data; gone from the item lists too.
   Open: nothing new.
+- 2026-10-30: the rune page redesigned (ADR-064), chosen from three concepts rendered on real data: the client's tree with icons only, and the focused row beside it as an item-style list; shards in labelled groups.
+  Open: owner to look at it on the real client.

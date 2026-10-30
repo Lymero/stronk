@@ -4,7 +4,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const session = JSON.parse(readFileSync(resolve(ROOT, "runs/e2e-real/session.json"), "utf-8")) as {
@@ -13,11 +13,27 @@ const session = JSON.parse(readFileSync(resolve(ROOT, "runs/e2e-real/session.jso
   steps: { session: { myTeam: { championId: number }[] } | null }[];
 };
 
-/** What may sit under an option: its number, 0 for the baseline, or why it has none. */
-const NUMBER = /^(?:[▲▼]?[+−]\d+\.\d|0|too few to compare|)$/;
 
 /** What may sit in a slot's number column: a difference with the baseline, 0, or why none. */
 const COLUMN = /^(?:[▲▼] )?(?:[+−]\d+\.\d)$|^(?:0|too few to compare|)$/;
+
+/** A list of options read like the item lists: one picked, only numbers it may show, names not ids. */
+async function list(scope: Locator, name: string): Promise<string[]> {
+  const problems: string[] = [];
+  const rows = scope.getByRole("radio");
+  const checked = await scope.getByRole("radio", { checked: true }).count();
+  if ((await rows.count()) > 0 && checked !== 1) problems.push(`${name}: ${checked} options picked`);
+  for (const n of new Set((await scope.locator(".row .num").allInnerTexts()).map((t) => t.trim()))) {
+    if (!COLUMN.test(n)) problems.push(`${name}: unexpected number "${n}"`);
+  }
+  const labels = await rows.evaluateAll((r) => r.map((b) => b.getAttribute("aria-label") ?? ""));
+  for (const label of labels.filter((l) => /^\D{0,6}\d{3,}\b/.test(l))) problems.push(`${name}: an option named by its id: "${label}"`);
+  const spilling = await rows.evaluateAll((r) =>
+    r.filter((b) => [...b.querySelectorAll(".num, .pct, .games")].some((e) => e.scrollWidth > e.clientWidth + 1)).map((b) => b.getAttribute("aria-label") ?? ""),
+  );
+  for (const label of spilling) problems.push(`${name}: a figure spills out of its column: "${label}"`);
+  return problems;
+}
 
 /** What a player would see in the open slot. */
 async function slot(page: Page, name: string): Promise<string[]> {
@@ -31,35 +47,18 @@ async function slot(page: Page, name: string): Promise<string[]> {
   }
   const tree = panel.getByLabel("Rune page");
   if ((await tree.count()) > 0) {
-    const lit = await tree.locator(".cell.on").count();
+    const lit = await tree.locator(".rune.on").count();
     if (lit !== 9) problems.push(`${name}: ${lit} of 9 runes lit`);
-    for (const n of new Set((await tree.locator(".cell .num").allInnerTexts()).map((t) => t.trim()))) {
-      if (!NUMBER.test(n)) problems.push(`${name}: unexpected text under a rune: "${n}"`);
+    // Each row in focus in turn, by clicking its picked rune: its options as a list.
+    const picked = tree.locator(".rune.on");
+    for (let r = 0; r < lit; r++) {
+      const rune = picked.nth(r);
+      const runeName = (await rune.getAttribute("aria-label")) ?? `rune ${r}`;
+      await rune.click();
+      problems.push(...(await list(tree.locator(".detail"), `${name}, ${runeName}'s row`)));
     }
-    // Cards line up: one width within each row, one height for each kind.
-    for (const row of await tree.locator(".row").all()) {
-      const widths = await row.locator(".cell").evaluateAll((cells) => cells.map((c) => Math.round(c.getBoundingClientRect().width)));
-      if (new Set(widths).size > 1) problems.push(`${name}: runes of different widths in a row: ${[...new Set(widths)].join(", ")}`);
-    }
-    for (const size of [".md", ".sm"]) {
-      const heights = await tree.locator(`.cell${size}`).evaluateAll((cells) => cells.map((c) => Math.round(c.getBoundingClientRect().height)));
-      if (new Set(heights).size > 1) problems.push(`${name}: runes of different heights (${size}): ${[...new Set(heights)].join(", ")}`);
-    }
-    const spilling = await tree.locator(".cell").evaluateAll((cells) =>
-      cells
-        .filter((c) => [c, ...c.querySelectorAll(".title, .stats, .games")].some((e) => e.scrollWidth > e.clientWidth + 1))
-        .map((c) => c.getAttribute("aria-label") ?? ""),
-    );
-    for (const label of spilling) problems.push(`${name}: a rune spills out of its box: "${label}"`);
   } else {
-    const rows = panel.getByRole("radio");
-    const checked = await panel.getByRole("radio", { checked: true }).count();
-    if ((await rows.count()) > 0 && checked !== 1) problems.push(`${name}: ${checked} options picked`);
-    for (const n of new Set((await panel.locator(".row .num").allInnerTexts()).map((t) => t.trim()))) {
-      if (!COLUMN.test(n)) problems.push(`${name}: unexpected number "${n}"`);
-    }
-    const labels = await rows.evaluateAll((r) => r.map((b) => b.getAttribute("aria-label") ?? ""));
-    for (const label of labels.filter((l) => /^\D{0,6}\d{3,}\b/.test(l))) problems.push(`${name}: an option named by its id: "${label}"`);
+    problems.push(...(await list(panel, name)));
   }
   return problems;
 }

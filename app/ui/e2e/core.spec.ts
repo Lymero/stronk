@@ -39,8 +39,8 @@ test("a replayed lobby leads to the Lee Sin jungle import", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible(); // the client's name
   await expect(page.getByLabel("Champion select").locator(".facts > span")).toHaveText(["Jungle", "Hovering", "Bans and picks"]);
   // The rune trees as the real core reads them from lcu-mock's game data.
-  await expect(page.getByLabel("Rune page").getByRole("heading", { name: "Precision" })).toBeVisible();
-  await expect(page.getByLabel("Rune page").locator(".cell.on")).toHaveCount(9);
+  await expect(page.getByLabel("Rune page").getByRole("heading", { name: "Precision", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Rune page").locator(".rune.on")).toHaveCount(9);
   // Icons from the client's game data, as PNG data URLs through the core.
   const portrait = page.getByLabel("Champion select").locator("img");
   await expect(portrait).toHaveAttribute("src", /^data:image\/png;base64,/);
@@ -78,11 +78,11 @@ test("restore puts the player's item sets back after an import", async ({ page }
   await page.getByRole("button", { name: "Import" }).click();
   await expect(page.getByRole("status")).toHaveText(/Item set/);
   await page.getByText("Settings").click();
-  await expect(page.getByRole("radio")).toHaveCount(1); // the sets from before the import
+  await expect(page.getByRole("region", { name: "Item set backups" }).getByRole("radio")).toHaveCount(1); // the sets from before the import
   await page.getByRole("button", { name: "Restore this backup" }).click();
   await page.getByRole("group", { name: "Confirm restore" }).getByRole("button", { name: "Restore" }).click();
   await expect(page.getByText(/Restored 1 item set\./)).toBeVisible();
-  await expect(page.getByRole("radio")).toHaveCount(2); // Stronk's sets, backed up first
+  await expect(page.getByRole("region", { name: "Item set backups" }).getByRole("radio")).toHaveCount(2); // Stronk's sets, backed up first
   await screenshot(page, "core-restored");
   const puts = (await recorded(page)).filter((w) => w.method === "PUT" && w.path === ITEM_SETS);
   expect(puts).toHaveLength(2);

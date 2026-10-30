@@ -141,24 +141,33 @@ describe("App with MockBackend", () => {
     expect(backend.calls.filter((c) => c.id === "build.get")).toEqual([]);
   });
 
-  it("lays the rune page out as the client does, every rune with its number", async () => {
+  it("lays the rune page out as the client does, the focused row's options beside it", async () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     for (let i = 0; i < 3; i++) await next();
     await open("Runes");
     const tree = within(screen.getByLabelText("Build")).getByLabelText("Rune page");
     const precision = within(tree).getByRole("region", { name: "Precision, primary" });
-    expect(precision.querySelectorAll(".row")).toHaveLength(4);
-    expect(precision.querySelector(".row")?.querySelectorAll(".cell")).toHaveLength(4); // keystones
-    expect(within(tree).getByRole("region", { name: "Inspiration, secondary" }).querySelectorAll(".row")).toHaveLength(3);
-    expect(within(tree).getByRole("region", { name: "Shards" }).querySelectorAll(".row")).toHaveLength(3);
-    expect(tree.querySelectorAll(".cell.on")).toHaveLength(9); // the page's nine choices
-    expect(within(precision).getByRole("button", { name: "Triumph, most played, 0, 1,480 games" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100 against the most played, 340 games" })).toHaveAttribute("aria-pressed", "false");
-    expect(within(tree).getByRole("button", { name: "Last Stand, too few games, 140 games" }).querySelector(".num")).toHaveTextContent(/^$/); // short of games: no number
-    // Secondary runes carry their pair's numbers: the page's pair is the most played, so 0.
-    const inspiration = within(tree).getByRole("region", { name: "Inspiration, secondary" });
-    expect(within(inspiration).getByRole("button", { name: /^Magical Footwear/ }).querySelector(".num")).toHaveTextContent(/^0$/);
+    expect(precision.querySelectorAll(".line")).toHaveLength(4);
+    expect(precision.querySelector(".line")?.querySelectorAll(".rune")).toHaveLength(4); // keystones
+    expect(within(tree).getByRole("region", { name: "Inspiration, secondary" }).querySelectorAll(".line")).toHaveLength(3);
+    expect(within(tree).getByRole("region", { name: "Shards" }).querySelectorAll(".line")).toHaveLength(3);
+    expect(tree.querySelectorAll(".rune.on")).toHaveLength(9); // the page's nine choices
+    // The keystones are in focus first, as a list read like the item lists.
+    const row = (title: string) => within(within(tree).getByRole("region", { name: title }));
+    expect(option(row("Precision, keystone"), "Conqueror")).toHaveAttribute("aria-checked", "true");
+    // Clicking a rune brings its row into focus.
+    await fireEvent.click(within(precision).getByRole("button", { name: "Triumph" }));
+    expect(option(row("Precision, row 1"), "Triumph")).toHaveTextContent("baseline");
+    expect(option(row("Precision, row 1"), "Presence of Mind").querySelector(".num")).toHaveTextContent("−0.6");
+    await fireEvent.click(within(precision).getByRole("button", { name: "Coup de Grace" }));
+    expect(option(row("Precision, row 3"), "Last Stand").querySelector(".num")).toHaveTextContent(/^$/); // short of games
+    await fireEvent.click(within(tree).getByRole("button", { name: "Adaptive Force", pressed: true }));
+    expect(option(row("Flex shard"), "Move Speed").querySelector(".num")).toHaveTextContent("−1.1");
+    // Secondary runes carry their pair's numbers; no other pair of this row was played, so no 0 either.
+    await fireEvent.click(within(tree).getByRole("button", { name: "Magical Footwear" }));
+    expect(option(row("Inspiration, row 1"), "Magical Footwear")).toHaveAttribute("aria-checked", "true");
+    expect(option(row("Inspiration, row 1"), "Magical Footwear").querySelector(".num")).toHaveTextContent(/^$/);
     const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);
     expect(asked).toContain(8021); // Fleet Footwork: in no published page, its icon still asked for
   });
@@ -193,9 +202,11 @@ describe("App with MockBackend", () => {
     await click(/^Move Speed/); // flex shard
     expect(within(tree()).getByRole("button", { name: /^Lethal Tempo/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree()).getByRole("button", { name: /^Conqueror/ }).classList).toContain("stronk"); // Stronk's, marked
-    const built = within(tree()).getByRole("region", { name: "Inspiration, secondary" });
-    expect(within(built).getByRole("button", { name: /^Approach Velocity/ })).toHaveTextContent(/^$/); // a pair nobody played: no numbers
-    expect(built).toHaveTextContent("Approach Velocity"); // the pick, by name under its row
+    // A pair nobody played has no number.
+    await click(/^Approach Velocity/); // picked already: brings its row into focus
+    const focused = within(within(tree()).getByRole("region", { name: "Inspiration, row 3" }));
+    expect(option(focused, "Approach Velocity")).toHaveAttribute("aria-checked", "true");
+    expect(option(focused, "Approach Velocity").querySelector(".num")).toHaveTextContent(/^$/);
     // Another secondary tree: its most played pair; another primary: its most played page.
     const switcher = (which: string) => within(within(tree()).getByRole("group", { name: `${which} tree` }));
     await fireEvent.click(switcher("Secondary").getByRole("button", { name: "Resolve" }));

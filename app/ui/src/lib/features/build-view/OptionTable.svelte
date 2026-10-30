@@ -77,9 +77,11 @@
 </div>
 
 <style>
+  /* Laid out by its own width, not the window's: it also sits in half a panel. */
   .table {
     display: grid;
     gap: 2px;
+    container-type: inline-size;
   }
   .row {
     display: grid;
@@ -220,9 +222,9 @@
   .more:focus-visible {
     outline: 2px solid var(--color-accent);
   }
-  @media (max-width: 640px) {
+  @container (max-width: 600px) {
     .row {
-      grid-template-columns: 6px auto minmax(0, 1fr) auto;
+      grid-template-columns: 6px auto minmax(0, 1fr) auto 40px;
       row-gap: 0;
     }
     .mark {
@@ -238,8 +240,16 @@
       font-size: var(--text-xs);
       text-align: left;
     }
+    /* The share as its figure alone, beside the number. */
     .share {
+      display: block;
+      grid-row: span 2;
+    }
+    .bar {
       display: none;
+    }
+    .num {
+      grid-row: span 2;
     }
   }
 </style>

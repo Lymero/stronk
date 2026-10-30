@@ -42,7 +42,7 @@ test("imports the options the player clicks, runes one by one", async ({ page })
   await open(page, "Runes");
   await tree.getByRole("button", { name: /^Lethal Tempo/ }).click();
   await tree.getByRole("button", { name: /^Biscuit Delivery/ }).click();
-  await expect(tree.locator(".cell.on")).toHaveCount(9);
+  await expect(tree.locator(".rune.on")).toHaveCount(9);
   await expect(page.getByRole("tab", { name: /^Item 2: Black Cleaver, your pick$/ })).toBeVisible();
   await screenshot(page, "mock-picked");
   await page.getByRole("button", { name: "Import" }).click();
@@ -84,8 +84,8 @@ test("shows the build sheet beside the open slot, the runes as the client lays t
   await screenshot(page, "mock-board");
   await open(page, "Runes");
   const tree = page.getByLabel("Rune page");
-  await expect(tree.locator(".cell.on")).toHaveCount(9); // the page's nine choices
-  await expect(tree.getByRole("region", { name: "Precision, primary" }).locator(".row")).toHaveCount(4);
+  await expect(tree.locator(".rune.on")).toHaveCount(9); // the page's nine choices
+  await expect(tree.getByRole("region", { name: "Precision, primary" }).locator(".line")).toHaveCount(4);
   // The sheet and the open slot side by side, all on one screen.
   const sheet = await page.getByRole("tablist").boundingBox();
   const panel = await page.getByRole("tabpanel").boundingBox();

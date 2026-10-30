@@ -9,7 +9,7 @@
   import type { Pick, Picks } from "../../state/picks.ts";
   import Loadout from "./Loadout.svelte";
   import OptionTable from "./OptionTable.svelte";
-  import RunesPanel from "./RunesPanel.svelte";
+  import RunePage from "./RunePage.svelte";
   import {
     allPopular,
     changes,
@@ -233,7 +233,7 @@
 
     {#if focus === "runes"}
       {#if shownPage && laidOut && names}
-        <RunesPanel {plan} page={shownPage} stronk={plan.runes?.value ?? null} {names} {icons} onpage={(p) => onpick({ runes: p })} />
+        <RunePage {plan} page={shownPage} stronk={plan.runes?.value ?? null} {names} {icons} onpage={(p) => onpick({ runes: p })} />
       {:else}
         <OptionTable slot={options.runes} label={page} icons={pageIcons} onpick={(p) => onpick({ runes: p })} />
       {/if}
