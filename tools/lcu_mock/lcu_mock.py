@@ -116,6 +116,20 @@ def placeholder_png(path: str, size: int = 32) -> bytes:
     )
 
 
+ASSETS = os.environ.get("STRONK_LCU_ASSETS")
+"""A folder of real images by client path (`just site-shot`), served instead of placeholders."""
+
+
+def icon(path: str) -> bytes:
+    """The image at `path`: a real one from `STRONK_LCU_ASSETS` when there is one, else a
+    placeholder."""
+    if ASSETS:
+        real = Path(ASSETS) / path.lstrip("/")
+        if real.is_file():
+            return real.read_bytes()
+    return placeholder_png(path)
+
+
 class Subscriber:
     """One websocket connection and the topics it subscribed to; writes are serialised."""
 
@@ -314,7 +328,7 @@ def make_handler(replay: Replay, password: str, latency: float) -> type[BaseHTTP
                 if self.headers.get("Accept", "*/*") != "*/*":
                     self._send(HTTPStatus.NOT_ACCEPTABLE, {"message": "Not Acceptable"})
                     return
-                self._send_image(placeholder_png(self.path))
+                self._send_image(icon(self.path))
                 return
             self._send(*self._read())
 

@@ -294,7 +294,8 @@ e2e-real picks="" data="runs/real/data" key="runs/real/data.pub":
     exit $(( sane || shown ))
 
 # The product site's screenshot (ADR-066): Lee Sin jungle on the real data, the app's own look,
-# into site/public/img/champion-select.png. Needs the real data (`just data-real`).
+# with the real icons fetched from CommunityDragon (network), into site/public/img/champion-select.png.
+# Needs the real data (`just data-real`).
 [unix]
 site-shot data="runs/real/data" key="runs/real/data.pub":
     #!/usr/bin/env bash
@@ -302,7 +303,8 @@ site-shot data="runs/real/data" key="runs/real/data.pub":
     if [ ! -f "{{ key }}" ]; then echo "no {{ key }}: run \`just data-real\` first" >&2; exit 1; fi
     cargo build {{ core_rs }} --locked --quiet -p stronk-cli
     uv run python tools/lcu_mock/real_session.py --data "{{ data }}" --out runs/e2e-real/session.json --picks LeeSin/JUNGLE
-    STRONK_SITE_SHOT=1 STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" STRONK_REAL_DATA="{{ data }}" STRONK_REAL_KEY="{{ key }}" \
+    uv run python tools/lcu_mock/site_icons.py --session runs/e2e-real/session.json --data "{{ data }}" --out runs/site-icons
+    STRONK_LCU_ASSETS="$PWD/runs/site-icons" STRONK_SITE_SHOT=1 STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" STRONK_REAL_DATA="{{ data }}" STRONK_REAL_KEY="{{ key }}" \
         pnpm --filter @stronk/ui exec playwright test --config playwright.real.config.ts
     echo "site/public/img/champion-select.png"
 

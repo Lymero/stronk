@@ -178,3 +178,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: nothing new.
 - 2026-10-30: the site shows the current UI (ADR-066): `just site-shot` renders Lee Sin jungle from the real data into site/public/img/champion-select.png; home and method pages describe the sheet, rune tree and best bets.
   Open: check the deployed site after Cloudflare builds this push.
+- 2026-10-30: the site's screenshot has the game's real icons (ADR-066): `just site-shot` fetches them from CommunityDragon into runs/site-icons and lcu-mock serves them; attributed in ATTRIBUTION.md.
+  Open: check the deployed site after Cloudflare builds this push.
