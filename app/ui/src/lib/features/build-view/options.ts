@@ -143,3 +143,16 @@ export function changes(options: Options): Change<unknown>[] {
     ...options.items.flatMap((s) => of(s.slot, s)),
   ];
 }
+
+/** What an option shows beside its icon or name (ADR-060, ADR-063): its number against the most
+ * played option of its row (0 for that one, ▲ or ▼ when clear), or why one with plenty of games
+ * has none; nothing when short of games. */
+export function reading(row: Row<unknown> | undefined): { number: string | null; tone: string; note: string | null } {
+  if (!row) return { number: null, tone: "", note: null };
+  if (row.confidence === "almost_always") return { number: null, tone: "", note: "almost always" };
+  if (row.confidence === "too_few_to_compare") return { number: null, tone: "", note: "too few to compare" };
+  if (row.confidence === "most_played") return { number: row.wpa === null ? null : "0", tone: "", note: null };
+  if (figure(row) === null || row.wpa === null) return { number: null, tone: "", note: null };
+  const clear = verdict(row);
+  return { number: `${clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}${wins(row.wpa)}`, tone: clear?.tone ?? "", note: null };
+}

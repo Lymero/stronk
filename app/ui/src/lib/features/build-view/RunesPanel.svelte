@@ -1,14 +1,15 @@
 <script lang="ts">
-  // The rune page built by clicking (ADR-063), in the item lists' language: three columns, as the
-  // client sets its trees side by side, the primary tree (keystones and three rows), the secondary
-  // tree's three rows and the shard rows, each row a short list, one rune per line with its name,
-  // games and number; the lines outlined in amber are what the import writes. Each tree is chosen
-  // by name from the others under its title. The rules are the client's (ADR-059): one
+  // The rune page built by clicking, drawn as the client draws it (ADR-063): the primary tree
+  // (keystones, then three rows), the secondary tree and the shards side by side, each row of round
+  // icons, the picked ones lit and ringed in amber. Under each row, the picked rune's name and its
+  // number, so the page reads without knowing the icons; the others' numbers sit under their icons.
+  // The other trees are one click away beside each tree's name. The rules are the client's (ADR-059): one
   // rune per primary row, two secondary runes from different rows, one shard per row.
   import type { GameNames, Page, Plan } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
   import { type Icons, icon, name } from "../../ui/labels.ts";
-  import RuneCard from "./RuneCard.svelte";
+  import Rune from "./Rune.svelte";
+  import { reading } from "./options.ts";
   import {
     runeStats,
     withPrimaryRune,
@@ -38,8 +39,6 @@
 
   /** The client's shard rows, in order. */
   const SHARD_ROWS = ["Offense", "Flex", "Defense"];
-  /** A primary tree's rows: the keystones, then rows 1 to 3. */
-  const rowName = (r: number) => (r === 0 ? "Keystone" : `Row ${r}`);
 
   const trees = $derived(names.rune_trees);
   const styles = $derived(Object.keys(trees).map(Number));
@@ -60,13 +59,17 @@
   const rune = (id: number) => name(names, "runes", id);
   const runeIcon = (id: number) => icon(icons, "runes", id);
   const tree = (id: number) => name(names, "rune_styles", id);
+  /** Under a row: its picked rune's name and what it shows. */
+  const pickOf = (runes: number[], picked: number[]) => runes.find((id) => picked.includes(id));
 </script>
 
 {#snippet bar(current: number, others: number[], pick: (style: number) => void, tag: string)}
   <header class="bar">
-    <Icon src={icon(icons, "rune_styles", current)} name={tree(current)} size="sm" round />
-    <h4>{tree(current)}</h4>
-    <span class="tag">{tag}</span>
+    <Icon src={icon(icons, "rune_styles", current)} name={tree(current)} size="md" round />
+    <span class="title">
+      <h4>{tree(current)}</h4>
+      <span class="tag">{tag}</span>
+    </span>
     <span class="switch" role="group" aria-label={`${tag} tree`}>
       {#each others as style (style)}
         <button type="button" aria-label={tree(style)} title={tree(style)} onclick={() => pick(style)}>
@@ -75,6 +78,16 @@
       {/each}
     </span>
   </header>
+{/snippet}
+
+{#snippet picked(id: number | undefined, row: ReturnType<typeof stats.keystone>)}
+  {@const read = reading(row)}
+  <p class="pick">
+    {#if id !== undefined}
+      <strong>{rune(id)}</strong>
+      {#if read.number}<span class="num {read.tone}">{read.number}</span>{:else if read.note}<span class="note">{read.note}</span>{/if}
+    {/if}
+  </p>
 {/snippet}
 
 <div class="runes" aria-label="Rune page">
@@ -86,19 +99,22 @@
       "Primary",
     )}
     {#each primary as runes, r (r)}
-      <span class="row-name">{rowName(r)}</span>
+      {@const statsOf = (id: number) => (r === 0 ? stats.keystone(id) : stats.primary(page.primary_style, r, id))}
+      {@const chosen = pickOf(runes, [page.perks[r] ?? -1])}
       <div class="row" class:keystones={r === 0}>
         {#each runes as id (id)}
-          <RuneCard
+          <Rune
             icon={runeIcon(id)}
             name={rune(id)}
-            row={r === 0 ? stats.keystone(id) : stats.primary(page.primary_style, r, id)}
+            row={statsOf(id)}
+            size={r === 0 ? "lg" : "md"}
             on={on(id, r, r + 1)}
             stronk={ours(id, r, r + 1)}
             onpick={() => onpage(withPrimaryRune(page, r, id))}
           />
         {/each}
       </div>
+      {@render picked(chosen, chosen === undefined ? undefined : statsOf(chosen))}
     {/each}
   </section>
 
@@ -109,12 +125,11 @@
       (s) => onpage(withSecondaryTree(plan, trees, page, s)),
       "Secondary",
     )}
-    <p class="hint">Two from different rows; each number is for the pair it makes.</p>
     {#each secondary as runes, r (r)}
-      <span class="row-name">{rowName(r + 1)}</span>
+      {@const chosen = pickOf(runes, page.perks.slice(4, 6))}
       <div class="row">
         {#each runes as id (id)}
-          <RuneCard
+          <Rune
             icon={runeIcon(id)}
             name={rune(id)}
             row={pairWith(id)}
@@ -124,16 +139,19 @@
           />
         {/each}
       </div>
+      {@render picked(chosen, chosen === undefined ? undefined : pairWith(chosen))}
     {/each}
+    <p class="hint">Two from different rows; their number is for the pair.</p>
   </section>
 
   <section class="tree" aria-label="Shards">
-    <header class="bar"><h4>Shards</h4></header>
+    <header class="bar"><span class="title"><h4>Shards</h4></span></header>
     {#each names.shard_rows as shards, r (r)}
-      <span class="row-name">{SHARD_ROWS[r] ?? ""}</span>
-      <div class="row">
+      {@const chosen = pickOf(shards, [page.perks[6 + r] ?? -1])}
+      <div class="row shards">
+        <span class="row-name">{SHARD_ROWS[r] ?? ""}</span>
         {#each shards as id (id)}
-          <RuneCard
+          <Rune
             icon={runeIcon(id)}
             name={rune(id)}
             row={stats.shard(r, id)}
@@ -144,42 +162,50 @@
           />
         {/each}
       </div>
+      {@render picked(chosen, chosen === undefined ? undefined : stats.shard(r, chosen))}
     {/each}
   </section>
 </div>
 
 <style>
-  /* Three columns, as the client sets its trees side by side. */
+  /* The trees side by side, as in the client. */
   .runes {
     display: grid;
-    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1.12fr) minmax(0, 0.9fr);
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.95fr);
     gap: var(--space-4);
     align-items: start;
   }
   .tree {
     display: grid;
     gap: 2px;
+    justify-items: center;
+    padding: var(--space-3);
+    border-radius: var(--radius-lg);
+    background: var(--color-raised);
   }
   .bar {
     display: flex;
-    flex-wrap: nowrap;
-    gap: var(--space-1) var(--space-2);
+    gap: var(--space-2);
     align-items: center;
-    margin-bottom: var(--space-1);
+    justify-self: stretch;
+    margin-bottom: var(--space-2);
+  }
+  .title {
+    display: grid;
   }
   h4 {
     margin: 0;
     font-size: var(--text-md);
+    line-height: 1.2;
     white-space: nowrap;
   }
   .tag {
     color: var(--color-muted);
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
-  /* The other trees, by name: one click changes tree. */
   .switch {
     display: flex;
     gap: 2px;
@@ -194,11 +220,6 @@
     cursor: pointer;
     opacity: 0.6;
   }
-  .switch :global(.icon) {
-    width: 16px;
-    height: 16px;
-    font-size: 9px;
-  }
   .switch button:hover {
     border-color: var(--color-accent);
     opacity: 1;
@@ -206,25 +227,56 @@
   .switch button:focus-visible {
     outline: 2px solid var(--color-accent);
   }
+  .row {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+  }
+  .keystones {
+    gap: var(--space-2);
+  }
+  .shards {
+    align-items: center;
+    gap: var(--space-3);
+  }
   .row-name {
-    margin-top: 6px;
+    width: 52px;
     color: var(--color-muted);
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
+    text-align: right;
     text-transform: uppercase;
   }
-  .row {
-    display: grid;
-    gap: 2px;
+  /* The picked rune of the row, by name. */
+  .pick {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: center;
+    min-height: 18px;
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-sm);
+    white-space: nowrap;
   }
-  .keystones {
-    padding-bottom: var(--space-1);
+  .pick .num {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
   }
-  .hint {
-    margin: 0;
+  .pick .num.positive {
+    color: var(--color-positive);
+  }
+  .pick .num.negative {
+    color: var(--color-negative);
+  }
+  .pick .note {
     color: var(--color-muted);
     font-size: var(--text-xs);
+  }
+  .hint {
+    margin: var(--space-1) 0 0;
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+    text-align: center;
   }
   @media (max-width: 900px) {
     .runes {

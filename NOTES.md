@@ -162,3 +162,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: owner to look at it on the real client; in a narrow window the cards stack one per line, long.
 - 2026-10-30: runes redone as three columns of lists (ADR-063, owner's pick): primary, secondary, shards side by side, one rune per line with name, games and number; the wide cards were too flat.
   Open: owner to look at it on the real client; tree switch icons are small (16 px).
+- 2026-10-30: runes drawn as the client's trees again (ADR-063, owner's call: players know that layout): round icons, picks lit and ringed in amber, the picked rune's name and number under each row; the list designs are gone.
+  Open: owner to check on the real client, with the real icons.
