@@ -1,8 +1,9 @@
 <script lang="ts">
-  // The rune page built by clicking (ADR-063), in the item lists' language: the primary tree's
-  // keystones and rows, the secondary tree's rows, the shard rows, each row a line of rune cards
-  // with their names and numbers; the cards outlined in amber are what the import writes. Each
-  // tree is chosen by name from the others above it. The rules are the client's (ADR-059): one
+  // The rune page built by clicking (ADR-063), in the item lists' language: three columns, as the
+  // client sets its trees side by side, the primary tree (keystones and three rows), the secondary
+  // tree's three rows and the shard rows, each row a short list, one rune per line with its name,
+  // games and number; the lines outlined in amber are what the import writes. Each tree is chosen
+  // by name from the others under its title. The rules are the client's (ADR-059): one
   // rune per primary row, two secondary runes from different rows, one shard per row.
   import type { GameNames, Page, Plan } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
@@ -37,6 +38,8 @@
 
   /** The client's shard rows, in order. */
   const SHARD_ROWS = ["Offense", "Flex", "Defense"];
+  /** A primary tree's rows: the keystones, then rows 1 to 3. */
+  const rowName = (r: number) => (r === 0 ? "Keystone" : `Row ${r}`);
 
   const trees = $derived(names.rune_trees);
   const styles = $derived(Object.keys(trees).map(Number));
@@ -66,9 +69,8 @@
     <span class="tag">{tag}</span>
     <span class="switch" role="group" aria-label={`${tag} tree`}>
       {#each others as style (style)}
-        <button type="button" aria-label={tree(style)} onclick={() => pick(style)}>
+        <button type="button" aria-label={tree(style)} title={tree(style)} onclick={() => pick(style)}>
           <Icon src={icon(icons, "rune_styles", style)} name={tree(style)} size="sm" round />
-          {tree(style)}
         </button>
       {/each}
     </span>
@@ -84,7 +86,8 @@
       "Primary",
     )}
     {#each primary as runes, r (r)}
-      <div class="row" class:keystones={r === 0} style:--columns={runes.length}>
+      <span class="row-name">{rowName(r)}</span>
+      <div class="row" class:keystones={r === 0}>
         {#each runes as id (id)}
           <RuneCard
             icon={runeIcon(id)}
@@ -106,9 +109,10 @@
       (s) => onpage(withSecondaryTree(plan, trees, page, s)),
       "Secondary",
     )}
-    <p class="hint">Two runes from different rows. Measured in pairs: each number is for the pair you get by clicking it.</p>
+    <p class="hint">Two from different rows; each number is for the pair it makes.</p>
     {#each secondary as runes, r (r)}
-      <div class="row" style:--columns={runes.length}>
+      <span class="row-name">{rowName(r + 1)}</span>
+      <div class="row">
         {#each runes as id (id)}
           <RuneCard
             icon={runeIcon(id)}
@@ -126,8 +130,8 @@
   <section class="tree" aria-label="Shards">
     <header class="bar"><h4>Shards</h4></header>
     {#each names.shard_rows as shards, r (r)}
-      <div class="row shards" style:--columns={shards.length}>
-        <span class="row-name">{SHARD_ROWS[r] ?? ""}</span>
+      <span class="row-name">{SHARD_ROWS[r] ?? ""}</span>
+      <div class="row">
         {#each shards as id (id)}
           <RuneCard
             icon={runeIcon(id)}
@@ -145,89 +149,85 @@
 </div>
 
 <style>
+  /* Three columns, as the client sets its trees side by side. */
   .runes {
     display: grid;
-    gap: var(--space-3);
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1.12fr) minmax(0, 0.9fr);
+    gap: var(--space-4);
+    align-items: start;
   }
   .tree {
     display: grid;
-    gap: 4px;
+    gap: 2px;
   }
   .bar {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
+    flex-wrap: nowrap;
+    gap: var(--space-1) var(--space-2);
     align-items: center;
+    margin-bottom: var(--space-1);
   }
   h4 {
     margin: 0;
     font-size: var(--text-md);
+    white-space: nowrap;
   }
   .tag {
     color: var(--color-muted);
-    font-size: var(--text-xs);
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
   /* The other trees, by name: one click changes tree. */
   .switch {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1);
+    gap: 2px;
     margin-left: auto;
   }
   .switch button {
-    display: flex;
-    gap: var(--space-1);
-    align-items: center;
-    padding: 2px var(--space-2) 2px 2px;
-    border: 1px solid var(--color-border);
-    border-radius: 999px;
+    display: grid;
+    padding: 1px;
+    border: 1px solid transparent;
+    border-radius: 50%;
     background: none;
-    color: var(--color-muted);
-    font: inherit;
-    font-size: var(--text-xs);
-    font-weight: 600;
     cursor: pointer;
+    opacity: 0.6;
+  }
+  .switch :global(.icon) {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
   }
   .switch button:hover {
     border-color: var(--color-accent);
-    color: var(--color-text);
+    opacity: 1;
   }
   .switch button:focus-visible {
     outline: 2px solid var(--color-accent);
   }
+  .row-name {
+    margin-top: 6px;
+    color: var(--color-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
   .row {
     display: grid;
-    grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
-    gap: 4px 6px;
+    gap: 2px;
   }
   .keystones {
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--color-border);
-  }
-  .shards {
-    grid-template-columns: 64px repeat(var(--columns), minmax(0, 1fr));
-    align-items: center;
-  }
-  .row-name {
-    color: var(--color-muted);
-    font-size: var(--text-xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    padding-bottom: var(--space-1);
   }
   .hint {
     margin: 0;
     color: var(--color-muted);
     font-size: var(--text-xs);
   }
-  @media (max-width: 640px) {
-    .row {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .shards {
+  @media (max-width: 900px) {
+    .runes {
       grid-template-columns: minmax(0, 1fr);
     }
   }

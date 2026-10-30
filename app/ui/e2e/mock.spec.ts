@@ -89,8 +89,9 @@ test("shows the build sheet beside the open slot, the runes as the client lays t
   // The sheet and the open slot side by side, all on one screen.
   const sheet = await page.getByRole("tablist").boundingBox();
   const panel = await page.getByRole("tabpanel").boundingBox();
-  expect(sheet && panel && panel.x > sheet.x + sheet.width - 1 && panel.y + panel.height <= 900).toBe(true);
   await screenshot(page, "mock-runes");
+  expect(sheet && panel && panel.x > sheet.x + sheet.width - 1 && panel.y + panel.height <= 900).toBe(true);
+
 });
 
 test("fits a narrow window, one column", async ({ page }) => {

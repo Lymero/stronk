@@ -1,5 +1,6 @@
 <script lang="ts">
-  // One rune or shard as a card (ADR-063), read like a row of the item lists: its icon and name,
+  // One rune or shard as a line of its row's list (ADR-063), read like a row of the item lists: its
+  // icon, its name with its games under it, and on the right
   // its wins per 100 games against the most played option of its row (0 for that one, coloured
   // only when clearly better or worse, nothing when short of games, or why an option with plenty
   // of games has none) and its games, its share of games as a bar along the bottom as in the item
@@ -81,12 +82,10 @@
   <Icon src={icon} {name} size="sm" round />
   <span class="text">
     <span class="title">{name}</span>
-    <span class="stats">
-      <span class="num {clear?.tone ?? ''}" class:why={number === null && why !== null}>{number ?? why ?? ""}</span>
-      <!-- "almost always" and "too few to compare" already say the games are plenty: the bar shows how many. -->
-      {#if row && !why}<span class="games">{count(row.played)}</span>{/if}
-    </span>
+    <!-- "almost always" and "too few to compare" take the games' place: they already say there are plenty. -->
+    {#if why}<span class="games why">{why}</span>{:else if row}<span class="games">{count(row.played)}</span>{/if}
   </span>
+  <span class="num {clear?.tone ?? ''}">{number ?? ""}</span>
   <span class="share" aria-hidden="true"><span style:width={`${(row?.share ?? 0) * 100}%`}></span></span>
 </button>
 
@@ -95,15 +94,15 @@
     position: relative;
     display: grid;
     overflow: hidden;
-    height: 48px;
-    grid-template-columns: auto minmax(0, 1fr);
+    height: 36px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: var(--space-2);
     align-items: center;
     min-width: 0;
-    padding: var(--space-2);
-    border: 1px solid var(--color-border);
+    padding: 0 var(--space-2);
+    border: 1px solid transparent;
     border-radius: var(--radius);
-    background: var(--color-surface);
+    background: none;
     color: var(--color-text);
     font: inherit;
     text-align: left;
@@ -143,8 +142,8 @@
   /* Stronk's choice when the player picked another: a small amber dot. */
   .stronk::after {
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: 4px;
+    left: 4px;
     width: 6px;
     height: 6px;
     border-radius: 50%;
@@ -166,28 +165,18 @@
   .on .title {
     color: var(--color-text);
   }
-  .stats {
-    display: flex;
-    gap: var(--space-2);
-    align-items: baseline;
-    height: 17px;
-    overflow: hidden;
-    color: var(--color-muted);
-    font-size: var(--text-xs);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
   .num {
     color: var(--color-text);
     font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
+    white-space: nowrap;
   }
   .num:empty {
     display: none;
   }
-  .num.why {
-    font-size: var(--text-xs);
-    font-weight: 600;
+  .games.why {
+    font-weight: 700;
   }
   /* The share of games, along the bottom. */
   .share {
@@ -195,7 +184,7 @@
     right: 0;
     bottom: 0;
     left: 0;
-    height: 3px;
+    height: 2px;
     background: var(--color-track);
   }
   .share span {
@@ -214,11 +203,15 @@
   }
   .games {
     overflow: hidden;
+    color: var(--color-muted);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    line-height: 12px;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .sm {
-    height: 40px;
-    padding: var(--space-1) var(--space-2);
+    height: 34px;
   }
   .sm .title {
     font-size: var(--text-xs);

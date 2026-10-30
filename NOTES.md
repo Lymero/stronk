@@ -160,3 +160,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the rune tree's cells still show no games (the ring gives the share).
 - 2026-10-30: runes and shards as named cards (ADR-063): name, number against the row's baseline, games, share bar; trees switched by name; fits 1200 by 900.
   Open: owner to look at it on the real client; in a narrow window the cards stack one per line, long.
+- 2026-10-30: runes redone as three columns of lists (ADR-063, owner's pick): primary, secondary, shards side by side, one rune per line with name, games and number; the wide cards were too flat.
+  Open: owner to look at it on the real client; tree switch icons are small (16 px).
