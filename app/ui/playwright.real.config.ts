@@ -12,7 +12,8 @@ const key = resolve(ROOT, process.env.STRONK_REAL_KEY ?? "runs/real/data.pub");
 
 export default defineConfig({
   testDir: "e2e",
-  testMatch: "real.spec.ts",
+  // `just site-shot` runs the site's screenshot instead of the checks.
+  testMatch: process.env.STRONK_SITE_SHOT ? "site.spec.ts" : "real.spec.ts",
   outputDir: `${ROOT}/runs/e2e-real/results`,
   workers: 1,
   reporter: [["list"]],

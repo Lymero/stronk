@@ -19,16 +19,16 @@
 <p class="status">Stronk is in development and not available for download yet. The source code is <a href="https://github.com/Lymero/stronk">on GitHub</a>.</p>
 
 <figure>
-<img src="/img/champion-select.png" width="760" height="1010" alt="Stronk during champion select for Lee Sin jungle: the most played rune page, spells and items for each slot, with share of games, number of games, win impact and a confidence marker for each option.">
+<img src="/img/champion-select.png" width="1200" height="646" alt="Stronk during champion select for Lee Sin jungle. On the left, the build it will import by name: Conqueror runes, Smite and Flash, and six items, three of them marked as Stronk's best bets. On the right, the rune page drawn as in the client, with the third Precision row open as a list: Coup de Grace as the baseline at 0, Cut Down marked best bet at +2.7 wins per 100 games, Last Stand with too few games for a number.">
 <figcaption>Lee Sin jungle on patch 16.20, from 4,190 Master+ games.</figcaption>
 </figure>
 
 <h2>What it does</h2>
 <ul>
 <li>Follows champion select as you hover and lock in, and shows the build for your champion and role from high-elo ranked games on the current patch.</li>
-<li>Lists every option for the rune page, the summoner spells and each item slot, with its share of games, the number of games behind it, and its <a href="/method">win impact</a>.</li>
-<li>Says "clearly better" only when the difference holds up against the most played option after correcting for chance across the whole patch. Otherwise it says "no clear difference" or "too few games", instead of picking a winner from noise.</li>
-<li>Proposes the most played build unless something is clearly better, and lets you pick any other option for any slot. Your picks are kept until the patch changes.</li>
+<li>Shows the build it will import at a glance, by name: the rune page, the summoner spells and each item slot. Open any slot to see every option with its share of games, the games behind it, and its <a href="/method">win impact</a> against the most played option. The rune page is drawn as in the client.</li>
+<li>Imports its best bet: the option that comes out ahead of the most played one once each number is weighed by how sure it is, so a rarely played option with a lucky number doesn't win. It says "clearly better" only when the difference holds up after correcting for chance across the whole patch; anything else ahead is marked "best bet", and options with too few games get no number at all.</li>
+<li>Lets you pick any other option for any slot, and build your rune page rune by rune. Your picks are kept until the patch changes.</li>
 <li>Imports with one click, or on lock-in if you turn that on: a rune page and an item set named "Stronk: champion role", and your summoner spells, with Flash kept on the key you use.</li>
 </ul>
 

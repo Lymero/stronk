@@ -176,3 +176,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: τ = 0.02 and the 0.005 minimum are judgement calls; a backtest of best bets across patches (16.20 to 16.21) would say how often they hold.
 - 2026-10-30: the summary of Stronk's changes is gone from the sheet (owner's request, ADR-065); the badges mark them; the thin-data warning stays.
   Open: nothing new.
+- 2026-10-30: the site shows the current UI (ADR-066): `just site-shot` renders Lee Sin jungle from the real data into site/public/img/champion-select.png; home and method pages describe the sheet, rune tree and best bets.
+  Open: check the deployed site after Cloudflare builds this push.

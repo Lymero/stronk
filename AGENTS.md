@@ -60,6 +60,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just core <command-id> <params>` | Run an app command from the terminal |
 | `just e2e` | Playwright: the UI against `MockBackend` and against the real core on lcu-mock; screenshots in `runs/e2e/screenshots/` (in `just check`) |
 | `just e2e-real [Champion/ROLE,…] [data] [key]` | The board on real data: every build checked for what a player must not see (`board_sanity.py`), then Playwright on a few picks with screenshots in `runs/e2e-real/screenshots/`. Run after any UI change and look at every screenshot (not in `check`: CI has no real data) |
+| `just site-shot [data] [key]` | The product site's screenshot: Lee Sin jungle on the real data in the app's own look, into `site/public/img/champion-select.png` (letter stand-ins, no Riot artwork). Rerun when the UI changes |
 | `just bench` | Performance scenarios against `perf/budgets.toml`: the fixture pipeline and lock-in to import on lcu-mock |
 
 ## Rules

@@ -503,3 +503,9 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - `board_sanity` fails on a best bet not measured against the most played option.
 - **Consequences:** the import follows the numbers, not only the proven ones: on the real 16.20 data, Lee Sin jungle takes Cut Down, Adaptive Force (offense shard), Profane Hydra and Voltaic Cyclosword. Best bets can change from patch to patch as estimates move; green still means proven. τ and the minimum gain are judgement calls, recorded here; changing them is a new entry.
 - **Amended:** the owner asked not to show the summary of changes at the top of the sheet; it's gone, each change marked by its badge on its slot. Only the warning for a board under 300 games stays there.
+
+### ADR-066 · The site's screenshot, rendered from the app
+
+- **Context:** the site's screenshot showed the list board of ADR-049, and its text promised "the most played build unless something is clearly better", both out of date after the build sheet, the rune tree and best bets (ADR-062 to ADR-065). It had been taken by hand.
+- **Decision:** `just site-shot` renders it: the real core on the real data with lcu-mock (`e2e/site.spec.ts` through `playwright.real.config.ts`), Lee Sin jungle locked in, the rune page open on the row of Stronk's best bet (Cut Down), in the app's dark look at 1200 px wide and twice the pixel density, clipped from the wordmark to the open slot. Icons are the app's letter stand-ins (no Riot artwork on the site) and the champion reads "Lee Sin" as the client names it. The home page's "What it does" and the method page describe the sheet, the rune tree and best bets; the figure fills the page's width.
+- **Consequences:** the picture can be refreshed with one command whenever the UI changes. It shows real numbers from the corpus, so it changes with the data.
