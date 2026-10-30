@@ -172,3 +172,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: lcu-mock's placeholder icons show a square border inside the round runes; the real art doesn't.
 - 2026-10-30: runes at the item icons' size (32 px, keystones 36), and tags under the name in a narrow list so "Legend: Alacrity" shows in full (ADR-064).
   Open: nothing new.
+- 2026-10-30: Stronk imports its best bet (ADR-065): the largest shrunk gain against the most played option, labelled "Best bet" (amber) unless proven ("clearly better", green); rune pages get it row by row. Lee Sin now takes Cut Down.
+  Open: τ = 0.02 and the 0.005 minimum are judgement calls; a backtest of best bets across patches (16.20 to 16.21) would say how often they hold.

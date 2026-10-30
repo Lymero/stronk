@@ -103,7 +103,9 @@ export function explain(row: Row<unknown>): string {
     row.versus === "most_played" ? "against the most played option" : "against the other options at this point";
   const interval = row.ci ? ` Likely between ${wins(row.ci[0])} and ${wins(row.ci[1])} (95%).` : "";
   const reading =
-    row.confidence === "clearly_better"
+    row.confidence === "best_bet"
+      ? "Stronk's best bet: ahead of the most played option on the numbers so far, not yet clear once false discoveries are controlled."
+      : row.confidence === "clearly_better"
       ? "Clearly better: the difference holds once false discoveries are controlled."
       : row.confidence === "clearly_worse"
         ? "Clearly worse: the difference holds once false discoveries are controlled."
@@ -113,32 +115,43 @@ export function explain(row: Row<unknown>): string {
   return `${wins(row.wpa)} wins per 100 games ${against}.${interval} ${reading}`;
 }
 
-/** A clear result as the player reads it, "▲ +2.1 wins per 100"; nothing for the rest (ADR-056). */
-export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "negative" } | null {
+/** A clear result as the player reads it, "▲ +2.1 wins per 100", or Stronk's best bet, "Best bet
+ * +2.7 wins per 100" (ADR-065); nothing for the rest (ADR-056). */
+export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "negative" | "bet" } | null {
   const number = figure(row);
   if (number === null) return null;
+  if (row.confidence === "best_bet") return { text: `Best bet ${number}`, tone: "bet" };
   if (row.confidence === "clearly_better") return { text: `▲ ${number}`, tone: "positive" };
   if (row.confidence === "clearly_worse") return { text: `▼ ${number}`, tone: "negative" };
   return null;
 }
 
-/** What Stronk imports instead of the most played option: each clearly better choice with the
- * option it beats (ADR-060). */
+/** What Stronk imports instead of the most played option: each choice clearly better than it, or
+ * Stronk's best bet against it, with the option it beats (ADR-060, ADR-065). A rune row's change
+ * (`"rune"`) has the row's runes as its value. */
 export interface Change<T> {
-  part: "runes" | "spells" | number;
+  part: "runes" | "rune" | "spells" | number;
   row: Shown<T>;
   base: Shown<T> | undefined;
 }
 
-export function changes(options: Options): Change<unknown>[] {
+/** Stronk's choice differs from the most played one for one of these. */
+const changed = (row: Row<unknown>) => row.confidence === "clearly_better" || row.confidence === "best_bet";
+
+export function changes(options: Options, runeRows: Plan["alternatives"]["rune_rows"] = []): Change<unknown>[] {
   const of = <T>(part: Change<T>["part"], slot: Slot<T>): Change<unknown>[] => {
     const row = slot.rows.find((r) => r.chosen);
-    return row && row.confidence === "clearly_better"
-      ? [{ part, row, base: mostPlayed(slot) } as Change<unknown>]
-      : [];
+    return row && changed(row) ? [{ part, row, base: mostPlayed(slot) } as Change<unknown>] : [];
   };
+  const shown = <T>(row: Row<T>): Shown<T> => ({ ...row, key: "", selected: row.chosen, shown: true });
+  const rows = runeRows.flatMap((r) => {
+    const row = r.rows.find((x) => x.chosen && changed(x));
+    const base = r.rows.find((x) => x.confidence === "most_played");
+    return row ? [{ part: "rune" as const, row: shown(row), base: base && shown(base) } as Change<unknown>] : [];
+  });
   return [
     ...of("runes", options.runes),
+    ...rows,
     ...of("spells", options.spells),
     ...options.items.flatMap((s) => of(s.slot, s)),
   ];
@@ -155,5 +168,6 @@ export function reading(row: Row<unknown> | undefined): { number: string | null;
   if (row.confidence === "most_played") return { number: row.wpa === null ? null : "0", tone: "", note: null };
   if (figure(row) === null || row.wpa === null) return { number: null, tone: "", note: null };
   const clear = verdict(row);
-  return { number: `${clear ? (clear.tone === "positive" ? "▲" : "▼") : ""}${wins(row.wpa)}`, tone: clear?.tone ?? "", note: null };
+  const arrow = clear?.tone === "positive" ? "▲" : clear?.tone === "negative" ? "▼" : "";
+  return { number: `${arrow}${wins(row.wpa)}`, tone: clear?.tone ?? "", note: null };
 }

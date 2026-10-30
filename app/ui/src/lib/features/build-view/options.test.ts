@@ -148,6 +148,23 @@ describe("options", () => {
     expect(changes(options(plan()))).toEqual([]);
   });
 
+  it("reads Stronk's best bet apart from a clear result, and finds it in rune rows", () => {
+    const bet = row(1, { wpa: 0.027, ci: [0.0, 0.056], versus: "most_played", confidence: "best_bet", chosen: true });
+    expect(verdict(bet)).toEqual({ text: "Best bet +2.7 wins per 100", tone: "bet" });
+    expect(explain(bet)).toContain("Stronk's best bet: ahead of the most played option on the numbers so far, not yet clear");
+    const runeRows = [
+      {
+        kind: "primary" as const,
+        style: 8000,
+        row: 3,
+        rows: [row([8014], { played: 2194, confidence: "most_played" }), row([8017], { ...bet, value: [8017], played: 1704 })],
+        more: 0,
+      },
+    ];
+    const found = changes(options(plan()), runeRows);
+    expect(found.map((c) => [c.part, c.row.value, c.base?.value])).toEqual([["rune", [8017], [8014]]]);
+  });
+
   it("knows when every choice is the most played one", () => {
     expect(allPopular(plan())).toBe(true);
     const better = { slot: 4, value: 10, label: "clearly_better", wpa: 0.02, ci: null, games: 5 } as const;

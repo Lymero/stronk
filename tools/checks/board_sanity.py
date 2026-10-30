@@ -12,9 +12,10 @@ Failures (exit 1), each with up to five examples:
 - `almost-always-few-games`: "almost always" under an option with fewer than 300 games: on a
   thin board it means too little data, not that everyone takes it (Ahri jungle, 1 game).
 - `baseline-not-first`: a "most played" or "almost always" row that isn't the slot's first.
-- `clear-off-scale`: a clear result not measured against the most played option.
+- `clear-off-scale`: a clear result or a best bet not measured against the most played option.
 - `no-pick`: a slot with options and nothing the import writes, or more than one.
-- `choice-mismatch`: the plan's choice isn't the row marked chosen.
+- `choice-mismatch`: the plan's choice isn't the row marked chosen (for runes, the page of its
+  keystone: the rows' best bets change the page itself, ADR-065).
 
 Reported, not failed: rows with a number against another option than the most played, which
 the board leaves blank (`off-scale`).
@@ -100,7 +101,7 @@ def check(
                 if i > 0 and row["confidence"] in ("most_played", "almost_always"):
                     failures["baseline-not-first"].append(what)
                 if (
-                    row["confidence"] in ("clearly_better", "clearly_worse")
+                    row["confidence"] in ("clearly_better", "clearly_worse", "best_bet")
                     and row["versus"] != "most_played"
                 ):
                     failures["clear-off-scale"].append(what)
@@ -113,7 +114,12 @@ def check(
             chosen = [r for r in rows if r["chosen"]]
             if rows and choice is not None and len(chosen) != 1:
                 failures["no-pick"].append(f"{where}: {len(chosen)} chosen")
-            if chosen and choice is not None and chosen[0]["value"] != choice:
+            mismatch = (
+                chosen[0]["value"]["perks"][0] != choice["perks"][0]
+                if name == "runes" and chosen and choice is not None
+                else chosen and choice is not None and chosen[0]["value"] != choice
+            )
+            if mismatch:
                 failures["choice-mismatch"].append(f"{where}: {chosen[0]['value']} vs {choice}")
     return failures, reported
 

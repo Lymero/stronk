@@ -279,6 +279,7 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
                 Label::Popular => "Popular".to_owned(),
                 Label::Picked => "Your pick".to_owned(),
                 Label::ClearlyBetter { wpa, .. } => format!("Clearly better, {:+.1}% win", wpa * 100.0),
+                Label::BestBet { wpa, .. } => format!("Best bet, {:+.1}% win", wpa * 100.0),
             };
             json!({"type": format!("Item {}: {why}", s.slot), "items": [{"id": s.choice.value.to_string(), "count": 1}]})
         })

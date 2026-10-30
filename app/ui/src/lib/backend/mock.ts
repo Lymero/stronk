@@ -328,9 +328,10 @@ const leeSinAlternatives: Alternatives = {
     {
       slot: 3,
       rows: [
-        row(3053, 610, 1280, { wpa: 0.006, ci: [-0.004, 0.016], confidence: "most_played", chosen: true }),
+        row(3053, 610, 1280, { wpa: 0.006, ci: [-0.004, 0.016], confidence: "most_played" }),
         row(6333, 420, 1280, { wpa: -0.018, ci: [-0.033, -0.004], versus: "most_played", confidence: "clearly_worse" }),
-        row(3026, 160, 1280, { wpa: 0.005, ci: [-0.01, 0.02], versus: "most_played", fragile: true }),
+        // Ahead of Sterak's Gage on the numbers, not yet clear: Stronk's best bet (ADR-065).
+        row(3026, 160, 1280, { wpa: 0.012, ci: [0.0, 0.024], versus: "most_played", confidence: "best_bet", fragile: true, chosen: true }),
         rare(6694, 90, 1280),
       ],
       more: 1,
@@ -365,7 +366,7 @@ const leeSin: Plan = {
   items: [
     { slot: 1, value: 6692, label: "popular" },
     { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640 },
-    { slot: 3, value: 3053, label: "popular" },
+    { slot: 3, value: 3026, label: "best_bet", wpa: 0.012, ci: [0.0, 0.024], games: 160 },
   ],
   alternatives: leeSinAlternatives,
 };

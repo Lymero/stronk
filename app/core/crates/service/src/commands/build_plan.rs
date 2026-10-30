@@ -7,7 +7,7 @@ use stronk_contracts::build_v1::{
     Build, Comparison, Flag, Interval, RuneChoice, RuneChoiceComparison, RuneChoiceKind,
 };
 use stronk_domain::Role;
-use stronk_domain::select::{self, Candidate, Choice, Ranked, choose, choose_items, rank};
+use stronk_domain::select::{self, Candidate, Choice, Label, Ranked, choose, choose_items, rank};
 
 use crate::commands::build_get;
 use crate::registry::Command;
@@ -186,11 +186,16 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         .into_iter()
         .map(|(slot, choice)| SlotChoice { slot, choice })
         .collect();
-    let runes_choice = choose(&runes);
+    // The page chosen by its keystone, which the pages' list marks (each page stands for its
+    // keystone); then its rows' best bets, which the import writes and the rune rows mark.
+    let keystone_choice = choose(&runes);
+    let runes_choice = keystone_choice
+        .clone()
+        .map(|c| with_row_bets(c, &build.rune_choices));
     let spells_choice = choose(&spells);
     let rune_rows = rune_rows(&build.rune_choices, runes_choice.as_ref().map(|c| &c.value));
     let alternatives = Alternatives {
-        runes: rank(&runes, runes_choice.as_ref().map(|c| &c.value)),
+        runes: rank(&runes, keystone_choice.as_ref().map(|c| &c.value)),
         spells: rank(&spells, spells_choice.as_ref().map(|c| &c.value)),
         items: candidates
             .iter()
@@ -226,25 +231,7 @@ fn rune_rows(choices: &[RuneChoice], page: Option<&Page>) -> Vec<RuneRow> {
     rows.dedup();
     rows.into_iter()
         .map(|(kind, style, row)| {
-            let candidates: Vec<Candidate<Vec<i64>>> = choices
-                .iter()
-                .filter(|c| row_of(c) == (kind, style, row))
-                .map(|c| {
-                    let value: Vec<i64> = c.perks.iter().map(|p| to_i64(*p)).collect();
-                    Candidate {
-                        id: perks_id(&value),
-                        value,
-                        played: c.games.unwrap_or(c.n),
-                        wpa: c.wpa,
-                        ci: c.ci.as_ref().map(interval),
-                        too_few: too_few(&c.flags),
-                        low_overlap: c.flags.contains(&Flag::LowOverlap),
-                        unclear: c.flags.contains(&Flag::NoClearDifference),
-                        fragile: c.flags.contains(&Flag::Fragile),
-                        comparison: c.comparison.as_ref().map(row_compared),
-                    }
-                })
-                .collect();
+            let candidates = row_candidates(choices, (kind, style, row));
             let chosen = page.and_then(|p| in_page(p, kind, style, row));
             RuneRow {
                 kind,
@@ -254,6 +241,91 @@ fn rune_rows(choices: &[RuneChoice], page: Option<&Page>) -> Vec<RuneRow> {
             }
         })
         .collect()
+}
+
+/// One rune row's published choices as candidates.
+fn row_candidates(
+    choices: &[RuneChoice],
+    key: (RowKind, Option<i64>, Option<u64>),
+) -> Vec<Candidate<Vec<i64>>> {
+    choices
+        .iter()
+        .filter(|c| row_of(c) == key)
+        .map(|c| {
+            let value: Vec<i64> = c.perks.iter().map(|p| to_i64(*p)).collect();
+            Candidate {
+                id: perks_id(&value),
+                value,
+                played: c.games.unwrap_or(c.n),
+                wpa: c.wpa,
+                ci: c.ci.as_ref().map(interval),
+                too_few: too_few(&c.flags),
+                low_overlap: c.flags.contains(&Flag::LowOverlap),
+                unclear: c.flags.contains(&Flag::NoClearDifference),
+                fragile: c.flags.contains(&Flag::Fragile),
+                comparison: c.comparison.as_ref().map(row_compared),
+            }
+        })
+        .collect()
+}
+
+/// Stronk's page with each of its rows chosen by the rule (ADR-065): the page is chosen whole by
+/// its keystone; then, row by row (the primary tree's rows, the secondary pair, the shards), the
+/// row's choice replaces the page's rune: its best bet against the row's most played rune, else
+/// that most played one (a page's rune that trails it is the worse bet). A popular page that
+/// changed by a best bet is labelled by its largest.
+fn with_row_bets(choice: Choice<Page>, choices: &[RuneChoice]) -> Choice<Page> {
+    let Choice {
+        mut value,
+        mut label,
+    } = choice;
+    let mut keys: Vec<(RowKind, Option<i64>, Option<u64>)> = choices.iter().map(row_of).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    let mut largest: Option<(f64, Label)> = None;
+    for key in keys {
+        let (kind, style, row) = key;
+        let applies = match kind {
+            RowKind::Primary => style == Some(value.primary_style),
+            RowKind::Secondary => style == Some(value.sub_style),
+            RowKind::Shard => true,
+        };
+        if !applies {
+            continue;
+        }
+        let Some(chosen) = choose(&row_candidates(choices, key)) else {
+            continue;
+        };
+        let gain = match chosen.label {
+            Label::BestBet { wpa, .. } | Label::ClearlyBetter { wpa, .. } => Some(wpa),
+            Label::Popular | Label::Picked => None,
+        };
+        let at = |i: Option<u64>| i.and_then(|i| usize::try_from(i).ok());
+        let placed = match (kind, chosen.value.as_slice()) {
+            (RowKind::Primary, [rune]) => at(row)
+                .and_then(|i| value.perks.get_mut(i))
+                .map(|p| *p = *rune),
+            (RowKind::Shard, [shard]) => at(row.map(|r| r + 5))
+                .and_then(|i| value.perks.get_mut(i))
+                .map(|p| *p = *shard),
+            // The same pair in another order is the page's own: it keeps its order.
+            (RowKind::Secondary, [low, high]) => value.perks.get_mut(4..6).map(|p| {
+                if !(p.contains(low) && p.contains(high)) {
+                    p.copy_from_slice(&[*low, *high]);
+                }
+            }),
+            _ => None,
+        };
+        if let (Some(_), Some(wpa)) = (placed, gain)
+            && largest.as_ref().is_none_or(|(w, _)| wpa > *w)
+        {
+            largest = Some((wpa, chosen.label));
+        }
+    }
+    if let (Label::Popular, Some((_, row_label))) = (label, largest) {
+        label = row_label;
+    }
+    Choice { value, label }
 }
 
 fn row_of(c: &RuneChoice) -> (RowKind, Option<i64>, Option<u64>) {
@@ -326,4 +398,72 @@ fn compared(c: &Comparison) -> select::Comparison {
 /// Ids are small positive integers; anything beyond i64 can't match a real id.
 fn to_i64(v: u64) -> i64 {
     i64::try_from(v).unwrap_or(-1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn choices(json: serde_json::Value) -> Vec<RuneChoice> {
+        serde_json::from_value(json).unwrap()
+    }
+
+    #[test]
+    fn a_rows_best_bet_replaces_the_pages_rune_and_the_rest_stays() {
+        // Lee Sin jungle: Cut Down against Coup de Grace, +2.7 likely between 0.0 and +5.6.
+        let rows = choices(serde_json::json!([
+            {"kind": "primary", "style": 8000, "row": 3, "perks": [8014], "games": 2194, "n": 2194,
+             "wpa": -0.024, "ci": [-0.041, -0.008], "flags": ["no_clear_difference"]},
+            {"kind": "primary", "style": 8000, "row": 3, "perks": [8017], "games": 1704, "n": 1704,
+             "wpa": 0.019, "ci": [0.002, 0.036], "flags": ["no_clear_difference"],
+             "comparison": {"versus": [8014], "wpa": 0.027, "ci": [-0.00005, 0.05555], "q": 0.61}},
+            {"kind": "shard", "row": 1, "perks": [5005], "games": 3765, "n": 3765,
+             "wpa": -0.013, "ci": [-0.03, 0.004], "flags": ["no_clear_difference"]},
+            {"kind": "shard", "row": 1, "perks": [5008], "games": 425, "n": 425,
+             "wpa": 0.01, "ci": [-0.04, 0.06], "flags": ["no_clear_difference"],
+             "comparison": {"versus": [5005], "wpa": 0.013, "ci": [-0.04, 0.066], "q": 0.9}},
+            {"kind": "primary", "style": 8100, "row": 3, "perks": [8135], "games": 68, "n": 68,
+             "wpa": 0.03, "ci": [0.01, 0.05], "flags": [],
+             "comparison": {"versus": [8106], "wpa": 0.05, "ci": [0.04, 0.06], "q": 0.01}}
+        ]));
+        let page = Page {
+            primary_style: 8000,
+            sub_style: 8300,
+            perks: vec![8010, 9111, 9104, 8014, 8347, 8304, 5005, 5008, 5001],
+        };
+        let chosen = with_row_bets(
+            Choice {
+                value: page,
+                label: Label::Popular,
+            },
+            &rows,
+        );
+        // Cut Down takes row 3; the noisy shard and the other tree's row change nothing.
+        assert_eq!(
+            chosen.value.perks,
+            vec![8010, 9111, 9104, 8017, 8347, 8304, 5005, 5008, 5001]
+        );
+        // A page whose shard trails its row's most played one takes the most played.
+        let page = Page {
+            primary_style: 8000,
+            sub_style: 8300,
+            perks: vec![8010, 9111, 9104, 8014, 8347, 8304, 5008, 5008, 5001],
+        };
+        let chosen = with_row_bets(
+            Choice {
+                value: page,
+                label: Label::Popular,
+            },
+            &rows,
+        );
+        assert_eq!(chosen.value.perks[6], 5005);
+        assert_eq!(
+            chosen.label,
+            Label::BestBet {
+                wpa: 0.027,
+                ci: Some((-0.000_05, 0.055_55)),
+                games: 1704
+            }
+        );
+    }
 }

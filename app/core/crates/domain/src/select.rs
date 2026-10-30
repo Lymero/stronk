@@ -1,5 +1,7 @@
-//! What to import (ADR-043): the most played whole combination, unless an option is clearly
-//! better than it. Pure: the service turns published build files into [`Candidate`]s.
+//! What to import (ADR-043, ADR-065): the most played option, unless another is the best bet
+//! against it: the highest estimate once shrunk toward 0 by its uncertainty, among the options
+//! compared with it head to head. A best bet that survives false discovery control is "clearly
+//! better". Pure: the service turns published build files into [`Candidate`]s.
 
 use std::collections::BTreeMap;
 
@@ -20,8 +22,32 @@ pub enum Label {
         /// Games (or picks) with this option.
         games: u64,
     },
+    /// The best bet against the popular option (ADR-065): the highest shrunk estimate, not yet
+    /// clear once false discoveries are controlled.
+    BestBet {
+        /// Win probability added against the popular option, as published (not shrunk).
+        wpa: f64,
+        ci: Option<(f64, f64)>,
+        games: u64,
+    },
     /// The player picked this published option instead of Stronk's choice.
     Picked,
+}
+
+/// The spread of true win impacts the shrinkage assumes (ADR-065): a difference of two wins per
+/// 100 games between options of one decision is already large. An estimate keeps the share
+/// `TAU² / (TAU² + se²)` of itself, so a precise one keeps most and a noisy one little.
+pub const TAU: f64 = 0.02;
+
+/// The smallest shrunk gain worth leaving the most played option for: half a win per 100 games.
+pub const BEST_BET_MIN: f64 = 0.005;
+
+/// `wpa` shrunk toward 0 by the uncertainty its 95% interval gives; without an interval, no
+/// shrunk estimate.
+pub fn shrunk(wpa: f64, ci: Option<(f64, f64)>) -> Option<f64> {
+    let (low, high) = ci?;
+    let se = (high - low).abs() / (2.0 * 1.96);
+    Some(wpa * TAU * TAU / (TAU * TAU + se * se))
 }
 
 /// The head-to-head comparison of an option with the most played one.
@@ -68,6 +94,18 @@ impl<T> Candidate<T> {
         self.comparison
             .filter(|k| k.versus == popular && self.claimable() && !self.unclear)
     }
+
+    /// Its comparison with `popular` and how much it stands to gain, when it may be the best
+    /// bet: compared head to head and claimable, and either clear or with a shrunk gain of at
+    /// least [`BEST_BET_MIN`]. A clear one without an interval counts at its estimate.
+    fn bet_against(&self, popular: i64) -> Option<(Comparison, f64, bool)> {
+        let k = self
+            .comparison
+            .filter(|k| k.versus == popular && self.claimable())?;
+        let clear = !self.unclear && k.wpa > 0.0;
+        let gain = shrunk(k.wpa, k.ci).or(clear.then_some(k.wpa))?;
+        (clear || gain >= BEST_BET_MIN).then_some((k, gain, clear))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
@@ -83,19 +121,28 @@ fn by_popularity<T>(a: &Candidate<T>, b: &Candidate<T>) -> std::cmp::Ordering {
     b.played.cmp(&a.played).then(a.id.cmp(&b.id))
 }
 
-/// The popular candidate (most played; ties to the smallest id), or the clearly better one
-/// with the largest win impact against it. `None` without candidates.
+/// The popular candidate (most played; ties to the smallest id), or the best bet against it:
+/// the largest shrunk gain among those that may be ([`Candidate::bet_against`]), labelled
+/// clearly better when it survives false discovery control. `None` without candidates.
 pub fn choose<T: Clone>(candidates: &[Candidate<T>]) -> Option<Choice<T>> {
     let popular = candidates.iter().min_by(|a, b| by_popularity(a, b))?;
-    let better = candidates
+    let bet = candidates
         .iter()
-        .filter_map(|c| c.clear_against(popular.id).map(|k| (c, k)))
-        .filter(|(_, k)| k.wpa > 0.0)
-        .max_by(|(a, x), (b, y)| x.wpa.total_cmp(&y.wpa).then(b.id.cmp(&a.id)));
-    Some(match better {
-        Some((c, k)) => Choice {
+        .filter(|c| c.id != popular.id)
+        .filter_map(|c| c.bet_against(popular.id).map(|b| (c, b)))
+        .max_by(|(a, (_, x, _)), (b, (_, y, _))| x.total_cmp(y).then(b.id.cmp(&a.id)));
+    Some(match bet {
+        Some((c, (k, _, true))) => Choice {
             value: c.value.clone(),
             label: Label::ClearlyBetter {
+                wpa: k.wpa,
+                ci: k.ci,
+                games: c.played,
+            },
+        },
+        Some((c, (k, _, false))) => Choice {
+            value: c.value.clone(),
+            label: Label::BestBet {
                 wpa: k.wpa,
                 ci: k.ci,
                 games: c.played,
@@ -123,6 +170,9 @@ pub enum Confidence {
     ClearlyWorse,
     /// The most played option: what the others are compared with.
     MostPlayed,
+    /// Stronk's choice by the best bet rule (ADR-065): ahead of the most played option on the
+    /// numbers, not yet clear.
+    BestBet,
     /// Has a number, but isn't distinguishable from the most played option.
     NoClearDifference,
     /// `low_sample` or `low_overlap`: too few comparable games for a number to mean much.
@@ -207,6 +257,7 @@ pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T
                 Some(k) if k.wpa > 0.0 => Confidence::ClearlyBetter,
                 Some(k) if k.wpa < 0.0 => Confidence::ClearlyWorse,
                 _ if most_played => Confidence::MostPlayed,
+                _ if is_chosen(c) && c.bet_against(popular).is_some() => Confidence::BestBet,
                 _ if c.wpa.is_none() => Confidence::NotEstimated,
                 _ => Confidence::NoClearDifference,
             };
@@ -389,21 +440,91 @@ mod tests {
     }
 
     #[test]
-    fn the_most_played_wins_without_a_clear_alternative() {
+    fn the_most_played_stays_without_a_best_bet() {
         let c = [
             candidate(1, 10, None),
             candidate(2, 30, None),
             candidate(3, 20, Some((2, 0.03))),
         ];
-        let mut unclear = c.clone();
-        unclear[2].unclear = true;
+        // Unclear and too uncertain to matter: +3.0 likely between −7 and +13 shrinks to +0.1.
+        let mut noisy = c.clone();
+        noisy[2].unclear = true;
+        noisy[2].comparison = Some(Comparison {
+            versus: 2,
+            wpa: 0.03,
+            ci: Some((-0.07, 0.13)),
+        });
+        let popular = Some(Choice {
+            value: 2,
+            label: Label::Popular,
+        });
+        assert_eq!(choose(&noisy), popular);
+        // Behind the most played one, or too few games to claim anything: never a bet.
+        let mut behind = noisy.clone();
+        behind[2].comparison = Some(Comparison {
+            versus: 2,
+            wpa: -0.03,
+            ci: Some((-0.04, -0.02)),
+        });
+        assert_eq!(choose(&behind), popular);
+        let mut few = c.clone();
+        (few[2].unclear, few[2].too_few) = (true, true);
+        assert_eq!(choose(&few), popular);
+        // Compared with another option than the most played: not on its scale.
+        let mut elsewhere = c.clone();
+        elsewhere[2].comparison = Some(Comparison {
+            versus: 1,
+            wpa: 0.03,
+            ci: Some((0.02, 0.04)),
+        });
+        assert_eq!(choose(&elsewhere), popular);
+    }
+
+    #[test]
+    fn the_best_bet_replaces_the_most_played_before_it_is_clear() {
+        // Cut Down against Coup de Grace on Lee Sin: +2.7, likely between 0.0 and +5.6, q 0.61.
+        let mut cut_down = candidate(8017, 1704, None);
+        cut_down.unclear = true;
+        cut_down.comparison = Some(Comparison {
+            versus: 8014,
+            wpa: 0.027,
+            ci: Some((-0.000_05, 0.055_55)),
+        });
+        let c = [
+            candidate(8014, 2194, None),
+            cut_down,
+            candidate(8299, 181, None),
+        ];
         assert_eq!(
-            choose(&unclear),
+            choose(&c),
             Some(Choice {
-                value: 2,
-                label: Label::Popular
+                value: 8017,
+                label: Label::BestBet {
+                    wpa: 0.027,
+                    ci: Some((-0.000_05, 0.055_55)),
+                    games: 1704
+                },
             })
         );
+        // A rarer option with a bigger but much noisier estimate loses to it once shrunk.
+        let mut lucky = candidate(8299, 181, None);
+        lucky.unclear = true;
+        lucky.comparison = Some(Comparison {
+            versus: 8014,
+            wpa: 0.08,
+            ci: Some((-0.1, 0.26)),
+        });
+        let c = [candidate(8014, 2194, None), c[1].clone(), lucky];
+        assert_eq!(choose(&c).map(|x| x.value), Some(8017));
+    }
+
+    #[test]
+    fn shrinking_keeps_most_of_a_precise_estimate_and_little_of_a_noisy_one() {
+        let precise = shrunk(0.027, Some((-0.000_05, 0.055_55))).unwrap();
+        assert!((precise - 0.018).abs() < 0.001, "{precise}");
+        let noisy = shrunk(0.08, Some((-0.1, 0.26))).unwrap();
+        assert!(noisy < BEST_BET_MIN, "{noisy}");
+        assert_eq!(shrunk(0.03, None), None);
     }
 
     #[test]
@@ -605,6 +726,23 @@ mod tests {
         (many.too_few, many.wpa) = (true, None);
         let rows = rank(&[candidate(40, 3000, None), many], None).rows;
         assert_eq!(rows[1].confidence, Confidence::TooFewToCompare);
+    }
+
+    #[test]
+    fn rank_marks_stronks_best_bet() {
+        let mut bet = compared(candidate(20, 300, None), 10, 0.027);
+        bet.unclear = true;
+        let rows = rank(&[candidate(10, 500, None), bet], Some(&20)).rows;
+        assert_eq!(rows[1].confidence, Confidence::BestBet);
+        // The same option, not chosen, is just unclear.
+        let rows = rank(&[candidate(10, 500, None), rows_unclear()], Some(&10)).rows;
+        assert_eq!(rows[1].confidence, Confidence::NoClearDifference);
+    }
+
+    fn rows_unclear() -> Candidate<i64> {
+        let mut c = compared(candidate(20, 300, None), 10, 0.027);
+        c.unclear = true;
+        c
     }
 
     #[test]

@@ -49,6 +49,19 @@ export type Outcome =
           wpa: number;
         }
       | {
+          /**
+           * @minItems 2
+           * @maxItems 2
+           */
+          ci: [number, number] | null;
+          games: number;
+          label: "best_bet";
+          /**
+           * Win probability added against the popular option, as published (not shrunk).
+           */
+          wpa: number;
+        }
+      | {
           label: "picked";
         }
     ))
@@ -64,6 +77,7 @@ export type Confidence =
   | "clearly_better"
   | "clearly_worse"
   | "most_played"
+  | "best_bet"
   | "no_clear_difference"
   | "too_few_games"
   | "too_few_to_compare"
@@ -113,6 +127,19 @@ export type SlotChoice = {
       wpa: number;
     }
   | {
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      games: number;
+      label: "best_bet";
+      /**
+       * Win probability added against the popular option, as published (not shrunk).
+       */
+      wpa: number;
+    }
+  | {
       label: "picked";
     }
 );
@@ -143,6 +170,19 @@ export type PageChoice = {
       label: "clearly_better";
       /**
        * Win probability added against the popular option.
+       */
+      wpa: number;
+    }
+  | {
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      games: number;
+      label: "best_bet";
+      /**
+       * Win probability added against the popular option, as published (not shrunk).
        */
       wpa: number;
     }
@@ -181,6 +221,19 @@ export type TupleOfInt64AndInt64Choice = {
       label: "clearly_better";
       /**
        * Win probability added against the popular option.
+       */
+      wpa: number;
+    }
+  | {
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      games: number;
+      label: "best_bet";
+      /**
+       * Win probability added against the popular option, as published (not shrunk).
        */
       wpa: number;
     }

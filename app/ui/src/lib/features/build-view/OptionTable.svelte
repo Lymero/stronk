@@ -37,7 +37,8 @@
     if (row.confidence === "too_few_to_compare") return { text: "too few to compare", tone: "note" };
     if (figure(row) === null || row.wpa === null) return { text: "", tone: "" };
     const clear = verdict(row);
-    return { text: `${clear ? (clear.tone === "positive" ? "▲ " : "▼ ") : ""}${wins(row.wpa)}`, tone: clear?.tone ?? "" };
+    const arrow = clear?.tone === "positive" ? "▲ " : clear?.tone === "negative" ? "▼ " : "";
+    return { text: `${arrow}${wins(row.wpa)}`, tone: clear?.tone ?? "" };
   }
 </script>
 
@@ -58,6 +59,7 @@
       <span class="name">
         <span class="label">{label(row.value)}</span>
         {#if row.confidence === "most_played" && scaled}<span class="tag">baseline</span>{/if}
+        {#if row.confidence === "best_bet"}<span class="tag bet">Best bet</span>{/if}
         {#if row.chosen && !row.selected}<span class="tag stronk">Stronk's pick</span>{/if}
         {#if elsewhere(row.value)}<span class="tag">{elsewhere(row.value)}</span>{/if}
       </span>
@@ -148,6 +150,15 @@
     color: var(--color-muted);
     font-size: var(--text-xs);
     font-weight: 600;
+  }
+  /* Stronk's best bet: filled, where "Stronk's pick" is outlined. */
+  .tag.bet {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+  .num.bet {
+    color: var(--color-accent);
   }
   .tag.stronk {
     border-color: var(--color-accent);

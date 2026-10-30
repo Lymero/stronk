@@ -100,14 +100,14 @@ describe("App with MockBackend", () => {
       "Master+",
       "All regions",
     ]);
-    expect(within(build).getByTitle(/Stronk imports the most played options, except where another one is clearly better\./)).toBeInTheDocument();
+    expect(within(build).getByTitle(/Stronk imports the most played options, except where another one is ahead of it: clearly better, or its best bet when not yet proven\./)).toBeInTheDocument();
     // The sheet: every slot's pick by name, Stronk's change marked with its gain.
     expect(screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"))).toEqual([
       "Runes: Conqueror",
       "Spells: Smite + Flash",
       "Item 1: Eclipse",
       "Item 2: Sundered Sky, Stronk's change +2.1",
-      "Item 3: Sterak's Gage",
+      "Item 3: Guardian Angel, Stronk's best bet +1.2",
     ]);
     // It opens on the slot Stronk changes.
     expect(tab("Item 2")).toHaveAttribute("aria-selected", "true");
@@ -131,12 +131,20 @@ describe("App with MockBackend", () => {
     expect((await open("Spells")).getByText("Not measured yet")).toBeInTheDocument();
     const spellNumbers = [...screen.getByRole("tabpanel").querySelectorAll(".row .num")].map((n) => n.textContent);
     expect(spellNumbers).toEqual(["", ""]); // no estimates, no numbers
-    expect((await open("Item 3")).getByText("▼ −1.8")).toHaveClass("negative");
+    // Item 3: Guardian Angel is ahead of Sterak's Gage, not yet clearly: Stronk's best bet.
+    const item3 = await open("Item 3");
+    expect(item3.getByText("▼ −1.8")).toHaveClass("negative");
+    expect(item3.getByText("Best bet +1.2 wins per 100 vs Sterak's Gage")).toHaveClass("bet");
+    expect(option(item3, "Guardian Angel")).toHaveTextContent("Best bet");
+    expect(option(item3, "Guardian Angel")).toHaveAttribute("aria-checked", "true");
+    expect(option(item3, "Guardian Angel").querySelector(".num")).not.toHaveClass("positive"); // not proven: no green
+    expect(screen.getByRole("tab", { name: /^Item 3:/ })).toHaveTextContent("Best bet +1.2");
     expect(within(build).queryByText(/Popular|Most played|No clear difference/)).toBeNull();
     // It opens with what Stronk changes from the most played build, and what that beats.
     const take = within(build).getByLabelText("What Stronk changes");
-    expect(take).toHaveTextContent("Stronk changes 1 thing from the most played build");
-    expect(take).toHaveTextContent("Item 2 Sundered Sky over Black Cleaver +2.1 wins per 100 games");
+    expect(take).toHaveTextContent("Stronk changes 2 things from the most played build");
+    expect(take).toHaveTextContent("Item 2 Sundered Sky over Black Cleaver ▲ +2.1");
+    expect(take).toHaveTextContent("Item 3 Guardian Angel over Sterak's Gage Best bet +1.2");
     // The rows come with the plan: nothing else is asked for them.
     expect(backend.calls.filter((c) => c.id === "build.get")).toEqual([]);
   });

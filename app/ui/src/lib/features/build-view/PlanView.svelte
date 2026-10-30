@@ -47,13 +47,13 @@
   const how = $derived(
     (allPopular(plan)
       ? "No option beats the most played one clearly yet, so Stronk imports the most played build."
-      : "Stronk imports the most played options, except where another one is clearly better.") +
+      : "Stronk imports the most played options, except where another one is ahead of it: clearly better, or its best bet when not yet proven.") +
       " Open a slot and click any option to import it instead.",
   );
   /** Fewer games than this behind a whole build: the board says so before anything else. */
   const THIN = 300;
   const options = $derived(ranked(plan, picks));
-  const stronkChanges = $derived(changes(options));
+  const stronkChanges = $derived(changes(options, plan.alternatives.rune_rows));
   /** The page the import writes: the player's, else Stronk's. */
   const shownPage = $derived(picks.runes ?? plan.runes?.value ?? null);
   /** The client's layout of that page's trees, without which pages are picked whole. */
@@ -81,14 +81,28 @@
   const alsoIn = (slot: number, id: number) =>
     plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => `item ${i.slot}`);
 
-  const changedKey = (part: "runes" | "spells" | number) => (typeof part === "number" ? `item-${part}` : part);
+  const changedKey = (part: "runes" | "rune" | "spells" | number) =>
+    typeof part === "number" ? `item-${part}` : part === "rune" ? "runes" : part;
   const changedKeys = $derived(new Set(stronkChanges.map((c) => changedKey(c.part))));
   const spellPair = $derived(picks.spells ?? plan.spells?.value ?? null);
 
+  /** Stronk's change in a slot, as its badge reads: proven ("▲ +2.1") or its best bet ("Best bet
+   * +2.7"); the largest when a rune page changes in several rows. */
   const gain = (key: string) => {
-    const c = stronkChanges.find((x) => changedKey(x.part) === key);
-    return c?.row.wpa != null ? wins(c.row.wpa) : null;
+    const found = stronkChanges
+      .filter((x) => changedKey(x.part) === key && x.row.wpa != null)
+      .sort((a, b) => (b.row.wpa ?? 0) - (a.row.wpa ?? 0))[0];
+    return found ? { text: wins(found.row.wpa ?? 0), bet: found.row.confidence === "best_bet" } : null;
   };
+  /** A change's option, in words. */
+  const changeLabel = (part: "runes" | "rune" | "spells" | number, value: unknown) =>
+    part === "runes"
+      ? page(value as Page)
+      : part === "rune"
+        ? (value as number[]).map((id) => name(names, "runes", id)).join(" + ")
+        : part === "spells"
+          ? spells(value as [number, number])
+          : item(value as number);
   const slots = $derived([
     ...(shownPage
       ? [
@@ -208,13 +222,17 @@
           Stronk changes {stronkChanges.length === 1 ? "1 thing" : `${stronkChanges.length} things`} from the most played build
         </p>
         <ul>
-          {#each stronkChanges as c (c.part)}
-            {@const label = c.part === "runes" ? page : c.part === "spells" ? spells : item}
+          {#each stronkChanges as c, n (n)}
+            {@const label = (v: unknown) => changeLabel(c.part, v)}
             <li title={explain(c.row)}>
-              <span class="part">{c.part === "runes" ? "Runes" : c.part === "spells" ? "Summoner spells" : `Item ${c.part}`}</span>
-              <strong>{(label as (v: unknown) => string)(c.row.value)}</strong>
-              {#if c.base && c.base !== c.row}<span class="base">over {(label as (v: unknown) => string)(c.base.value)}</span>{/if}
-              <span class="gain">{wins(c.row.wpa ?? 0)} wins per 100 games</span>
+              <span class="part">{c.part === "runes" || c.part === "rune" ? "Runes" : c.part === "spells" ? "Summoner spells" : `Item ${c.part}`}</span>
+              <strong>{label(c.row.value)}</strong>
+              {#if c.base && c.base.value !== c.row.value}<span class="base">over {label(c.base.value)}</span>{/if}
+              {#if c.row.confidence === "best_bet"}
+                <span class="gain bet" title="Wins per 100 games against the most played option: ahead on the numbers so far, not yet proven">Best bet {wins(c.row.wpa ?? 0)}</span>
+              {:else}
+                <span class="gain" title="Wins per 100 games against the most played option, proven">▲ {wins(c.row.wpa ?? 0)}</span>
+              {/if}
             </li>
           {/each}
         </ul>
@@ -261,6 +279,7 @@
     <p class="legend">
       <span>Numbers are wins per 100 games against the baseline, the most played option (0)</span>
       <span><span class="clear">▲</span> colour only when clearly better or worse</span>
+      <span><span class="bet">Best bet</span>: ahead on the numbers so far, not yet proven</span>
       <span>%: share of games</span>
       <span>No number: too few games</span>
     </p>
@@ -327,7 +346,17 @@
     color: var(--color-muted);
     font-size: var(--text-sm);
   }
+  /* As the sheet's badges: green when proven, amber for a best bet. */
+  .gain.bet {
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+  }
   .gain {
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--color-positive-bg);
+    font-size: var(--text-xs);
+    white-space: nowrap;
     color: var(--color-positive);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -382,6 +411,10 @@
     color: var(--color-negative);
     font-weight: 600;
   }
+  .note.bet {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
   .note.picked {
     color: var(--color-accent);
     font-weight: 600;
@@ -397,6 +430,10 @@
     margin: calc(-1 * var(--space-2)) 0 0;
     color: var(--color-muted);
     font-size: var(--text-xs);
+  }
+  .legend .bet {
+    color: var(--color-accent);
+    font-weight: 600;
   }
   .legend .clear {
     color: var(--color-positive);

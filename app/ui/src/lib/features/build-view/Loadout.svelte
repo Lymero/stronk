@@ -8,8 +8,9 @@
     /** Under it, when there's more to say: the page's trees. */
     detail?: string;
     icons: { src: string | null; name: string }[];
-    /** Stronk takes a clearly better option than the most played one: its gain, "+2.1". */
-    changed: string | null;
+    /** Stronk takes another option than the most played one: its gain ("+2.1"), and whether it's
+     * its best bet rather than a proven gain (ADR-065). */
+    changed: { text: string; bet: boolean } | null;
     yours: boolean;
   }
 </script>
@@ -17,7 +18,8 @@
 <script lang="ts">
   // The build the import writes as a sheet (ADR-062): runes, spells and items, each with its pick
   // by name, a tab that opens the slot beside it. A green ▲ with its gain marks a slot where
-  // Stronk takes a clearly better option than the most played one; "Your pick", one the player
+  // Stronk takes a clearly better option than the most played one, an amber "Best bet" one where
+  // it takes its best bet, not yet proven (ADR-065); "Your pick", one the player
   // changed.
   import Icon from "../../ui/Icon.svelte";
 
@@ -55,7 +57,7 @@
       class:active={focus === slot.key}
       aria-selected={focus === slot.key}
       aria-controls="slot-panel"
-      aria-label={`${slot.name}: ${slot.value}${slot.changed ? `, Stronk's change ${slot.changed}` : ""}${slot.yours ? ", your pick" : ""}`}
+      aria-label={`${slot.name}: ${slot.value}${slot.changed ? `, Stronk's ${slot.changed.bet ? "best bet" : "change"} ${slot.changed.text}` : ""}${slot.yours ? ", your pick" : ""}`}
       tabindex={focus === slot.key ? 0 : -1}
       onclick={() => onfocus(slot.key)}
     >
@@ -65,7 +67,8 @@
         <span class="value">{slot.value}</span>
         {#if slot.detail}<span class="detail">{slot.detail}</span>{/if}
       </span>
-      {#if slot.changed}<span class="badge changed">▲ {slot.changed}</span>{/if}
+      {#if slot.changed?.bet}<span class="badge bet">Best bet {slot.changed.text}</span>
+      {:else if slot.changed}<span class="badge changed">▲ {slot.changed.text}</span>{/if}
       {#if slot.yours}<span class="badge yours">Your pick</span>{/if}
     </button>
   {/each}
@@ -150,6 +153,10 @@
     font-size: var(--text-xs);
     font-weight: 700;
     white-space: nowrap;
+  }
+  .badge.bet {
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
   }
   .badge.changed {
     background: var(--color-positive-bg);
