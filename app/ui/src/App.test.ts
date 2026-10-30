@@ -52,7 +52,8 @@ async function open(slot: string) {
   return within(screen.getByRole("tabpanel", { name: slot === "Spells" ? "Summoner spells" : slot }));
 }
 /** An option's row in the open slot. */
-const option = (panel: ReturnType<typeof within>, name: string) => panel.getByRole("radio", { name: new RegExp(`^${name},`) });
+const option = (panel: ReturnType<typeof within>, name: string) =>
+  panel.getByRole("radio", { name: new RegExp(`^${name.replace(/[+.()]/g, "\\$&")},`) });
 
 const imports = (backend: MockBackend) => backend.calls.filter((c) => c.id === "build.import").length;
 
@@ -169,10 +170,22 @@ describe("App with MockBackend", () => {
     expect(option(row("Precision, row 3"), "Last Stand").querySelector(".num")).toHaveTextContent(/^$/); // short of games
     await fireEvent.click(within(tree).getByRole("button", { name: "Adaptive Force", pressed: true }));
     expect(option(row("Flex shard"), "Move Speed").querySelector(".num")).toHaveTextContent("−1.1");
-    // Secondary runes carry their pair's numbers; no other pair of this row was played, so no 0 either.
+    // Secondary runes are measured as a pair: the tree's pairs, each with both runes. No other pair
+    // has enough games to compare with, so no 0 either.
     await fireEvent.click(within(tree).getByRole("button", { name: "Magical Footwear" }));
-    expect(option(row("Inspiration, row 1"), "Magical Footwear")).toHaveAttribute("aria-checked", "true");
-    expect(option(row("Inspiration, row 1"), "Magical Footwear").querySelector(".num")).toHaveTextContent(/^$/);
+    const pairs = row("Inspiration, pairs");
+    expect(pairs.getAllByRole("radio").map((r) => r.getAttribute("aria-label")?.split(",")[0])).toEqual([
+      "Magical Footwear + Cosmic Insight",
+      "Biscuit Delivery + Cosmic Insight",
+    ]);
+    expect(option(pairs, "Magical Footwear + Cosmic Insight")).toHaveAttribute("aria-checked", "true");
+    expect(option(pairs, "Magical Footwear + Cosmic Insight").querySelectorAll(".icon")).toHaveLength(2);
+    expect(option(pairs, "Magical Footwear + Cosmic Insight").querySelector(".num")).toHaveTextContent(/^$/);
+    // Picking a pair sets both runes.
+    await fireEvent.click(option(pairs, "Biscuit Delivery + Cosmic Insight"));
+    const inspiration = within(within(tree).getByRole("region", { name: "Inspiration, secondary" }));
+    expect(inspiration.getByRole("button", { name: "Biscuit Delivery" })).toHaveAttribute("aria-pressed", "true");
+    expect(inspiration.getByRole("button", { name: "Magical Footwear" })).toHaveAttribute("aria-pressed", "false");
     const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);
     expect(asked).toContain(8021); // Fleet Footwork: in no published page, its icon still asked for
   });
@@ -207,11 +220,11 @@ describe("App with MockBackend", () => {
     await click(/^Move Speed/); // flex shard
     expect(within(tree()).getByRole("button", { name: /^Lethal Tempo/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree()).getByRole("button", { name: /^Conqueror/ }).classList).toContain("stronk"); // Stronk's, marked
-    // A pair nobody played has no number.
-    await click(/^Approach Velocity/); // picked already: brings its row into focus
-    const focused = within(within(tree()).getByRole("region", { name: "Inspiration, row 3" }));
-    expect(option(focused, "Approach Velocity")).toHaveAttribute("aria-checked", "true");
-    expect(option(focused, "Approach Velocity").querySelector(".num")).toHaveTextContent(/^$/);
+    // A pair nobody played is still listed, picked, with no number.
+    await click(/^Approach Velocity/); // picked already: brings the secondary tree into focus
+    const focused = within(within(tree()).getByRole("region", { name: "Inspiration, pairs" }));
+    expect(option(focused, "Biscuit Delivery + Approach Velocity")).toHaveAttribute("aria-checked", "true");
+    expect(option(focused, "Biscuit Delivery + Approach Velocity").querySelector(".num")).toHaveTextContent(/^$/);
     // Another secondary tree: its most played pair; another primary: its most played page.
     const switcher = (which: string) => within(within(tree()).getByRole("group", { name: `${which} tree` }));
     await fireEvent.click(switcher("Secondary").getByRole("button", { name: "Resolve" }));
@@ -260,10 +273,10 @@ describe("App with MockBackend", () => {
 
     // Changing a pick after the import says so; Stronk's picks come back with one click.
     const spells = await open("Spells");
-    await fireEvent.click(option(spells, "Smite \\+ Ignite"));
+    await fireEvent.click(option(spells, "Smite + Ignite"));
     expect(screen.getByRole("status")).toHaveTextContent("Your picks changed since: import again to use them.");
     await fireEvent.click(screen.getByRole("button", { name: "Use Stronk's picks" }));
-    expect(option(spells, "Smite \\+ Ignite")).toHaveAttribute("aria-checked", "false");
+    expect(option(spells, "Smite + Ignite")).toHaveAttribute("aria-checked", "false");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     expect(sent().at(-1)).toEqual({});
   });
@@ -356,7 +369,7 @@ describe("App with MockBackend", () => {
       expect(within(tree).getByRole("button", { name: new RegExp(`^${rune}`), pressed: true })).toBeInTheDocument();
     }
     expect(within(tree).getByRole("heading", { name: "Precision" })).toBeInTheDocument();
-    expect(option(await open("Spells"), "Smite \\+ Flash")).toHaveAttribute("aria-checked", "true");
+    expect(option(await open("Spells"), "Smite + Flash")).toHaveAttribute("aria-checked", "true");
     expect(document.body.textContent).not.toContain("·"); // no middle dots anywhere
     expect(tab("Item 2")).toHaveTextContent("Sundered Sky");
   });

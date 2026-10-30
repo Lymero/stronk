@@ -81,6 +81,14 @@ async function board(page: Page, pick: string, every: boolean): Promise<string[]
       problems.push(`${name.split(":")[0] ?? name}: the sheet and the open slot end at different heights`);
     if (every || t === count - 1) await shot(page, `${pick}-${t}`);
   }
+  // The secondary tree's pairs, saved to look at.
+  if (every) {
+    await page.getByRole("tab", { name: /^Runes:/ }).click();
+    await page.getByRole("region", { name: /, secondary$/ }).locator(".rune.on").first().click();
+    if ((await page.getByRole("region", { name: /, pairs$/ }).count()) !== 1) problems.push("no pair list for the secondary runes");
+    await page.mouse.move(0, 0);
+    await shot(page, `${pick}-pairs`);
+  }
   // Looking through every slot changed nothing: no pick of the player's, nothing to reset.
   const yours = await page.getByRole("tab", { name: /, your pick$/ }).count();
   if (yours > 0) problems.push(`${yours} slots read "your pick" after only looking`);

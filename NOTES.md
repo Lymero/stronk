@@ -188,3 +188,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: a video was left out (over the 512 KB file limit); check the deployed site.
 - 2026-10-30: the site's two views share one figure at the top, switched by "Runes" and "Items" (ADR-066); "What it does" is text only again.
   Open: on phones the two pictures differ in height, so the text below moves when switching.
+- 2026-10-30: the secondary runes are listed as pairs (ADR-064 amended): clicking one focuses the secondary tree, its pairs listed with both runes, a pair picks both.
+  Open: pairs rarely have numbers (24 of 727 boards have a second pair of 300+ games); more patches of data, not a looser rule, would fill them.

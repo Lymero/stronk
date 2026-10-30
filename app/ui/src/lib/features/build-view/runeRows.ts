@@ -1,11 +1,12 @@
 // The rune page as rows of decisions (ADR-064): the keystones, the primary tree's three rows, the
 // secondary tree's three rows and the three shard rows, each with its options in the shape the
 // item lists take (`Slot`), what the page has in it, and the page picking an option makes. The
-// views draw these rows as they like; the client's rules stay in runes.ts.
+// secondary runes are measured as a pair, so their numbers come as one list of the tree's pairs
+// (`runePairs`). The views draw these as they like; the client's rules stay in runes.ts.
 
 import type { GameNames, Page, Plan, Row } from "../../backend/backend.ts";
 import type { Shown, Slot } from "./options.ts";
-import { runeStats, withPrimaryRune, withSecondaryRune, withShard } from "./runes.ts";
+import { runeStats, withPrimaryRune, withSecondaryPair, withSecondaryRune, withShard } from "./runes.ts";
 
 export interface RuneRow {
   /** "primary-0" (the keystones) to "primary-3", "secondary-1" to "secondary-3", "shard-0" to "shard-2". */
@@ -15,7 +16,7 @@ export interface RuneRow {
   label: string;
   /** Its runes in the client's order. */
   ids: number[];
-  /** Its runes as an item list takes them, most played first. */
+  /** Its runes as an item list takes them, most played first; a secondary row's have no numbers. */
   slot: Slot<number>;
   /** The rune the page has in this row; a secondary row may have none. */
   picked: number | undefined;
@@ -71,8 +72,6 @@ export function runeRows(
   const primary = trees[String(page.primary_style)] ?? [];
   const secondary = (trees[String(page.sub_style)] ?? []).slice(1);
   const has = (p: Page | null, id: number, from: number, to: number) => !!p && p.perks.slice(from, to).includes(id);
-  const pairWith = (id: number) =>
-    stats.pair(page.sub_style, withSecondaryRune(trees, page, id, last).perks.slice(4, 6));
   return [
     ...primary.map((ids, r) => ({
       key: `primary-${r}`,
@@ -93,7 +92,7 @@ export function runeRows(
       group: "secondary" as const,
       label: `Row ${r + 1}`,
       ids,
-      slot: slotOf(ids, pairWith, (id) => has(page, id, 4, 6), (id) => has(stronk, id, 4, 6)),
+      slot: slotOf(ids, () => undefined, (id) => has(page, id, 4, 6), (id) => has(stronk, id, 4, 6)),
       picked: ids.find((id) => page.perks.slice(4, 6).includes(id)),
       next: (id: number) => withSecondaryRune(trees, page, id, last),
     })),
@@ -112,4 +111,39 @@ export function runeRows(
       next: (id: number) => withShard(page, r, id),
     })),
   ];
+}
+
+/** The two runes of a pair as one key, whatever their order. */
+const pairKey = (pair: number[]) => [...pair].sort((a, b) => a - b).join("+");
+
+/** The page's secondary tree as a list of pairs, the way the data measures them: every pair
+ * played in the tree, most played first, and the page's own pair even when nobody played it.
+ * Picking one makes both the page's secondary runes. */
+export function runePairs(
+  plan: Plan,
+  names: GameNames,
+  page: Page,
+  stronk: Page | null,
+): { slot: Slot<number[]>; next: (pair: number[]) => Page } {
+  const style = page.sub_style;
+  const mine = pairKey(page.perks.slice(4, 6));
+  const ours = stronk?.sub_style === style ? pairKey(stronk.perks.slice(4, 6)) : null;
+  const played = plan.alternatives.rune_rows.find((r) => r.kind === "secondary" && r.style === style)?.rows ?? [];
+  const pairs: Row<number[]>[] = played.some((r) => pairKey(r.value) === mine)
+    ? played
+    : [...played, { ...unplayed(0), value: page.perks.slice(4, 6) }];
+  const rowOf = (id: number) => (names.rune_trees[String(style)] ?? []).findIndex((r, i) => i > 0 && r.includes(id));
+  const rows: Shown<number[]>[] = pairs.map((r) => {
+    const key = pairKey(r.value);
+    return {
+      ...r,
+      value: [...r.value].sort((a, b) => rowOf(a) - rowOf(b)),
+      key,
+      selected: key === mine,
+      chosen: key === ours,
+      shown: r.listed || key === mine || key === ours,
+    };
+  });
+  rows.sort((a, b) => b.played - a.played);
+  return { slot: { rows, more: 0 }, next: (pair) => withSecondaryPair(names.rune_trees, page, pair) };
 }

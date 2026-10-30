@@ -3,12 +3,14 @@
   // in amber (Stronk's pick marked by a dot when the player took another), the shards in their
   // three rows; the row in focus beside it as a list read like the item lists: each rune's name,
   // its number against the row's most played rune, its share and its games. Clicking a rune in
-  // the tree picks it and brings its row into focus; picking from the list does the same.
+  // the tree picks it and brings its row into focus; picking from the list does the same. The
+  // secondary runes are measured as a pair: clicking one brings the whole secondary tree into
+  // focus, its pairs listed with both runes, and picking a pair sets both.
   import type { GameNames, Page, Plan } from "../../backend/backend.ts";
   import Icon from "../../ui/Icon.svelte";
   import { type Icons, icon, name } from "../../ui/labels.ts";
   import OptionTable from "./OptionTable.svelte";
-  import { type RuneRow, runeRows } from "./runeRows.ts";
+  import { type RuneRow, runePairs, runeRows } from "./runeRows.ts";
   import { withPrimaryTree, withSecondaryTree } from "./runes.ts";
 
   let {
@@ -30,7 +32,9 @@
   let last = $state<number | null>(null);
   let focus = $state("primary-0");
   const rows = $derived(runeRows(plan, names, page, stronk, last));
-  const focused = $derived(rows.find((r) => r.key === focus) ?? rows[0]);
+  const pairs = $derived(runePairs(plan, names, page, stronk));
+  /** The row in focus; the secondary tree is one focus, as its runes are one pair. */
+  const focused = $derived(focus === "secondary" ? null : (rows.find((r) => r.key === focus) ?? rows[0]));
   const trees = $derived(names.rune_trees);
   const styles = $derived(Object.keys(trees).map(Number));
   const rune = (id: number) => name(names, "runes", id);
@@ -42,8 +46,15 @@
       onpage(row.next(id));
       if (row.group === "secondary") last = id;
     }
-    focus = row.key;
+    focus = row.group === "secondary" ? "secondary" : row.key;
   }
+  function pickPair(pair: number[]): void {
+    if (!pairs.slot.rows.some((r) => r.selected && r.value.join() === pair.join())) {
+      onpage(pairs.next(pair));
+      last = null;
+    }
+  }
+  const both = (pair: number[]) => pair.map(rune).join(" + ");
   /** What the list is headed by: the tree, or the shard row. Players know which row it is; screen
    * readers get it from `title`. */
   const heading = (row: RuneRow) =>
@@ -51,15 +62,11 @@
       ? row.key === "primary-0"
         ? `${tree(page.primary_style)} keystones`
         : tree(page.primary_style)
-      : row.group === "secondary"
-        ? tree(page.sub_style)
-        : `${row.label} shard`;
+      : `${row.label} shard`;
   const title = (row: RuneRow) =>
     row.group === "primary"
       ? `${tree(page.primary_style)}, ${row.label.toLowerCase()}`
-      : row.group === "secondary"
-        ? `${tree(page.sub_style)}, ${row.label.toLowerCase()}`
-        : `${row.label} shard`;
+      : `${row.label} shard`;
 </script>
 
 {#snippet head(current: number, others: number[], choose: (style: number) => void, tag: string)}
@@ -101,7 +108,7 @@
       {@render head(page.primary_style, styles.filter((s) => s !== page.primary_style), (s) => onpage(withPrimaryTree(plan, trees, page, s)), "Primary")}
       {#each rows.filter((r) => r.group === "primary") as row (row.key)}{@render line(row, row.key === "primary-0" ? "lg" : "md")}{/each}
     </section>
-    <section class="tree" aria-label={`${tree(page.sub_style)}, secondary`}>
+    <section class="tree" class:focus={focus === "secondary"} aria-label={`${tree(page.sub_style)}, secondary`}>
       {@render head(page.sub_style, styles.filter((s) => s !== page.sub_style && s !== page.primary_style), (s) => onpage(withSecondaryTree(plan, trees, page, s)), "Secondary")}
       {#each rows.filter((r) => r.group === "secondary") as row (row.key)}{@render line(row, "md")}{/each}
     </section>
@@ -122,12 +129,21 @@
   {#if focused}
     <section class="detail" aria-label={title(focused)}>
       <h4 class="title">{heading(focused)}</h4>
-      {#if focused.group === "secondary"}<p class="hint">Two from different rows; each number is for the pair it makes.</p>{/if}
       <OptionTable
         slot={focused.slot}
         label={rune}
         icons={(id) => [{ src: icon(icons, "runes", id), name: rune(id) }]}
         onpick={(id) => pick(focused, id)}
+      />
+    </section>
+  {:else}
+    <section class="detail" aria-label={`${tree(page.sub_style)}, pairs`}>
+      <h4 class="title">{tree(page.sub_style)} pairs</h4>
+      <OptionTable
+        slot={pairs.slot}
+        label={both}
+        icons={(pair) => pair.map((id) => ({ src: icon(icons, "runes", id), name: rune(id) }))}
+        onpick={pickPair}
       />
     </section>
   {/if}
@@ -222,7 +238,8 @@
     padding: 5px 8px;
     border-radius: 999px;
   }
-  .line.focus {
+  .line.focus,
+  .tree.focus {
     background: var(--color-accent-bg);
     box-shadow: inset 0 0 0 1px var(--color-accent);
   }

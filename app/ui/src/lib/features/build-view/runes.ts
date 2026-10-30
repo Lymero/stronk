@@ -56,14 +56,25 @@ export function withPrimaryRune(page: Page, row: number, rune: number): Page {
   return { ...page, perks };
 }
 
+/** The row (1 to 3) of `rune` in secondary tree `style`; -1 when it isn't in one. */
+const secondaryRow = (trees: Trees, style: number) => (rune: number) =>
+  rowsOf(trees, style).findIndex((row, i) => i > 0 && row.includes(rune));
+
+/** The page with `pair` as its two secondary runes, in row order. */
+export function withSecondaryPair(trees: Trees, page: Page, pair: number[]): Page {
+  const rowOf = secondaryRow(trees, page.sub_style);
+  const perks = [...page.perks];
+  perks.splice(4, 2, ...[...pair].sort((a, b) => rowOf(a) - rowOf(b)));
+  return { ...page, perks };
+}
+
 /** The page with `rune` among its two secondary runes. A rune from a row already taken
  * replaces the one in that row; otherwise it replaces the one picked before the other, as in
  * the client: `last` is the secondary rune the player picked last, kept when it's still on the
  * page (without it, the upper one goes). The two stay in row order, so the page alone can't
  * tell which came last. */
 export function withSecondaryRune(trees: Trees, page: Page, rune: number, last: number | null = null): Page {
-  const rows = rowsOf(trees, page.sub_style);
-  const rowOf = (r: number) => rows.findIndex((row, i) => i > 0 && row.includes(r));
+  const rowOf = secondaryRow(trees, page.sub_style);
   const row = rowOf(rune);
   if (row < 1) return page;
   const [first = 0, second = 0] = page.perks.slice(4, 6);
@@ -86,12 +97,11 @@ export function withShard(page: Page, row: number, shard: number): Page {
 
 /** Each rune's numbers on this plan: a keystone's from its published page, the rest from the
  * rune rows of their tree, a shard's from its row (ADR-057). Secondary runes have none of their
- * own: they're measured as a pair. */
+ * own: they're measured as a pair (`runePairs`). */
 export function runeStats(plan: Plan): {
   keystone: (id: number) => Row<unknown> | undefined;
   primary: (style: number, row: number, id: number) => Row<unknown> | undefined;
   shard: (row: number, id: number) => Row<unknown> | undefined;
-  pair: (style: number, pair: number[]) => Row<unknown> | undefined;
 } {
   const keystones = new Map<number, Row<unknown>>();
   for (const r of plan.alternatives.runes.rows) {
@@ -100,12 +110,11 @@ export function runeStats(plan: Plan): {
   }
   const rows = new Map<string, Row<unknown>>();
   for (const r of plan.alternatives.rune_rows) {
-    for (const x of r.rows) rows.set(`${r.kind}/${r.style ?? ""}/${r.row ?? ""}/${[...x.value].sort((a, b) => a - b).join("+")}`, x);
+    for (const x of r.rows) if (r.kind !== "secondary") rows.set(`${r.kind}/${r.style ?? ""}/${r.row ?? ""}/${x.value.join("+")}`, x);
   }
   return {
     keystone: (id) => keystones.get(id),
     primary: (style, row, id) => rows.get(`primary/${style}/${row}/${id}`),
     shard: (row, id) => rows.get(`shard//${row + 1}/${id}`),
-    pair: (style, pair) => rows.get(`secondary/${style}//${[...pair].sort((a, b) => a - b).join("+")}`),
   };
 }
