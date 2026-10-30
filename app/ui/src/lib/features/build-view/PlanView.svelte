@@ -393,9 +393,6 @@
     color: var(--color-muted);
     font-size: var(--text-xs);
   }
-  .legend strong {
-    color: var(--color-text);
-  }
   .legend .clear {
     color: var(--color-positive);
   }
