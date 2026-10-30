@@ -74,6 +74,11 @@ async function board(page: Page, pick: string, every: boolean): Promise<string[]
     await tab.click();
     const name = (await tab.getAttribute("aria-label")) ?? `slot ${t}`;
     problems.push(...(await slot(page, name.split(":")[0] ?? name)));
+    // The sheet and the open slot end on the same line.
+    const sheet = await page.locator(".loadout-card").boundingBox();
+    const panel = await page.getByRole("tabpanel").boundingBox();
+    if (sheet && panel && Math.abs(sheet.y + sheet.height - (panel.y + panel.height)) > 1)
+      problems.push(`${name.split(":")[0] ?? name}: the sheet and the open slot end at different heights`);
     if (every || t === count - 1) await shot(page, `${pick}-${t}`);
   }
   // Looking through every slot changed nothing: no pick of the player's, nothing to reset.

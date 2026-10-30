@@ -270,7 +270,8 @@
     display: grid;
     grid-template-columns: 340px minmax(0, 1fr);
     gap: var(--space-3);
-    align-items: start;
+    /* Both cards as tall as the taller one: their bottoms line up. */
+    align-items: stretch;
   }
   .thin {
     margin: 0;
@@ -281,6 +282,7 @@
   }
   .loadout-card {
     display: grid;
+    align-content: start;
     gap: var(--space-3);
     padding: var(--space-3);
   }
@@ -303,7 +305,8 @@
     cursor: help;
   }
   .panel {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: var(--space-3);
   }
   .panel header {
@@ -347,7 +350,9 @@
     color: var(--color-accent);
     font-weight: 600;
   }
+  /* The patch line and legend close the panel at its bottom, however short the slot. */
   .panel .meta {
+    margin-top: auto;
     padding-top: var(--space-3);
     border-top: 1px solid var(--color-border);
   }

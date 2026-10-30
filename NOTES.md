@@ -180,3 +180,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: check the deployed site after Cloudflare builds this push.
 - 2026-10-30: the site's screenshot has the game's real icons (ADR-066): `just site-shot` fetches them from CommunityDragon into runs/site-icons and lcu-mock serves them; attributed in ATTRIBUTION.md.
   Open: check the deployed site after Cloudflare builds this push.
+- 2026-10-30: the sheet and the open slot end on the same line (ADR-062), the legend at the slot's bottom; e2e-real checks it; site screenshot refreshed.
+  Open: nothing new.
