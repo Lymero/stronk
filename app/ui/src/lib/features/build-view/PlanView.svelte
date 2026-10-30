@@ -96,6 +96,9 @@
   ): { text: string; tone: string; title: string } | null {
     const row = selected(slot);
     if (!row) return null;
+    // Spells have no estimates at all: their blanks aren't a lack of games.
+    if (slot.rows.every((r) => r.wpa === null && (r.confidence === "most_played" || r.confidence === "not_estimated")))
+      return row.chosen ? { text: "Not measured yet", tone: "muted", title: "No win impact is estimated for these yet" } : { text: "Your pick", tone: "picked", title: "" };
     const clear = verdict(row);
     const base = mostPlayed(slot);
     const against = base && compared(slot) ? label(base.value) : null;
@@ -164,6 +167,7 @@
       <svg class="key ring" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" class="track" /><circle cx="6" cy="6" r="4.5" class="arc" pathLength="100" stroke-dasharray="35 100" /></svg>ring: share of games
       <span class="key num" aria-hidden="true">+2.1</span>wins per 100 games compared with the most played option of its row, which reads 0
       <span class="key clear" aria-hidden="true">▲</span>colour only when clearly better or worse
+      <span class="key none" aria-hidden="true"></span>no number: too few games
     </p>
   </div>
 
@@ -310,6 +314,12 @@
   .key.num {
     color: var(--color-text);
     font-weight: 600;
+  }
+  .key.none {
+    width: 10px;
+    height: 10px;
+    border: 1px dashed var(--color-muted);
+    border-radius: 50%;
   }
   .key.clear {
     color: var(--color-positive);

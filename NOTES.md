@@ -152,3 +152,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: 43 options with 300+ games but under 300 comparable decisions read "few games" (`few-games-false`, so e2e-real fails until the wording is decided); "few games" clutter on thin item slots.
 - 2026-10-30: "too few to compare" for an option with 300+ games but too few comparable ones (`Confidence::TooFewToCompare`, owner's wording); `just e2e-real` takes the picks first and passes on all 727 boards.
   Open: "few games" clutter on thin item slots.
+- 2026-10-30: no label for options short of games (legend: "no number: too few games"), "Not measured yet" on spells, every option box one size; e2e-real now fails on boxes of different sizes or content spilling out (it caught the spell pair).
+  Open: nothing new.

@@ -14,7 +14,7 @@ const session = JSON.parse(readFileSync(resolve(ROOT, "runs/e2e-real/session.jso
 };
 
 /** What may sit under an option: its number, 0 for the baseline, or why it has none. */
-const NUMBER = /^(?:[▲▼]?[+−]\d+\.\d|0|few games|too few to compare|almost always|)$/;
+const NUMBER = /^(?:[▲▼]?[+−]\d+\.\d|0|too few to compare|almost always|)$/;
 
 async function board(page: Page): Promise<string[]> {
   const problems: string[] = [];
@@ -42,6 +42,18 @@ async function board(page: Page): Promise<string[]> {
   }
   const spells = await build.getByRole("region", { name: "Summoner spells" }).locator(".cell.on").count();
   if (spells !== 1) problems.push(`summoner spells: ${spells} pairs lit`);
+  // Every option the same size, so rows line up and hover boxes match.
+  for (const size of [".md:not(.pair)", ".sm", ".pair"]) {
+    const boxes = await build.locator(`.cell${size}:not(.bare)`).evaluateAll((cells) =>
+      cells.map((c) => `${Math.round(c.getBoundingClientRect().width)}x${Math.round(c.getBoundingClientRect().height)}`),
+    );
+    const sizes = [...new Set(boxes)];
+    if (sizes.length > 1) problems.push(`options of different sizes (${size}): ${sizes.join(", ")}`);
+  }
+  const spilling = await build.locator(".cell").evaluateAll(
+    (cells) => cells.filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.getAttribute("aria-label") ?? ""),
+  );
+  for (const label of spilling) problems.push(`an option spills out of its box: "${label}"`);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 0) problems.push(`page scrolls sideways by ${overflow}px`);
   return problems;

@@ -1,8 +1,9 @@
 <script lang="ts">
   // One option as its icon and its estimate (ADR-060): a ring around the icon filled by its share
   // of games and its wins per 100 games against the most played option of its row, which reads 0;
-  // coloured only when clearly better or worse. Options not compared with it head to head have no
-  // number ("few games" when that's why). The accessible name carries the range for screen
+  // coloured only when clearly better or worse. Options short of games have nothing under them (the
+  // legend says so); "too few to compare" and "almost always" say why an option with plenty of
+  // games has no number. Every cell is the same size, so rows line up and hover boxes match. The accessible name carries the range for screen
   // readers. What the import writes is lit and framed; clicking an option picks it. An option
   // nearly everyone takes reads "almost always": there's nothing to compare it with.
   import type { Row } from "../../backend/backend.ts";
@@ -73,6 +74,7 @@
   class:on
   class:stronk={stronk && !on}
   class:bare
+  class:pair={icons.length > 1}
   aria-pressed={on}
   aria-label={label}
   disabled={!onpick}
@@ -95,7 +97,7 @@
   </span>
   {#if !bare}
     <span class="num {tone}" class:few={number === null}>
-      {#if number !== null}{number}{:else if row?.confidence === "almost_always"}almost always{:else if row?.confidence === "too_few_games"}few games{:else if row?.confidence === "too_few_to_compare"}too few to compare{/if}
+      {#if number !== null}{number}{:else if row?.confidence === "almost_always"}almost always{:else if row?.confidence === "too_few_to_compare"}too few to compare{/if}
     </span>
   {/if}
 </button>
@@ -104,11 +106,11 @@
   .cell {
     position: relative;
     display: grid;
-    grid-template-rows: auto minmax(14px, auto);
+    grid-template-rows: auto 24px;
     align-content: start;
     justify-items: center;
     gap: 2px;
-    min-width: 58px;
+    width: 64px;
     padding: var(--space-1) 2px;
     border: 1px solid transparent;
     border-radius: var(--radius);
@@ -124,10 +126,13 @@
   }
   .cell.bare {
     grid-template-rows: auto;
-    min-width: 44px;
+  }
+  /* Two icons (a spell pair): wider, the same for every pair. */
+  .cell.pair {
+    width: 88px;
   }
   .cell.sm {
-    min-width: 50px;
+    width: 56px;
   }
   .cell:disabled {
     cursor: default;

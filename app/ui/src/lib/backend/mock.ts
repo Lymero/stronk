@@ -299,7 +299,7 @@ const leeSinAlternatives: Alternatives = {
   spells: {
     rows: [
       row<[number, number]>([11, 4], 1790, 1840, { confidence: "most_played", chosen: true }),
-      row<[number, number]>([11, 14], 50, 1840, { confidence: "too_few_games" }),
+      row<[number, number]>([11, 14], 50, 1840, { confidence: "not_estimated" }), // spells have no flags
     ],
     more: 0,
   },
@@ -345,7 +345,7 @@ const gravesAlternatives: Alternatives = {
     rows: [row({ primary_style: 8000, sub_style: 8300, perks: conqueror }, 140, 140, { confidence: "too_few_games", chosen: true })],
     more: 0,
   },
-  spells: { rows: [row<[number, number]>([11, 4], 140, 140, { confidence: "too_few_games", chosen: true })], more: 0 },
+  spells: { rows: [row<[number, number]>([11, 4], 140, 140, { confidence: "most_played", chosen: true })], more: 0 },
   items: [{ slot: 1, rows: [row(6676, 60, 60, { confidence: "too_few_games", chosen: true })], more: 0 }],
   rune_rows: [],
 };

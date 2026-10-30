@@ -105,6 +105,8 @@ describe("App with MockBackend", () => {
     expect(sky).toHaveTextContent("▲+2.1");
     expect(sky).not.toHaveTextContent("±"); // its uncertainty only on hover
     expect(screen.queryByRole("tooltip")).toBeNull(); // nothing on hover either
+    // Spells have no estimates: their header says so, as no lack of games is meant.
+    expect(within(build).getByRole("region", { name: "Summoner spells" })).toHaveTextContent("Not measured yet");
     const cleaver = within(item2).getByRole("button", { name: /^Black Cleaver/ });
     expect(cleaver.querySelector(".num")).not.toHaveClass("positive"); // unclear: grey
     expect(within(build).getByRole("region", { name: "Item 3" })).toHaveTextContent("▼−1.8");
@@ -131,7 +133,7 @@ describe("App with MockBackend", () => {
     expect(tree.querySelectorAll(".cell.on")).toHaveLength(9); // the page's nine choices
     expect(within(precision).getByRole("button", { name: "Triumph, most played, 0" })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100 against the most played" })).toHaveAttribute("aria-pressed", "false");
-    expect(within(tree).getByRole("button", { name: "Last Stand, too few games" })).toHaveTextContent("few games");
+    expect(within(tree).getByRole("button", { name: "Last Stand, too few games" })).toHaveTextContent(/^$/); // short of games: blank
     // Secondary runes carry their pair's numbers: the page's pair is the most played, so 0.
     const inspiration = within(tree).getByRole("region", { name: "Inspiration, secondary" });
     expect(within(inspiration).getByRole("button", { name: /^Magical Footwear/ })).toHaveTextContent(/^0$/);
