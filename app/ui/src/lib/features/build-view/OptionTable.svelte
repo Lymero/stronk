@@ -33,7 +33,7 @@
   /** What the number column says: the difference with the baseline, 0 for it, or why none. */
   function number(row: Shown<T>): { text: string; tone: string } {
     if (row.confidence === "most_played") return { text: row.wpa === null || !scaled ? "" : "0", tone: "" };
-    if (row.confidence === "almost_always") return { text: "almost always", tone: "note" };
+    if (row.confidence === "almost_always") return { text: "", tone: "" }; // its share says it
     if (row.confidence === "too_few_to_compare") return { text: "too few to compare", tone: "note" };
     if (figure(row) === null || row.wpa === null) return { text: "", tone: "" };
     const clear = verdict(row);

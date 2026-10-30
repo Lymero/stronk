@@ -14,10 +14,10 @@ const session = JSON.parse(readFileSync(resolve(ROOT, "runs/e2e-real/session.jso
 };
 
 /** What may sit under an option: its number, 0 for the baseline, or why it has none. */
-const NUMBER = /^(?:[▲▼]?[+−]\d+\.\d|0|too few to compare|almost always|)$/;
+const NUMBER = /^(?:[▲▼]?[+−]\d+\.\d|0|too few to compare|)$/;
 
 /** What may sit in a slot's number column: a difference with the baseline, 0, or why none. */
-const COLUMN = /^(?:[▲▼] )?(?:[+−]\d+\.\d)$|^(?:0|too few to compare|almost always|)$/;
+const COLUMN = /^(?:[▲▼] )?(?:[+−]\d+\.\d)$|^(?:0|too few to compare|)$/;
 
 /** What a player would see in the open slot. */
 async function slot(page: Page, name: string): Promise<string[]> {

@@ -1,8 +1,8 @@
 <script lang="ts">
   // The rune page built by clicking, drawn as the client draws it (ADR-063): the primary tree
   // (keystones, then three rows), the secondary tree and the shards side by side, each row of round
-  // icons, the picked ones lit and ringed in amber. Under each row, the picked rune's name and its
-  // number, so the page reads without knowing the icons; the others' numbers sit under their icons.
+  // icons, the picked ones lit and ringed in amber. Under each row, the picked rune's name, its
+  // number and its share of games, so the page reads without knowing the icons; the others' numbers sit under their icons.
   // The other trees are one click away beside each tree's name. The rules are the client's (ADR-059): one
   // rune per primary row, two secondary runes from different rows, one shard per row.
   import type { GameNames, Page, Plan } from "../../backend/backend.ts";
@@ -86,6 +86,8 @@
     {#if id !== undefined}
       <strong>{rune(id)}</strong>
       {#if read.number}<span class="num {read.tone}">{read.number}</span>{:else if read.note}<span class="note">{read.note}</span>{/if}
+      <!-- Its share of games: 97% says nearly everyone takes it; 54%, a real choice. -->
+      {#if row}<span class="note">{Math.round(row.share * 100)}%</span>{/if}
     {/if}
   </p>
 {/snippet}

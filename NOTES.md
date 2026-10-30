@@ -164,3 +164,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: owner to look at it on the real client; tree switch icons are small (16 px).
 - 2026-10-30: runes drawn as the client's trees again (ADR-063, owner's call: players know that layout): round icons, picks lit and ringed in amber, the picked rune's name and number under each row; the list designs are gone.
   Open: owner to check on the real client, with the real icons.
+- 2026-10-30: "almost always" replaced by the share on every rune pick line ("Conqueror 97%"), chosen from three variants rendered on real data; gone from the item lists too.
+  Open: nothing new.

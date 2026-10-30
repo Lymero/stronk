@@ -145,11 +145,12 @@ export function changes(options: Options): Change<unknown>[] {
 }
 
 /** What an option shows beside its icon or name (ADR-060, ADR-063): its number against the most
- * played option of its row (0 for that one, ▲ or ▼ when clear), or why one with plenty of games
- * has none; nothing when short of games. */
+ * played option of its row (0 for that one, ▲ or ▼ when clear), or "too few to compare" for one
+ * with plenty of games but too few comparable ones; nothing when short of games, or when nearly
+ * everyone takes it, as its share (shown beside it) says that better than words. */
 export function reading(row: Row<unknown> | undefined): { number: string | null; tone: string; note: string | null } {
   if (!row) return { number: null, tone: "", note: null };
-  if (row.confidence === "almost_always") return { number: null, tone: "", note: "almost always" };
+  if (row.confidence === "almost_always") return { number: null, tone: "", note: null };
   if (row.confidence === "too_few_to_compare") return { number: null, tone: "", note: "too few to compare" };
   if (row.confidence === "most_played") return { number: row.wpa === null ? null : "0", tone: "", note: null };
   if (figure(row) === null || row.wpa === null) return { number: null, tone: "", note: null };
