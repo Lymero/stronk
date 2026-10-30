@@ -136,7 +136,7 @@
 <style>
   .runes {
     display: grid;
-    grid-template-columns: 492px minmax(0, 1fr);
+    grid-template-columns: 404px minmax(0, 1fr);
     gap: var(--space-4);
     align-items: start;
   }
@@ -219,7 +219,7 @@
     display: flex;
     gap: 8px;
     justify-content: center;
-    padding: 6px 8px;
+    padding: 5px 8px;
     border-radius: 999px;
   }
   .line.focus {
@@ -269,14 +269,15 @@
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
+  /* The item icons' size; keystones a little larger, as in the client. */
   .lg {
-    --size: 48px;
+    --size: 36px;
   }
   .md {
-    --size: 40px;
+    --size: var(--icon-md);
   }
   .sm {
-    --size: 32px;
+    --size: 28px;
   }
   .detail {
     display: grid;

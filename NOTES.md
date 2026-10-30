@@ -170,3 +170,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: owner to look at it on the real client.
 - 2026-10-30: rune page per the owner's review (ADR-064): bigger runes, the ring inside the focus band, no "row N" in the list's heading; fixed "Your pick" appearing after only clicking lit runes (secondary pair order in `samePage`).
   Open: lcu-mock's placeholder icons show a square border inside the round runes; the real art doesn't.
+- 2026-10-30: runes at the item icons' size (32 px, keystones 36), and tags under the name in a narrow list so "Legend: Alacrity" shows in full (ADR-064).
+  Open: nothing new.

@@ -240,8 +240,14 @@
       font-size: var(--text-xs);
       text-align: left;
     }
-    /* A long name wraps rather than being cut. */
+    /* A long name wraps rather than being cut, and its tags go under it. */
+    .name {
+      flex-wrap: wrap;
+      row-gap: 2px;
+    }
     .label {
+      flex-basis: 100%;
+      overflow: visible;
       white-space: normal;
     }
     /* The share as its figure alone, beside the number. */
