@@ -4,12 +4,14 @@ from dataclasses import replace
 from riot_builders import Json, buy, domain_match, domain_static, undo
 
 from stronk_pipeline.domain.extract.decision_points import (
+    COMPONENTS_SLOT,
     LATE_SLOT,
     MAX_ITEMS,
     MAX_SLOT,
     START_SLOT,
     DecisionPoint,
     decision_points,
+    first_components,
     is_rune_slot,
     kept_purchases,
     starting_items,
@@ -185,3 +187,27 @@ def test_supplies_alone_and_undone_or_late_purchases_make_no_start() -> None:
 def test_unknown_items_count_in_the_start() -> None:
     late_patch_item = ItemEvent(timestamp=5_000, participant_id=1, action="purchased", item_id=9999)
     assert starting_items([late_patch_item], STATIC).option == "9999"
+
+
+def components_of(events: list[Json], participant_id: int = 1) -> list[DecisionPoint]:
+    points = decision_points(domain_match(events=events), STATIC, Counter())
+    return [p for p in points if p.participant_id == participant_id and p.slot == COMPONENTS_SLOT]
+
+
+def test_the_first_trip_back_buys_its_components_as_one_choice() -> None:
+    # The start, then a Long Sword and a Pickaxe with a potion and boots on the first trip back:
+    # the components without supplies or boots. A later purchase is another trip.
+    events = [buy(5_000, 1, 1055), buy(4 * MIN, 1, 1036), buy(4 * MIN + 2_000, 1, 1037)]
+    events += [buy(4 * MIN + 3_000, 1, 2003), buy(4 * MIN + 4_000, 1, 1001)]
+    events += [buy(8 * MIN, 1, 1038)]
+    assert components_of(events) == [DecisionPoint(1, COMPONENTS_SLOT, 4 * MIN, "1036,1037")]
+    purchases = kept_purchases(domain_match(events=events).items, 1)
+    assert first_components(purchases, STATIC).bought == (1001, 1036, 1037, 2003)
+
+
+def test_a_trip_starts_at_its_first_component_and_skips_completed_items() -> None:
+    # Potions and boots alone don't start the trip; a completed item doesn't count.
+    events = [buy(3 * MIN, 1, 2003), buy(3 * MIN, 1, 1001), buy(6 * MIN, 1, 1037)]
+    events += [buy(6 * MIN + 1_000, 1, 6333)]
+    assert components_of(events) == [DecisionPoint(1, COMPONENTS_SLOT, 6 * MIN, "1037")]
+    assert components_of([buy(3 * MIN, 1, 2003)]) == []

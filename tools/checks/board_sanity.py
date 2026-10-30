@@ -4,8 +4,8 @@
     board_sanity.py --core <stronk-core> --data runs/real/data --key runs/real/data.pub
 
 Runs `build.plan` for every champion and role of the newest patch (one `stronk-core serve`)
-and checks each slot the board draws: the runes, the spells, the start, every item slot and rune
-row.
+and checks each slot the board draws: the runes, the spells, the start, the first components,
+every item slot and rune row.
 
 Failures (exit 1), each with up to five examples:
 - `few-games-false`: "few games" under an option with at least 300 games, the pipeline's own
@@ -76,6 +76,11 @@ def slots(plan: dict[str, Any]) -> list[tuple[str, dict[str, Any], Any]]:
         ("runes", alt["runes"], plan["runes"]["value"] if plan["runes"] else None),
         ("spells", alt["spells"], plan["spells"]["value"] if plan["spells"] else None),
         ("start", alt["start"], plan["start"]["value"] if plan.get("start") else None),
+        (
+            "components",
+            alt["components"],
+            plan["components"]["value"] if plan.get("components") else None,
+        ),
     ]
     out += [(f"item {s['slot']}", s, choice.get(s["slot"])) for s in alt["items"]]
     out += [

@@ -107,6 +107,7 @@ describe("App with MockBackend", () => {
       "Runes: Conqueror",
       "Spells: Smite + Flash",
       "Start: Scorchclaw Pup",
+      "First back: Long Sword",
       "Item 1: Eclipse",
       "Item 2: Sundered Sky, Stronk's change +2.1",
       "Item 3: Guardian Angel, Stronk's best bet +1.2",
@@ -318,6 +319,23 @@ describe("App with MockBackend", () => {
     expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ start: [1102] });
   });
 
+  it("shows the first components, several items as one choice, and imports the ones picked", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    await fireEvent.click(tab("First back"));
+    const first = within(screen.getByRole("tabpanel", { name: "First components" }));
+    expect(screen.getByRole("tabpanel", { name: "First components" })).toHaveTextContent("The first trip back, potions, wards and boots aside");
+    expect(option(first, "Long Sword")).toHaveTextContent("baseline");
+    expect(option(first, "Pickaxe").querySelector(".num")).toHaveTextContent("+0.3");
+    expect(option(first, "Long Sword + Pickaxe").querySelectorAll(".icon")).toHaveLength(2);
+    await fireEvent.click(option(first, "Long Sword + Pickaxe"));
+    expect(tab("First back")).toHaveTextContent("Long Sword + Pickaxe");
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ components: [1036, 1037] });
+  });
+
   it("marks an item picked for two slots", async () => {
     const { app, next } = setup("ranked-jungle");
     await app.refresh();
@@ -419,7 +437,7 @@ describe("App with MockBackend", () => {
     const ids = (kind: string) => asked.flatMap((p) => p[kind] ?? []);
     expect(ids("champions")).toEqual([104, 64]); // Graves, then Lee Sin
     expect(ids("items")).toContain(6610);
-    expect(ids("items")).toEqual(expect.arrayContaining([1101, 1102, 1103])); // the starts
+    expect(ids("items")).toEqual(expect.arrayContaining([1101, 1102, 1103, 1036, 1037])); // starts, first components
     expect(ids("runes")).toContain(8010);
     expect(new Set(ids("items")).size).toBe(ids("items").length); // never twice
     const lee = screen.getByLabelText("Champion select").querySelector("img");

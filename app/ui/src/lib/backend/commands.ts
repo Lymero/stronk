@@ -99,6 +99,53 @@ export type RowKind = "primary" | "secondary" | "shard";
  * Why an option was chosen; shown next to it in the UI.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_int64Choice".
+ */
+export type ArrayOfInt64Choice = {
+  value: number[];
+} & (
+  | {
+      label: "popular";
+    }
+  | {
+      /**
+       * Its 95% interval, when published.
+       *
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      /**
+       * Games (or picks) with this option.
+       */
+      games: number;
+      label: "clearly_better";
+      /**
+       * Win probability added against the popular option.
+       */
+      wpa: number;
+    }
+  | {
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      games: number;
+      label: "best_bet";
+      /**
+       * Win probability added against the popular option, as published (not shrunk).
+       */
+      wpa: number;
+    }
+  | {
+      label: "picked";
+    }
+);
+/**
+ * Why an option was chosen; shown next to it in the UI.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
  * via the `definition` "SlotChoice".
  */
 export type SlotChoice = {
@@ -247,53 +294,6 @@ export type TupleOfInt64AndInt64Choice = {
     }
 );
 /**
- * Why an option was chosen; shown next to it in the UI.
- *
- * This interface was referenced by `Commands`'s JSON-Schema
- * via the `definition` "Array_of_int64Choice".
- */
-export type ArrayOfInt64Choice = {
-  value: number[];
-} & (
-  | {
-      label: "popular";
-    }
-  | {
-      /**
-       * Its 95% interval, when published.
-       *
-       * @minItems 2
-       * @maxItems 2
-       */
-      ci: [number, number] | null;
-      /**
-       * Games (or picks) with this option.
-       */
-      games: number;
-      label: "clearly_better";
-      /**
-       * Win probability added against the popular option.
-       */
-      wpa: number;
-    }
-  | {
-      /**
-       * @minItems 2
-       * @maxItems 2
-       */
-      ci: [number, number] | null;
-      games: number;
-      label: "best_bet";
-      /**
-       * Win probability added against the popular option, as published (not shrunk).
-       */
-      wpa: number;
-    }
-  | {
-      label: "picked";
-    }
-);
-/**
  * Stable error codes: the UI maps them to messages, scripts can match on them.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -392,6 +392,10 @@ export interface BuildGetParams {
  * via the `definition` "ImportParams".
  */
 export interface ImportParams {
+  /**
+   * Published first components, in any order (ADR-072).
+   */
+  components?: number[] | null;
   items?: ItemPick[];
   runes?: Page | null;
   /**
@@ -456,6 +460,11 @@ export interface PlanParams {
 export interface Plan {
   alternatives: Alternatives;
   champion: string;
+  /**
+   * The first components (ADR-072), as the start.
+   */
+  components: ArrayOfInt64Choice | null;
+  components_buy?: number[];
   elo: string;
   /**
    * Games behind the build file, and its elo bracket and region.
@@ -493,6 +502,11 @@ export interface Plan {
  * via the `definition` "Alternatives".
  */
 export interface Alternatives {
+  /**
+   * The first components (ADR-072): each the items bought on the first trip back, without
+   * supplies, boots or completed items.
+   */
+  components: ArrayOfInt64Ranked;
   items: SlotRanked[];
   /**
    * Each rune row on its own, for information (ADR-057): imports write whole pages.
@@ -504,6 +518,62 @@ export interface Alternatives {
    * The starts (ADR-071): each the items bought before leaving base, without supplies.
    */
   start: ArrayOfInt64Ranked;
+}
+/**
+ * Every option of a slot, and how many of them are left out of the short list.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_int64Ranked".
+ */
+export interface ArrayOfInt64Ranked {
+  /**
+   * Options played less, not listed until the player asks for every option.
+   */
+  more: number;
+  rows: ArrayOfInt64Row[];
+}
+/**
+ * One option of a slot, as the champion select view shows it (ADR-049).
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_int64Row".
+ */
+export interface ArrayOfInt64Row {
+  /**
+   * Stronk's choice for the slot.
+   */
+  chosen: boolean;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  ci: [number, number] | null;
+  confidence: Confidence;
+  fragile: boolean;
+  /**
+   * Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
+   * best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
+   */
+  judged: number;
+  /**
+   * Listed before the player asks for every option: one of the [`SHOWN`] most played, or
+   * Stronk's choice.
+   */
+  listed: boolean;
+  /**
+   * Games (or picks) with this option.
+   */
+  played: number;
+  /**
+   * Its share of the slot's games, 0 to 1.
+   */
+  share: number;
+  value: number[];
+  versus: Versus;
+  /**
+   * Win probability added, against what `versus` says.
+   */
+  wpa: number | null;
 }
 /**
  * Every option of a slot, and how many of them are left out of the short list.
@@ -579,49 +649,6 @@ export interface RuneRow {
   row: number | null;
   rows: ArrayOfInt64Row[];
   style: number | null;
-}
-/**
- * One option of a slot, as the champion select view shows it (ADR-049).
- *
- * This interface was referenced by `Commands`'s JSON-Schema
- * via the `definition` "Array_of_int64Row".
- */
-export interface ArrayOfInt64Row {
-  /**
-   * Stronk's choice for the slot.
-   */
-  chosen: boolean;
-  /**
-   * @minItems 2
-   * @maxItems 2
-   */
-  ci: [number, number] | null;
-  confidence: Confidence;
-  fragile: boolean;
-  /**
-   * Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
-   * best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
-   */
-  judged: number;
-  /**
-   * Listed before the player asks for every option: one of the [`SHOWN`] most played, or
-   * Stronk's choice.
-   */
-  listed: boolean;
-  /**
-   * Games (or picks) with this option.
-   */
-  played: number;
-  /**
-   * Its share of the slot's games, 0 to 1.
-   */
-  share: number;
-  value: number[];
-  versus: Versus;
-  /**
-   * Win probability added, against what `versus` says.
-   */
-  wpa: number | null;
 }
 /**
  * Every option of a slot, and how many of them are left out of the short list.
@@ -738,19 +765,6 @@ export interface TupleOfInt64AndInt64Row {
    * Win probability added, against what `versus` says.
    */
   wpa: number | null;
-}
-/**
- * Every option of a slot, and how many of them are left out of the short list.
- *
- * This interface was referenced by `Commands`'s JSON-Schema
- * via the `definition` "Array_of_int64Ranked".
- */
-export interface ArrayOfInt64Ranked {
-  /**
-   * Options played less, not listed until the player asks for every option.
-   */
-  more: number;
-  rows: ArrayOfInt64Row[];
 }
 /**
  * This interface was referenced by `Commands`'s JSON-Schema

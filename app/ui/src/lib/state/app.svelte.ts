@@ -115,6 +115,7 @@ export function createApp(
       ...(picks.runes ? { runes: picks.runes } : {}),
       ...(picks.spells ? { spells: picks.spells } : {}),
       ...(picks.start ? { start: picks.start } : {}),
+      ...(picks.components ? { components: picks.components } : {}),
       ...(Object.keys(picks.items).length
         ? { items: Object.entries(picks.items).map(([slot, item]) => ({ slot: Number(slot), item })) }
         : {}),
@@ -159,9 +160,11 @@ export function createApp(
       for (const id of [...items.flatMap((s) => s.rows.map((r) => r.value)), ...plan.items.map((i) => i.value)]) {
         ids.items.add(id);
       }
-      // The starts' items (ADR-071).
-      for (const id of [...plan.alternatives.start.rows.flatMap((r) => r.value), ...(plan.start?.value ?? [])]) {
-        ids.items.add(id);
+      // The starts' and first components' items (ADR-071, ADR-072).
+      for (const key of ["start", "components"] as const) {
+        for (const id of [...plan.alternatives[key].rows.flatMap((r) => r.value), ...(plan[key]?.value ?? [])]) {
+          ids.items.add(id);
+        }
       }
     }
     return Object.fromEntries(Object.entries(ids).map(([k, v]) => [k, [...v]])) as Record<GameKind, number[]>;
@@ -267,9 +270,11 @@ export function createApp(
     } else if ("spells" in choice) {
       const stronk = plan.value.spells?.value;
       picks.spells = stronk && samePair(stronk, choice.spells) ? undefined : choice.spells;
-    } else if ("start" in choice) {
-      const stronk = plan.value.start?.value;
-      picks.start = stronk && samePair(stronk, choice.start) ? undefined : choice.start;
+    } else if ("start" in choice || "components" in choice) {
+      const key = "start" in choice ? "start" : "components";
+      const items = "start" in choice ? choice.start : choice.components;
+      const stronk = plan.value[key]?.value;
+      picks[key] = stronk && samePair(stronk, items) ? undefined : items;
     } else {
       const stronk = plan.value.items.find((i) => i.slot === choice.slot)?.value;
       if (stronk === choice.item) delete picks.items[choice.slot];

@@ -135,9 +135,9 @@ class Versu1(RootModel[int]):
     root: Annotated[int, Field(ge=1)]
 
 
-class StartComparison(BaseModel):
+class PurchaseComparison(BaseModel):
     """
-    The start head to head with the most played start (ADR-036).
+    The purchase head to head with the most played one of its kind (ADR-036).
     """
 
     model_config = ConfigDict(
@@ -145,11 +145,11 @@ class StartComparison(BaseModel):
     )
     versus: Annotated[list[Versu1], Field(min_length=1)]
     """
-    The most played start's items.
+    The most played purchase's items.
     """
     wpa: float
     """
-    Win probability added by this start against `versus`.
+    Win probability added by this purchase against `versus`.
     """
     q: Annotated[float, Field(ge=0.0, le=1.0)]
     """
@@ -169,9 +169,9 @@ class BuyItem(RootModel[int]):
     root: Annotated[int, Field(ge=1)]
 
 
-class StartOption(BaseModel):
+class PurchaseOption(BaseModel):
     """
-    One start: the items bought before leaving base, without supplies (potions, wards).
+    Items bought at once and measured as one choice: a start, or first components. Supplies (potions, wards) aside.
     """
 
     model_config = ConfigDict(
@@ -183,15 +183,15 @@ class StartOption(BaseModel):
     """
     buy: Annotated[list[BuyItem], Field(min_length=1)]
     """
-    What is most often bought with this start, supplies included and repeated as bought: what an import lists.
+    What is most often bought with these items, supplies included and repeated as bought: what an import lists.
     """
     games: Annotated[int, Field(ge=0)]
     """
-    Games with this start.
+    Games with this purchase.
     """
     wpa: float | None
     """
-    Win probability added against the other starts; null when not estimated.
+    Win probability added against the other purchases of its kind; null when not estimated.
     """
     ci: Interval | None
     n: Annotated[int, Field(ge=0)]
@@ -199,7 +199,7 @@ class StartOption(BaseModel):
     Decisions behind the estimate.
     """
     flags: list[Flag]
-    comparison: StartComparison | None = None
+    comparison: PurchaseComparison | None = None
 
 
 class RuneChoice(BaseModel):
@@ -326,9 +326,15 @@ class Build(BaseModel):
     runes: list[RuneOption]
     items: list[ItemOption]
     spells: list[SpellOption]
-    starts: list[StartOption] | None = None
+    starts: list[PurchaseOption] | None = None
     """
     The starting items (ADR-071): what players buy before leaving base, without potions and wards, each start estimated among the others.
+    """
+    first_components: Annotated[
+        list[PurchaseOption] | None, Field(alias="firstComponents")
+    ] = None
+    """
+    The first components (ADR-072): what players buy on their first trip back to base, without potions, wards, boots or completed items, each estimated among the others.
     """
     late_slot: Annotated[int | None, Field(alias="lateSlot", ge=1, le=6)] = None
     """

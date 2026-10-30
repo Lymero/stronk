@@ -76,6 +76,11 @@ class StaticData:
         item = self.items.get(item_id)
         return item is not None and bool({"Consumable", "Trinket"} & set(item.tags))
 
+    def is_boots(self, item_id: int) -> bool:
+        """Boots of any tier: their own decision, not a component (ADR-072)."""
+        item = self.items.get(item_id)
+        return item is not None and "Boots" in item.tags
+
     def recipe_tree(self, item_id: int) -> frozenset[int]:
         """Every component in a completed item's recipe, at any depth."""
         return self._recipe_trees.get(item_id, frozenset())

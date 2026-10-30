@@ -202,3 +202,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the first back (too scattered as whole purchases; try the first item bought after leaving base).
 - 2026-10-30: the app asks the client for the starts' icons too (the pets showed stand-in letters); `site_icons.py` fetches them; site screenshots refreshed with the Start row.
   Open: `just site-shot` failed one screenshot on its first run right after fetching new icons, twice now, and passed on the rerun.
+- 2026-10-31: the first components (what the first trip back buys, supplies, boots and completed items aside) are a choice like the start: extracted, published as `firstComponents`, chosen and ranked, a sheet row and the item set's second block (ADR-072).
+  Open: boots as their own section.

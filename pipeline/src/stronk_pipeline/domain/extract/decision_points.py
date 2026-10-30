@@ -5,6 +5,10 @@
   without supplies (consumables and trinkets: potions, wards), as one option `"a,b"` (ids
   sorted, each once): a jungle pet, a Doran's item, Cull, Dark Seal... Anchored at the first of
   those purchases. A start of supplies alone adds nothing.
+- The first components (slot `COMPONENTS_SLOT`, ADR-072): what is bought on the first trip back
+  to base, the purchases within `TRIP_MS` of the first one after the start, without supplies,
+  boots or completed items, as one option the same way: Dark Seal and Amplifying Tome, a Long
+  Sword... Anchored at that first purchase. Boots are their own decision.
 - Champion select, the rest of the rune page (ADR-057), one decision each: every row of the
   primary tree (slot `tree * 10 + row`, rows 1 to 3, option the rune), the secondary tree's two
   runes as a pair (slot `tree * 10 + 5`, option `"low,high"`), and every stat shard row (slot
@@ -25,6 +29,7 @@ how many late decisions are lost.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from stronk_pipeline.domain.match import ItemEvent, Match
@@ -43,6 +48,12 @@ SHARD_SLOTS = 50_000
 """`SHARD_SLOTS + row` is a stat shard row's slot."""
 START_SLOT = 60_000
 """The starting items' slot (ADR-071)."""
+COMPONENTS_SLOT = 60_001
+"""The first components' slot (ADR-072)."""
+PURCHASE_SLOTS = range(START_SLOT, START_SLOT + 10)
+"""The slots of purchases measured as a set of items: the start, the first components."""
+TRIP_MS = 30_000
+"""Purchases within this of a trip's first one are bought on the same trip back."""
 
 
 def is_tree(tree: int) -> bool:
@@ -59,7 +70,7 @@ def rune_slot(tree: int, row: int) -> int:
 
 def is_rune_slot(slot: int) -> bool:
     """Champion select's choices besides the keystone: rune rows, secondary pairs, shards."""
-    return slot > MAX_SLOT and slot != START_SLOT
+    return slot > MAX_SLOT and slot not in PURCHASE_SLOTS
 
 
 def rune_row(slot: int) -> tuple[str, int | None, int | None]:
@@ -89,33 +100,60 @@ def decision_points(match: Match, static: StaticData, dropped: Counter[str]) -> 
         )
     for participant in match.participants:
         purchases = kept_purchases(match.items, participant.participant_id)
-        start = starting_items(purchases, static)
-        if start.option:
-            points.append(
-                DecisionPoint(participant.participant_id, START_SLOT, start.at, start.option)
-            )
+        for slot, bought in (
+            (START_SLOT, starting_items(purchases, static)),
+            (COMPONENTS_SLOT, first_components(purchases, static)),
+        ):
+            if bought.option:
+                points.append(
+                    DecisionPoint(participant.participant_id, slot, bought.at, bought.option)
+                )
         points.extend(_item_slots(participant.participant_id, purchases, static, dropped))
     return points
 
 
 @dataclass(frozen=True, slots=True)
-class Start:
-    """A player's starting purchases (ADR-071)."""
+class Purchase:
+    """Items bought at once and measured as one choice: the start (ADR-071), the first
+    components (ADR-072)."""
 
     option: str
-    """What is measured: the items without supplies, ids sorted, each once; "" for none."""
+    """What is measured: the items that count, ids sorted, each once; "" for none."""
     bought: tuple[int, ...]
     """Everything bought, supplies included, sorted, repeats kept: what the import writes."""
     at: int
-    """The first purchase that isn't a supply, in ms (0 without one)."""
+    """The first purchase that counts, in ms (0 without one)."""
 
 
-def starting_items(purchases: list[ItemEvent], static: StaticData) -> Start:
-    """The purchases before `STARTING_PURCHASES_MS`, undone ones already left out."""
-    early = [p for p in purchases if p.timestamp < STARTING_PURCHASES_MS]
-    kept = [p for p in early if not static.is_supply(p.item_id)]
+def _purchase(bought: list[ItemEvent], counts: Callable[[int], bool]) -> Purchase:
+    kept = [p for p in bought if counts(p.item_id)]
     option = ",".join(str(i) for i in sorted({p.item_id for p in kept}))
-    return Start(option, tuple(sorted(p.item_id for p in early)), kept[0].timestamp if kept else 0)
+    every = tuple(sorted(p.item_id for p in bought))
+    return Purchase(option, every, kept[0].timestamp if kept else 0)
+
+
+def starting_items(purchases: list[ItemEvent], static: StaticData) -> Purchase:
+    """The purchases before `STARTING_PURCHASES_MS`, undone ones already left out; supplies
+    don't count."""
+    early = [p for p in purchases if p.timestamp < STARTING_PURCHASES_MS]
+    return _purchase(early, lambda i: not static.is_supply(i))
+
+
+def first_components(purchases: list[ItemEvent], static: StaticData) -> Purchase:
+    """The first trip back's purchases (ADR-072): from the first purchase after the start that
+    counts (not a supply, boots or a completed item) to `TRIP_MS` after it. What is bought with
+    it, supplies and boots included, is what the import writes."""
+
+    def counts(i: int) -> bool:
+        return not (static.is_supply(i) or static.is_boots(i) or i in static.completed_items)
+
+    later = [p for p in purchases if p.timestamp >= STARTING_PURCHASES_MS]
+    first = next((p for p in later if counts(p.item_id)), None)
+    if first is None:
+        return Purchase("", (), 0)
+    return _purchase(
+        [p for p in later if first.timestamp <= p.timestamp < first.timestamp + TRIP_MS], counts
+    )
 
 
 def _rune_rows(

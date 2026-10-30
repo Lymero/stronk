@@ -31,11 +31,13 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
   spells: { value: [11, 4], label: "popular" },
   items: [{ slot: 4, value: 10, label: "popular" }],
   start: null,
+  components: null,
   late_slot: null,
   alternatives: {
     runes: { rows: [row({ primary_style: 8000, sub_style: 8300, perks: [8010, 2, 3] }, { chosen: true })], more: 0 },
     spells: { rows: [row<[number, number]>([11, 4], { chosen: true }), row<[number, number]>([14, 11])], more: 0 },
     start: { rows: [], more: 0 },
+    components: { rows: [], more: 0 },
     items: [
       {
         slot: 4,
@@ -134,6 +136,7 @@ describe("options", () => {
         runes: { rows: [], more: 0 },
         spells: { rows: [row([4, 11] as [number, number], { chosen: true })], more: 0 },
         start: { rows: [], more: 0 },
+        components: { rows: [], more: 0 },
         items: [
           {
             slot: 2,

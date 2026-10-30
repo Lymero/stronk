@@ -23,6 +23,7 @@ from stronk_contracts.build_v1 import Build
 from stronk_contracts.manifest_v1 import Manifest
 from stronk_pipeline.application.registry import Command, CommandError
 from stronk_pipeline.domain.extract.decision_points import (
+    COMPONENTS_SLOT,
     LATE_SLOT,
     MAX_SLOT,
     START_SLOT,
@@ -212,15 +213,7 @@ def _builds(
             }
             for e in _ranked(o for o in options if is_rune_slot(o.slot))
         ]
-        starts = [
-            {
-                "items": _perks(e.option),
-                "buy": list(seen.starts.get((champion, role, e.option), _perks(e.option))),
-                "games": e.chosen,
-                **_numbers(e, versus=_perks),
-            }
-            for e in _ranked(o for o in options if o.slot == START_SLOT)
-        ]
+
         spells = [
             {"spells": list(pair), "games": n, "wpa": None, "ci": None, "n": n, "flags": []}
             for pair, n in seen.spells.get((champion, role), [])[:SPELL_PAIRS]
@@ -236,14 +229,16 @@ def _builds(
                 "games": seen.games[(champion, role)],
                 "runes": runes,
                 "items": items,
-                "starts": starts,
+                "starts": _purchases(options, seen, START_SLOT),
+                "firstComponents": _purchases(options, seen, COMPONENTS_SLOT),
                 "lateSlot": LATE_SLOT,
                 "spells": spells,
                 "runeChoices": choices,
             }
         )
         data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order"})
-        for option in (*data["runes"], *data["items"], *data["runeChoices"], *data["starts"]):
+        every = (*data["runes"], *data["items"], *data["runeChoices"])
+        for option in (*every, *data["starts"], *data["firstComponents"]):
             for key in ("style", "row"):  # optional: absent, not null
                 if option.get(key, 0) is None:
                     option.pop(key)
@@ -251,6 +246,20 @@ def _builds(
                 option.pop("comparison", None)
         files[f"{params.region}/{params.elo}/{champion}/{role}.json"] = _canonical(data)
     return files
+
+
+def _purchases(options: list[OptionEstimate], seen: Played, slot: int) -> list[dict[str, object]]:
+    """A start or first components (ADR-071, ADR-072): the items estimated, and what is most
+    often bought with them."""
+    return [
+        {
+            "items": _perks(e.option),
+            "buy": list(seen.purchases.get((e.champion, e.role, slot, e.option), _perks(e.option))),
+            "games": e.chosen,
+            **_numbers(e, versus=_perks),
+        }
+        for e in _ranked(o for o in options if o.slot == slot)
+    ]
 
 
 def _ranked(options: Iterable[OptionEstimate]) -> list[OptionEstimate]:

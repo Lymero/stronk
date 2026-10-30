@@ -12,7 +12,7 @@ use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_pag
 
 use crate::commands::build_get;
 use crate::commands::build_plan::{
-    Page, Plan, SlotChoice, plan, start_buy, start_items, with_alternatives,
+    Page, Plan, SlotChoice, plan, purchase_buy, purchase_items, with_alternatives,
 };
 use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};
@@ -35,6 +35,9 @@ pub struct Params {
     /// A published start's items, in any order (ADR-071).
     #[serde(default)]
     pub start: Option<Vec<i64>>,
+    /// Published first components, in any order (ADR-072).
+    #[serde(default)]
+    pub components: Option<Vec<i64>>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -180,18 +183,32 @@ fn with_picks(
             }),
         }
     }
-    if let Some(items) = &params.start {
+    for (what, pick, options, choice, buy) in [
+        (
+            "start",
+            &params.start,
+            &build.starts,
+            &mut plan.start,
+            &mut plan.start_buy,
+        ),
+        (
+            "components",
+            &params.components,
+            &build.first_components,
+            &mut plan.components,
+            &mut plan.components_buy,
+        ),
+    ] {
+        let Some(items) = pick else { continue };
         let mut items = items.clone();
         items.sort_unstable();
         items.dedup();
-        if !build.starts.iter().any(|o| start_items(&o.items) == items) {
-            return Err(invalid(format!(
-                "start: {items:?} is not a published start"
-            )));
+        if !options.iter().any(|o| purchase_items(&o.items) == items) {
+            return Err(invalid(format!("{what}: {items:?} are not published")));
         }
-        if plan.start.as_ref().map(|c| &c.value) != Some(&items) {
-            plan.start_buy = start_buy(build, &items);
-            plan.start = Some(picked(items));
+        if choice.as_ref().map(|c| &c.value) != Some(&items) {
+            *buy = purchase_buy(options, &items);
+            *choice = Some(picked(items));
         }
     }
     plan.items.sort_by_key(|s| s.slot);
@@ -312,25 +329,29 @@ fn item_set_title(ctx: &Context, plan: &Plan, champion_id: i64) -> String {
     format!("{PREFIX}{champion} {}", plan.role.label())
 }
 
-/// Stronk's set, listed first (`priority`): the start as bought, supplies included (ADR-071),
-/// then one block per slot, named with the slot and why the item was chosen, its choice first
+/// Stronk's set, listed first (`priority`): the start and the first components as bought,
+/// supplies included (ADR-071, ADR-072), then one block per slot, named with the slot and why the item was chosen, its choice first
 /// and then the slot's other items (ADR-069); the late slot's block is "Items 4+" (ADR-067).
 fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
-    let start = plan.start.as_ref().map(|c| {
-        // Repeats as one entry with its count: two Health Potions read "2".
-        let mut items: Vec<(i64, u32)> = Vec::new();
-        for id in &plan.start_buy {
-            match items.iter_mut().find(|(i, _)| i == id) {
-                Some((_, n)) => *n += 1,
-                None => items.push((*id, 1)),
+    let purchase = |name: &str, choice: &Option<Choice<Vec<i64>>>, buy: &[i64]| {
+        choice.as_ref().map(|c| {
+            // Repeats as one entry with its count: two Health Potions read "2".
+            let mut items: Vec<(i64, u32)> = Vec::new();
+            for id in buy {
+                match items.iter_mut().find(|(i, _)| i == id) {
+                    Some((_, n)) => *n += 1,
+                    None => items.push((*id, 1)),
+                }
             }
-        }
-        let items: Vec<Value> = items
-            .into_iter()
-            .map(|(id, count)| json!({"id": id.to_string(), "count": count}))
-            .collect();
-        json!({"type": format!("Start: {}", why(c.label)), "items": items})
-    });
+            let items: Vec<Value> = items
+                .into_iter()
+                .map(|(id, count)| json!({"id": id.to_string(), "count": count}))
+                .collect();
+            json!({"type": format!("{name}: {}", why(c.label)), "items": items})
+        })
+    };
+    let start = purchase("Start", &plan.start, &plan.start_buy);
+    let components = purchase("First components", &plan.components, &plan.components_buy);
     let slots = plan.items.iter().map(|s| {
         let name = if plan.late_slot == Some(s.slot) {
             format!("Items {}+", s.slot)
@@ -343,7 +364,7 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
             .collect();
         json!({"type": format!("{name}: {}", why(s.choice.label)), "items": items})
     });
-    let blocks: Vec<Value> = start.into_iter().chain(slots).collect();
+    let blocks: Vec<Value> = start.into_iter().chain(components).chain(slots).collect();
     json!({
         "title": title,
         "type": "custom",

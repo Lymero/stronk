@@ -19,8 +19,13 @@
     "spells": { "type": "array", "items": { "$ref": "#/$defs/SpellOption" } },
     "starts": {
       "type": "array",
-      "items": { "$ref": "#/$defs/StartOption" },
+      "items": { "$ref": "#/$defs/PurchaseOption" },
       "description": "The starting items (ADR-071): what players buy before leaving base, without potions and wards, each start estimated among the others."
+    },
+    "firstComponents": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PurchaseOption" },
+      "description": "The first components (ADR-072): what players buy on their first trip back to base, without potions, wards, boots or completed items, each estimated among the others."
     },
     "lateSlot": { "type": "integer", "minimum": 1, "maximum": 6, "description": "The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own." },
     "skillOrder": { "type": "array", "items": { "$ref": "#/$defs/SkillOrderOption" } },
@@ -93,32 +98,32 @@
         "ci": { "$ref": "#/$defs/Interval", "description": "95% interval of `wpa`." }
       }
     },
-    "StartComparison": {
+    "PurchaseComparison": {
       "type": "object",
       "additionalProperties": false,
       "required": ["versus", "wpa", "q"],
-      "description": "The start head to head with the most played start (ADR-036).",
+      "description": "The purchase head to head with the most played one of its kind (ADR-036).",
       "properties": {
-        "versus": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "description": "The most played start's items." },
-        "wpa": { "type": "number", "description": "Win probability added by this start against `versus`." },
+        "versus": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "description": "The most played purchase's items." },
+        "wpa": { "type": "number", "description": "Win probability added by this purchase against `versus`." },
         "q": { "type": "number", "minimum": 0, "maximum": 1, "description": "False-discovery-adjusted p-value of no difference, across the patch." },
         "ci": { "$ref": "#/$defs/Interval", "description": "95% interval of `wpa`." }
       }
     },
-    "StartOption": {
+    "PurchaseOption": {
       "type": "object",
       "additionalProperties": false,
       "required": ["items", "buy", "games", "wpa", "ci", "n", "flags"],
-      "description": "One start: the items bought before leaving base, without supplies (potions, wards).",
+      "description": "Items bought at once and measured as one choice: a start, or first components. Supplies (potions, wards) aside.",
       "properties": {
         "items": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "description": "Data Dragon item ids, smallest first, each once." },
-        "buy": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "description": "What is most often bought with this start, supplies included and repeated as bought: what an import lists." },
-        "games": { "type": "integer", "minimum": 0, "description": "Games with this start." },
-        "wpa": { "type": ["number", "null"], "description": "Win probability added against the other starts; null when not estimated." },
+        "buy": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "description": "What is most often bought with these items, supplies included and repeated as bought: what an import lists." },
+        "games": { "type": "integer", "minimum": 0, "description": "Games with this purchase." },
+        "wpa": { "type": ["number", "null"], "description": "Win probability added against the other purchases of its kind; null when not estimated." },
         "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
         "n": { "type": "integer", "minimum": 0, "description": "Decisions behind the estimate." },
         "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
-        "comparison": { "$ref": "#/$defs/StartComparison" }
+        "comparison": { "$ref": "#/$defs/PurchaseComparison" }
       }
     },
     "RuneChoice": {

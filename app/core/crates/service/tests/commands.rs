@@ -300,6 +300,14 @@ fn plan_takes_the_most_played_start_and_ranks_the_others() {
     .unwrap();
     assert_eq!(out["start"], json!({"value": [1102], "label": "popular"}));
     assert_eq!(out["start_buy"], json!([1102, 2003]));
+    assert_eq!(
+        out["components"],
+        json!({"value": [1036], "label": "popular"})
+    );
+    assert_eq!(
+        out["alternatives"]["components"]["rows"][1]["value"],
+        json!([1036, 1037])
+    );
     let rows = &out["alternatives"]["start"]["rows"];
     assert_eq!(rows[0]["confidence"], "most_played");
     // Compared head to head with the most played start, no clear difference.
@@ -450,9 +458,15 @@ fn import_adds_a_stronk_item_set_and_keeps_the_players_byte_for_byte() {
         set["blocks"][0]["items"],
         json!([{"id": "1102", "count": 1}, {"id": "2003", "count": 1}])
     );
-    // Stronk's choice, then the slot's other item with enough games (Eclipse, at 1.6%, isn't).
+    // Then the first components as bought, boots included (ADR-072).
+    assert_eq!(set["blocks"][1]["type"], "First components: Popular");
     assert_eq!(
         set["blocks"][1]["items"],
+        json!([{"id": "1036", "count": 1}, {"id": "2003", "count": 1}])
+    );
+    // Stronk's choice, then the slot's other item with enough games (Eclipse, at 1.6%, isn't).
+    assert_eq!(
+        set["blocks"][2]["items"],
         json!([{"id": "6693", "count": 1}, {"id": "6672", "count": 1}])
     );
 }
@@ -525,7 +539,8 @@ fn import_writes_the_players_picks_instead_of_stronks() {
     let (out, client, _) = import_picks(
         FakeClient::new(Some(viego((14, 4)))),
         FakeBackups::default(),
-        json!({"items": [{"slot": 1, "item": 6672}], "spells": [11, 4], "start": [1101]}),
+        json!({"items": [{"slot": 1, "item": 6672}], "spells": [11, 4], "start": [1101],
+               "components": [1037, 1036]}),
     );
     assert_eq!(out["item_set"]["label"], "picked");
     assert_eq!(out["spells"]["label"], "popular"); // the published pair, whatever its order
@@ -538,7 +553,13 @@ fn import_writes_the_players_picks_instead_of_stronks() {
         start["items"],
         json!([{"id": "1101", "count": 1}, {"id": "2003", "count": 1}])
     );
-    let block = &ours["itemSets"][0]["blocks"][1];
+    let components = &ours["itemSets"][0]["blocks"][1];
+    assert_eq!(components["type"], "First components: Your pick");
+    assert_eq!(
+        components["items"],
+        json!([{"id": "1001", "count": 1}, {"id": "1036", "count": 1}, {"id": "1037", "count": 1}])
+    );
+    let block = &ours["itemSets"][0]["blocks"][2];
     assert_eq!(
         block["items"],
         json!([{"id": "6672", "count": 1}, {"id": "6693", "count": 1}])
@@ -574,6 +595,7 @@ fn a_pick_that_isnt_published_writes_nothing() {
         json!({"items": [{"slot": 1, "item": 6672}, {"slot": 1, "item": 6693}]}),
         json!({"spells": [4, 14]}),
         json!({"start": [1055]}),
+        json!({"components": [1037]}),
         json!({"runes": {"primary_style": 8000, "sub_style": 8100, "perks": [8010]}}),
         // Two secondary runes from the same row: no client would take it.
         json!({"runes": {"primary_style": 8000, "sub_style": 8300,

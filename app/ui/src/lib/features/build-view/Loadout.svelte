@@ -118,17 +118,23 @@
   }
   .icons {
     display: flex;
-    gap: 3px;
   }
   .icons :global(.icon) {
     box-shadow: 0 0 0 2px var(--color-border);
+  }
+  /* Several icons (spells, a set of items) overlap like stacked avatars, leaving the names room. */
+  .icons :global(.icon + .icon) {
+    margin-left: -10px;
   }
   .text {
     display: grid;
     min-width: 0;
   }
   .name {
+    overflow: hidden;
     color: var(--color-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: var(--text-xs);
     font-weight: 700;
     letter-spacing: 0.1em;

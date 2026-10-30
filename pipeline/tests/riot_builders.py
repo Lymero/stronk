@@ -136,7 +136,7 @@ def ddragon_items() -> Json:
                     1037,
                 ),
             ),
-            "1001": _item("Boots", 300, into=(3006,)),
+            "1001": _item("Boots", 300, into=(3006,), tags=["Boots"]),
             "3006": _item("Berserker's Greaves", 1100, built=(1001,), tags=["Boots"]),
             "2003": _item("Health Potion", 50, tags=["Consumable"]),
             "1055": _item("Doran's Blade", 450),

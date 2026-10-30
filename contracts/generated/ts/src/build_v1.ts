@@ -70,7 +70,11 @@ export interface Build {
   /**
    * The starting items (ADR-071): what players buy before leaving base, without potions and wards, each start estimated among the others.
    */
-  starts?: StartOption[];
+  starts?: PurchaseOption[];
+  /**
+   * The first components (ADR-072): what players buy on their first trip back to base, without potions, wards, boots or completed items, each estimated among the others.
+   */
+  firstComponents?: PurchaseOption[];
   /**
    * The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own.
    */
@@ -162,9 +166,9 @@ export interface SpellOption {
   games?: number;
 }
 /**
- * One start: the items bought before leaving base, without supplies (potions, wards).
+ * Items bought at once and measured as one choice: a start, or first components. Supplies (potions, wards) aside.
  */
-export interface StartOption {
+export interface PurchaseOption {
   /**
    * Data Dragon item ids, smallest first, each once.
    *
@@ -172,17 +176,17 @@ export interface StartOption {
    */
   items: [number, ...number[]];
   /**
-   * What is most often bought with this start, supplies included and repeated as bought: what an import lists.
+   * What is most often bought with these items, supplies included and repeated as bought: what an import lists.
    *
    * @minItems 1
    */
   buy: [number, ...number[]];
   /**
-   * Games with this start.
+   * Games with this purchase.
    */
   games: number;
   /**
-   * Win probability added against the other starts; null when not estimated.
+   * Win probability added against the other purchases of its kind; null when not estimated.
    */
   wpa: number | null;
   ci: Interval | null;
@@ -191,20 +195,20 @@ export interface StartOption {
    */
   n: number;
   flags: Flag[];
-  comparison?: StartComparison;
+  comparison?: PurchaseComparison;
 }
 /**
- * The start head to head with the most played start (ADR-036).
+ * The purchase head to head with the most played one of its kind (ADR-036).
  */
-export interface StartComparison {
+export interface PurchaseComparison {
   /**
-   * The most played start's items.
+   * The most played purchase's items.
    *
    * @minItems 1
    */
   versus: [number, ...number[]];
   /**
-   * Win probability added by this start against `versus`.
+   * Win probability added by this purchase against `versus`.
    */
   wpa: number;
   /**

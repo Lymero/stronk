@@ -53,10 +53,11 @@ def test_writes_tables_and_report(tmp_path: Path) -> None:
     assert result.value.matches == 2
     assert result.value.frames == 2 * (20 + 22)
     runes = dict.fromkeys((81001, 81002, 81003, 83005, 50001, 50002, 50003), 20)
-    assert result.value.decisions_by_slot == {0: 20, 1: 1, **runes}
+    assert result.value.decisions_by_slot == {0: 20, 1: 1, 60001: 1, **runes}
     decisions = ParquetDecisionStore().read_decisions(tmp_path / "out" / "decisions.parquet")
     assert isinstance(decisions, Ok)
-    assert len(decisions.value) == 21 + 7 * 20  # keystones and items, then the rest of each page
+    # keystones and items, then the rest of each page, then one first components
+    assert len(decisions.value) == 21 + 7 * 20 + 1
     frames = pl.read_parquet(tmp_path / "out" / "frames.parquet")
     assert {"match_id", "team", "minute", "outcome", "f_gold_diff"} <= set(frames.columns)
     report = json.loads((tmp_path / "out" / "report.json").read_text())

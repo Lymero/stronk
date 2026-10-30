@@ -35,7 +35,8 @@ def test_decisions_have_keystones_and_item_slots() -> None:
     items = (decisions.slot > 0) & (decisions.slot <= 6)
     assert sorted(decisions.option[items].tolist()) == ["3031", "6333"]
     runes = dict.fromkeys((81001, 81002, 81003, 83005, 50001, 50002, 50003), 20)
-    assert extracted.stats.decisions_by_slot == {0: 20, 1: 2, **runes}
+    # Two players start an item after the start: their first components (ADR-072).
+    assert extracted.stats.decisions_by_slot == {0: 20, 1: 2, 60001: 2, **runes}
     assert extracted.stats.inferred == 1  # participant 7 never finished Infinity Edge
     row = np.flatnonzero(decisions.option == "6333")[0]
     assert decisions.champion[row] == "Champ1"

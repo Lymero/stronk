@@ -2,13 +2,13 @@
   // The build Stronk would import (ADR-062): on the left the build sheet, every slot's pick by name,
   // Stronk's changes from the most played build marked on their slots; on the right the slot opened from it: the
   // rune page built by clicking runes, or a slot's options against its baseline. Opens on the first
-  // slot Stronk changes, else the runes. The start sits before the items (ADR-071), its items
-  // without potions and wards. The late items are one slot, "Items 4+" (ADR-067): its
+  // slot Stronk changes, else the runes. The start and the first components sit before the items
+  // (ADR-071, ADR-072), each a set of items without potions and wards (and boots). The late items are one slot, "Items 4+" (ADR-067): its
   // pick first, then the most played others, as the import lists them.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
-  import type { Pick, Picks } from "../../state/picks.ts";
+  import { type Pick, type Picks, PURCHASES, type Purchase } from "../../state/picks.ts";
   import Loadout from "./Loadout.svelte";
   import OptionTable from "./OptionTable.svelte";
   import RunePage from "./RunePage.svelte";
@@ -104,14 +104,22 @@
       .slice(0, count);
   });
 
-  const changedKey = (part: "runes" | "rune" | "spells" | "start" | number) =>
+  const changedKey = (part: "runes" | "rune" | "spells" | Purchase | number) =>
     typeof part === "number" ? `item-${part}` : part === "rune" ? "runes" : part;
   const changedKeys = $derived(new Set(stronkChanges.map((c) => changedKey(c.part))));
   const spellPair = $derived(picks.spells ?? plan.spells?.value ?? null);
-  /** The start the import writes: the player's, else Stronk's. */
-  const startItems = $derived(picks.start ?? plan.start?.value ?? null);
-  const start = (items: number[]) => items.map(item).join(" + ");
-  const startIcons = (items: number[]) => items.map((id) => shown("items", id));
+  /** The purchases made as a set of items, each named and explained. */
+  const PURCHASE: Record<Purchase, { name: string; title: string; about: string }> = {
+    start: { name: "Start", title: "Start", about: "Before leaving base, potions and wards aside" },
+    // "First back" in the sheet, where "First components" doesn't fit beside a badge.
+    components: { name: "First back", title: "First components", about: "The first trip back, potions, wards and boots aside" },
+  };
+  const isPurchase = (key: string): key is Purchase => (PURCHASES as readonly string[]).includes(key);
+  const set = (items: number[]) => items.map(item).join(" + ");
+  const setIcons = (items: number[]) => items.map((id) => shown("items", id));
+  /** What the import writes for a purchase: the player's pick, else Stronk's. */
+  const bought = (key: Purchase) => picks[key] ?? plan[key]?.value ?? null;
+  const pickPurchase = (key: Purchase, items: number[]): Pick => (key === "start" ? { start: items } : { components: items });
 
   /** Stronk's change in a slot, as its badge reads: proven ("▲ +2.1") or its best bet ("Best bet
    * +2.7"); the largest when a rune page changes in several rows. */
@@ -147,18 +155,20 @@
           },
         ]
       : []),
-    ...(startItems
-      ? [
-          {
-            key: "start",
-            name: "Start",
-            value: start(startItems),
-            icons: startIcons(startItems),
-            changed: picks.start !== undefined ? null : gain("start"), // the gain is Stronk's pick's, not the player's
-            yours: picks.start !== undefined,
-          },
-        ]
-      : []),
+    ...PURCHASES.flatMap((key) => {
+      const items = bought(key);
+      if (!items) return [];
+      return [
+        {
+          key,
+          name: PURCHASE[key].name,
+          value: set(items),
+          icons: setIcons(items),
+          changed: picks[key] !== undefined ? null : gain(key), // the gain is Stronk's pick's, not the player's
+          yours: picks[key] !== undefined,
+        },
+      ];
+    }),
     ...plan.items.map((c) => {
       const id = slotItem(c.slot) ?? c.value;
       const then = c.slot === plan.late_slot ? lateThen : [];
@@ -206,7 +216,7 @@
   const panel = $derived.by(() => {
     if (focus === "runes") return { title: "Runes", note: laidOut ? null : note(options.runes, page), extra: "" };
     if (focus === "spells") return { title: "Summoner spells", note: note(options.spells, spells), extra: "" };
-    if (focus === "start") return { title: "Start", note: note(options.start, start), extra: "Before leaving base, potions and wards aside" };
+    if (isPurchase(focus)) return { title: PURCHASE[focus].title, note: note(options[focus], set), extra: PURCHASE[focus].about };
     const slotNo = focusedItem ?? 0;
     const also = alsoIn(slotNo, slotItem(slotNo) ?? 0);
     return {
@@ -265,8 +275,11 @@
       {:else}
         <OptionTable slot={options.runes} label={page} icons={pageIcons} onpick={(p) => onpick({ runes: p })} />
       {/if}
-    {:else if focus === "start"}
-      <OptionTable slot={options.start} label={start} icons={startIcons} onpick={(items) => onpick({ start: items })} />
+    {:else if isPurchase(focus)}
+      {@const key = focus}
+      {#key key}
+        <OptionTable slot={options[key]} label={set} icons={setIcons} onpick={(items) => onpick(pickPurchase(key, items))} />
+      {/key}
     {:else if focus === "spells"}
       <OptionTable slot={options.spells} label={spells} icons={spellIcons} onpick={(pair) => onpick({ spells: pair })} />
     {:else if itemSlot}
