@@ -471,3 +471,12 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - **The look.** Ink surfaces with a forge-amber accent, dark by default as the League client is, a light variant from the system's setting; the wordmark STRONK in spaced capitals with an amber bar. The picked option is outlined in amber wherever it shows.
   - `ChoicePanel` is gone; `just e2e-real` opens every tab of the sheet and checks each slot, and saves dark screenshots (one in light).
 - **Consequences:** the whole build reads in a second, by name, and alternatives read as a list with aligned numbers instead of icons with marks. Alternatives show one slot at a time, a click away, where ADR-059 showed every slot's at once. Supersedes ADR-059's board layout; its rune building and imports stay.
+
+### ADR-063 · Runes and shards as named cards
+
+- **Context:** after the build sheet (ADR-062) the owner liked the item lists but not the rune and shard selection, still the icon grid of ADR-058 and ADR-059: letters or icons with marks under them, nothing named, trees switched by small icons.
+- **Decision:**
+  - Each rune and shard is a card (`RuneCard`) read like a row of the item lists: icon and name, its wins per 100 games against the most played option of its row (0 for that one, coloured only when clear), its games ("4.1K games" from a thousand on, the exact count in its accessible name), and its share of games as a bar along the bottom. "almost always" and "too few to compare" take the games' place, as they already say the games are plenty. What the import writes is outlined in amber; Stronk's pick when the player took another keeps its amber dot.
+  - The panel stacks the primary tree (keystones, then its three rows), the secondary tree (its three rows, with one line on how pairs are measured) and the shards (Offense, Flex, Defense, labelled), each row an even grid of cards. Each tree's header names it and offers the other trees by name. The panel's own title is left out for runes, so the page fits a 1200 by 900 window. The client's rules and the building of ADR-059 are unchanged.
+  - `Cell` is gone; `just e2e-real` checks that cards line up (one width per row, one height per kind) and that no name, number or count spills out.
+- **Consequences:** every rune is named, so a page reads without knowing the icons; the panel is taller and narrower per rune than the client's tree, and no longer draws the trees' shape.

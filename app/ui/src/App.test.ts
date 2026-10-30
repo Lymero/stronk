@@ -153,12 +153,12 @@ describe("App with MockBackend", () => {
     expect(within(tree).getByRole("region", { name: "Inspiration, secondary" }).querySelectorAll(".row")).toHaveLength(3);
     expect(within(tree).getByRole("region", { name: "Shards" }).querySelectorAll(".row")).toHaveLength(3);
     expect(tree.querySelectorAll(".cell.on")).toHaveLength(9); // the page's nine choices
-    expect(within(precision).getByRole("button", { name: "Triumph, most played, 0" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100 against the most played" })).toHaveAttribute("aria-pressed", "false");
-    expect(within(tree).getByRole("button", { name: "Last Stand, too few games" })).toHaveTextContent(/^$/); // short of games: blank
+    expect(within(precision).getByRole("button", { name: "Triumph, most played, 0, 1,480 games" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(tree).getByRole("button", { name: "Move Speed −1.1 ± 1.9 wins per 100 against the most played, 340 games" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(tree).getByRole("button", { name: "Last Stand, too few games, 140 games" }).querySelector(".num")).toHaveTextContent(/^$/); // short of games: no number
     // Secondary runes carry their pair's numbers: the page's pair is the most played, so 0.
     const inspiration = within(tree).getByRole("region", { name: "Inspiration, secondary" });
-    expect(within(inspiration).getByRole("button", { name: /^Magical Footwear/ })).toHaveTextContent(/^0$/);
+    expect(within(inspiration).getByRole("button", { name: /^Magical Footwear/ }).querySelector(".num")).toHaveTextContent(/^0$/);
     const asked = backend.calls.filter((c) => c.id === "icons.get").flatMap((c) => (c.params as { runes?: number[] }).runes ?? []);
     expect(asked).toContain(8021); // Fleet Footwork: in no published page, its icon still asked for
   });
@@ -194,7 +194,7 @@ describe("App with MockBackend", () => {
     expect(within(tree()).getByRole("button", { name: /^Lethal Tempo/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(tree()).getByRole("button", { name: /^Conqueror/ }).classList).toContain("stronk"); // Stronk's, marked
     const built = within(tree()).getByRole("region", { name: "Inspiration, secondary" });
-    expect(within(built).getByRole("button", { name: /^Approach Velocity/ })).toHaveTextContent(/^$/); // a pair nobody played: no numbers
+    expect(within(built).getByRole("button", { name: /^Approach Velocity/ })).toHaveTextContent(/^Approach Velocity$/); // a pair nobody played: no numbers
     // Another secondary tree: its most played pair; another primary: its most played page.
     const switcher = (which: string) => within(within(tree()).getByRole("group", { name: `${which} tree` }));
     await fireEvent.click(switcher("Secondary").getByRole("button", { name: "Resolve" }));

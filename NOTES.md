@@ -158,3 +158,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: owner to look at it on the real client.
 - 2026-10-30: the option lists show each option's games again (ADR-062), beside its share, or under its name in a narrow window.
   Open: the rune tree's cells still show no games (the ring gives the share).
+- 2026-10-30: runes and shards as named cards (ADR-063): name, number against the row's baseline, games, share bar; trees switched by name; fits 1200 by 900.
+  Open: owner to look at it on the real client; in a narrow window the cards stack one per line, long.

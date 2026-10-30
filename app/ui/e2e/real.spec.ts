@@ -36,16 +36,19 @@ async function slot(page: Page, name: string): Promise<string[]> {
     for (const n of new Set((await tree.locator(".cell .num").allInnerTexts()).map((t) => t.trim()))) {
       if (!NUMBER.test(n)) problems.push(`${name}: unexpected text under a rune: "${n}"`);
     }
-    // Every rune of a kind the same size, so rows line up and hover boxes match.
+    // Cards line up: one width within each row, one height for each kind.
+    for (const row of await tree.locator(".row").all()) {
+      const widths = await row.locator(".cell").evaluateAll((cells) => cells.map((c) => Math.round(c.getBoundingClientRect().width)));
+      if (new Set(widths).size > 1) problems.push(`${name}: runes of different widths in a row: ${[...new Set(widths)].join(", ")}`);
+    }
     for (const size of [".md", ".sm"]) {
-      const boxes = await tree.locator(`.cell${size}:not(.bare)`).evaluateAll((cells) =>
-        cells.map((c) => `${Math.round(c.getBoundingClientRect().width)}x${Math.round(c.getBoundingClientRect().height)}`),
-      );
-      const sizes = [...new Set(boxes)];
-      if (sizes.length > 1) problems.push(`${name}: runes of different sizes (${size}): ${sizes.join(", ")}`);
+      const heights = await tree.locator(`.cell${size}`).evaluateAll((cells) => cells.map((c) => Math.round(c.getBoundingClientRect().height)));
+      if (new Set(heights).size > 1) problems.push(`${name}: runes of different heights (${size}): ${[...new Set(heights)].join(", ")}`);
     }
     const spilling = await tree.locator(".cell").evaluateAll((cells) =>
-      cells.filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.getAttribute("aria-label") ?? ""),
+      cells
+        .filter((c) => [c, ...c.querySelectorAll(".title, .stats, .games")].some((e) => e.scrollWidth > e.clientWidth + 1))
+        .map((c) => c.getAttribute("aria-label") ?? ""),
     );
     for (const label of spilling) problems.push(`${name}: a rune spills out of its box: "${label}"`);
   } else {

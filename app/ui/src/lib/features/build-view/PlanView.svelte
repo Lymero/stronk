@@ -224,7 +224,8 @@
   </div>
 
   <div class="card panel" id="slot-panel" role="tabpanel" tabindex="-1" aria-label={panel.title}>
-    <header>
+    <!-- The rune trees head themselves: the panel's title would only take height. -->
+    <header class:quiet={focus === "runes" && laidOut}>
       <h3>{panel.title}</h3>
       {#if panel.extra}<span class="also">{panel.extra}</span>{/if}
       {#if panel.note}<span class="note {panel.note.tone}" title={panel.note.title}>{panel.note.text}</span>{/if}
@@ -352,6 +353,9 @@
     flex-wrap: wrap;
     gap: var(--space-1) var(--space-3);
     align-items: baseline;
+  }
+  .quiet:not(:has(.note, .also)) {
+    display: none;
   }
   h3 {
     margin: 0;
