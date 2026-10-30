@@ -22,7 +22,7 @@
 <h2>How</h2>
 <ol>
 <li><strong>Win probability.</strong> A model predicts each team's chance of winning at every minute from the game state: gold, experience, kills, towers, dragons, barons and the time. It is checked for calibration: games given 60% are won about 60% of the time.</li>
-<li><strong>Decision points.</strong> Each choice is measured from the moment it is made: champion select for runes and spells, and the start of each item slot for items. A cheaper item that completes earlier gets credit for it, and games that end before an item is finished still count.</li>
+<li><strong>Decision points.</strong> Each choice is measured from the moment it is made: champion select for runes and spells, and the start of each item slot for items, the fourth item and every later one counted together as the late items. A cheaper item that completes earlier gets credit for it, and games that end before an item is finished still count.</li>
 <li><strong>Win probability added.</strong> For each decision, the score is the final result minus the win probability at that moment. An option's win impact is its average score minus that of the alternatives chosen at the same point, for the same champion and role.</li>
 <li><strong>Comparable situations only.</strong> A second model estimates how likely each option is in each situation. Options that are almost never chosen where the others are get no number ("too few games") rather than a misleading one.</li>
 <li><strong>Uncertainty.</strong> Small samples are pulled toward the average of similar champions, intervals come from resampling whole games, and every option is compared with the most played one with a false discovery correction across the whole patch. Only differences that survive it are called clear.</li>

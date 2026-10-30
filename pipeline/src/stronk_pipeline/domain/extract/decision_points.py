@@ -5,9 +5,13 @@
   primary tree (slot `tree * 10 + row`, rows 1 to 3, option the rune), the secondary tree's two
   runes as a pair (slot `tree * 10 + 5`, option `"low,high"`), and every stat shard row (slot
   `50000 + row`). A row only compares runes of the same tree, as the client offers them.
-- Slot k from 1 to 6: the k-th completed item. The decision is anchored at the first component
+- Slot k from 1 to 3: the k-th completed item. The decision is anchored at the first component
   bought after slot k - 1 was completed (for slot 1, after the starting purchases), so every option
   is compared from the state the player was in when they started building it.
+- Slot 4, the late items (ADR-067): the fourth completed item and every later one, up to the
+  seventh (bot laners can carry a seventh), each its own decision anchored the same way. Late
+  items are bought for the game at hand rather than in a set order, and one slot at a time they
+  split too few games to compare.
 
 A slot still unfinished when the game ends keeps its decision if the components bought so far
 point to exactly one completed item; otherwise it is dropped and counted, so the report shows
@@ -24,7 +28,11 @@ from stronk_pipeline.domain.static import StaticData
 
 STARTING_PURCHASES_MS = 90_000
 """Purchases before this are the starting items, not a decision about slot 1."""
-MAX_SLOT = 6
+LATE_SLOT = 4
+"""The slot of the fourth completed item and every later one (ADR-067)."""
+MAX_SLOT = LATE_SLOT
+MAX_ITEMS = 7
+"""Completed items followed per player."""
 SECONDARY_ROW = 5
 """`tree * 10 + SECONDARY_ROW` is the secondary pair's slot."""
 SHARD_SLOTS = 50_000
@@ -132,25 +140,30 @@ def _item_slots(
     started: int | None = None
     components: list[int] = []
     for purchase in purchases:
-        if len(points) == MAX_SLOT:
+        if len(points) == MAX_ITEMS:
             return points
         if not points and purchase.timestamp < STARTING_PURCHASES_MS:
             continue
         if purchase.item_id in static.completed_items:
             anchor = started if started is not None else purchase.timestamp
             points.append(
-                DecisionPoint(participant_id, len(points) + 1, anchor, str(purchase.item_id))
+                DecisionPoint(participant_id, _slot(len(points)), anchor, str(purchase.item_id))
             )
             started, components = None, []
         elif purchase.item_id in static.components:
             started = purchase.timestamp if started is None else started
             components.append(purchase.item_id)
-    if started is not None and len(points) < MAX_SLOT:
+    if started is not None and len(points) < MAX_ITEMS:
         candidates = static.items_built_from(components)
         if len(candidates) == 1:
             (option,) = candidates
-            slot = len(points) + 1
+            slot = _slot(len(points))
             points.append(DecisionPoint(participant_id, slot, started, str(option), inferred=True))
         else:
             dropped["unfinished_slot"] += 1
     return points
+
+
+def _slot(completed: int) -> int:
+    """The slot of the item completed after `completed` others: 1 to 3, then the late slot."""
+    return min(completed + 1, LATE_SLOT)

@@ -11,7 +11,7 @@ use stronk_domain::Role;
 use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page, valid_page};
 
 use crate::commands::build_get;
-use crate::commands::build_plan::{Page, Plan, SlotChoice, plan};
+use crate::commands::build_plan::{Page, Plan, SlotChoice, plan, with_late_items};
 use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};
 use crate::registry::Command;
@@ -171,10 +171,12 @@ fn with_picks(
             None => plan.items.push(SlotChoice {
                 slot: pick.slot,
                 choice: picked(pick.item),
+                then: Vec::new(),
             }),
         }
     }
     plan.items.sort_by_key(|s| s.slot);
+    with_late_items(&mut plan);
     Ok(plan)
 }
 
@@ -269,7 +271,8 @@ fn skipped(reason: &str) -> Outcome {
     }
 }
 
-/// Stronk's set: one block per slot, named with the slot and why the item was chosen.
+/// Stronk's set: one block per slot, named with the slot and why the item was chosen; the late
+/// slot's block ("Items 4+") lists its choice, then the other late items (ADR-067).
 fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
     let blocks: Vec<Value> = plan
         .items
@@ -278,10 +281,21 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
             let why = match s.choice.label {
                 Label::Popular => "Popular".to_owned(),
                 Label::Picked => "Your pick".to_owned(),
-                Label::ClearlyBetter { wpa, .. } => format!("Clearly better, {:+.1}% win", wpa * 100.0),
+                Label::ClearlyBetter { wpa, .. } => {
+                    format!("Clearly better, {:+.1}% win", wpa * 100.0)
+                }
                 Label::BestBet { wpa, .. } => format!("Best bet, {:+.1}% win", wpa * 100.0),
             };
-            json!({"type": format!("Item {}: {why}", s.slot), "items": [{"id": s.choice.value.to_string(), "count": 1}]})
+            let name = if plan.late_slot == Some(s.slot) {
+                format!("Items {}+", s.slot)
+            } else {
+                format!("Item {}", s.slot)
+            };
+            let items: Vec<Value> = std::iter::once(s.choice.value)
+                .chain(s.then.iter().copied())
+                .map(|id| json!({"id": id.to_string(), "count": 1}))
+                .collect();
+            json!({"type": format!("{name}: {why}"), "items": items})
         })
         .collect();
     json!({
@@ -314,4 +328,22 @@ fn spells(
         name: format!("{d} {f}"),
         label: *label,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::build_plan::tests::with_items;
+
+    #[test]
+    fn the_late_slots_block_names_it_and_lists_its_items() {
+        let build = with_items(&[(1, 6698, 90), (4, 3026, 60), (4, 3156, 50)]);
+        let set = item_set_json(&plan(&build, Role::Jungle), "Stronk: LeeSin JUNGLE", 64);
+        assert_eq!(set["blocks"][0]["type"], "Item 1: Popular");
+        assert_eq!(set["blocks"][1]["type"], "Items 4+: Popular");
+        assert_eq!(
+            set["blocks"][1]["items"],
+            json!([{"id": "3026", "count": 1}, {"id": "3156", "count": 1}])
+        );
+    }
 }

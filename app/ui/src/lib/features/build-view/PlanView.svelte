@@ -2,7 +2,8 @@
   // The build Stronk would import (ADR-062): on the left the build sheet, every slot's pick by name,
   // Stronk's changes from the most played build marked on their slots; on the right the slot opened from it: the
   // rune page built by clicking runes, or a slot's options against its baseline. Opens on the first
-  // slot Stronk changes, else the runes.
+  // slot Stronk changes, else the runes. The late items are one slot, "Items 4+" (ADR-067): its
+  // pick first, then the most played others, as the import lists them.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
@@ -52,6 +53,8 @@
   );
   /** Fewer games than this behind a whole build: the board says so before anything else. */
   const THIN = 300;
+  /** Items in the late slot's block, as the core's `LATE_ITEMS`. */
+  const LATE_ITEMS = 6;
   const options = $derived(ranked(plan, picks));
   const stronkChanges = $derived(changes(options, plan.alternatives.rune_rows));
   /** The page the import writes: the player's, else Stronk's. */
@@ -78,8 +81,20 @@
 
   /** The item each slot imports: the player's pick, else Stronk's. */
   const slotItem = (slot: number) => picks.items[slot] ?? plan.items.find((i) => i.slot === slot)?.value;
+  /** "Item 2", or "Items 4+" for the late items (ADR-067). */
+  const slotName = (slot: number) => (slot === plan.late_slot ? `Items ${slot}+` : `Item ${slot}`);
   const alsoIn = (slot: number, id: number) =>
-    plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => `item ${i.slot}`);
+    plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => slotName(i.slot).toLowerCase());
+  /** The late slot's other items as the import lists them after its pick: the core's list
+   * (`then`, most played first) refilled the same way when the player's picks take some. */
+  const lateThen = $derived.by(() => {
+    const late = plan.items.find((i) => i.slot === plan.late_slot);
+    if (!late) return [];
+    const count = Math.max(late.then?.length ?? 0, LATE_ITEMS - 1);
+    const taken = new Set(plan.items.map((i) => slotItem(i.slot)));
+    const rows = options.items.find((s) => s.slot === late.slot)?.rows ?? [];
+    return rows.map((r) => r.value).filter((v) => !taken.has(v)).slice(0, count);
+  });
 
   const changedKey = (part: "runes" | "rune" | "spells" | number) =>
     typeof part === "number" ? `item-${part}` : part === "rune" ? "runes" : part;
@@ -122,10 +137,12 @@
       : []),
     ...plan.items.map((c) => {
       const id = slotItem(c.slot) ?? c.value;
+      const then = c.slot === plan.late_slot ? lateThen : [];
       return {
         key: `item-${c.slot}`,
-        name: `Item ${c.slot}`,
+        name: slotName(c.slot),
         value: item(id),
+        ...(then.length ? { detail: `then ${then.map(item).join(", ")}` } : {}),
         icons: [shown("items", id)],
         changed: picks.items[c.slot] !== undefined ? null : gain(`item-${c.slot}`), // the gain is Stronk's pick's, not the player's
         yours: picks.items[c.slot] !== undefined,
@@ -168,7 +185,7 @@
     const slotNo = focusedItem ?? 0;
     const also = alsoIn(slotNo, slotItem(slotNo) ?? 0);
     return {
-      title: `Item ${slotNo}`,
+      title: slotName(slotNo),
       note: itemSlot ? note(itemSlot, item) : null,
       extra: also.length ? `Also in ${also.join(" and ")}` : "",
     };

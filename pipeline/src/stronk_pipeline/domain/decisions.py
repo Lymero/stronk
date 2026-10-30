@@ -22,8 +22,9 @@ class DecisionTable:
 
     `features` are the situation at decision time (game state, skill proxy...), the inputs of
     the win probability and propensity models. Rows are in canonical order and unique per
-    (match, participant, champion, role, slot), so results never depend on input order and
-    duplicated matches count once.
+    (match, participant, champion, role, slot, minute), so results never depend on input order
+    and duplicated matches count once; a player's several late items (ADR-067) share a slot
+    but not a minute.
     """
 
     match_id: NDArray[np.str_]
@@ -95,10 +96,19 @@ class DecisionTable:
             features,
             feature_names,
         )
-        order = np.lexsort((raw.participant, raw.match_id, raw.slot, raw.role, raw.champion))
+        order = np.lexsort(
+            (raw.minute, raw.participant, raw.match_id, raw.slot, raw.role, raw.champion)
+        )
         sorted_ = raw.take(order)
         identity = np.rec.fromarrays(
-            [sorted_.champion, sorted_.role, sorted_.slot, sorted_.match_id, sorted_.participant]
+            [
+                sorted_.champion,
+                sorted_.role,
+                sorted_.slot,
+                sorted_.match_id,
+                sorted_.participant,
+                sorted_.minute,
+            ]
         )
         keep = np.ones(len(sorted_), dtype=bool)
         keep[1:] = identity[1:] != identity[:-1]

@@ -103,6 +103,11 @@ export type RowKind = "primary" | "secondary" | "shard";
  */
 export type SlotChoice = {
   slot: number;
+  /**
+   * The late slot only (ADR-067): the other late items the import lists after the choice,
+   * most played first.
+   */
+  then?: number[];
   value: number;
 } & (
   | {
@@ -406,6 +411,11 @@ export interface Plan {
    */
   games: number;
   items: SlotChoice[];
+  /**
+   * The slot of the late items: the item completed there and every later one, as one
+   * decision (ADR-067). None for data from before it, where every slot is its own.
+   */
+  late_slot: number | null;
   patch: string;
   region: string;
   role: Role;

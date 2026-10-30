@@ -164,6 +164,7 @@ const names: GameNames = {
     "3026": "Guardian Angel",
     "6694": "Serylda's Grudge",
     "3078": "Trinity Force",
+    "3156": "Maw of Malmortius",
   },
 };
 
@@ -336,6 +337,20 @@ const leeSinAlternatives: Alternatives = {
       ],
       more: 1,
     },
+    {
+      // The late items, from the fourth on (ADR-067).
+      slot: 4,
+      rows: [
+        row(3053, 900, 2510, { wpa: 0.002, ci: [-0.006, 0.01], confidence: "most_played", chosen: true }),
+        row(3156, 600, 2510, { wpa: 0.004, ci: [-0.008, 0.016], versus: "most_played" }),
+        row(6333, 400, 2510, { wpa: -0.003, ci: [-0.018, 0.012], versus: "most_played" }),
+        row(3026, 300, 2510, { confidence: "too_few_games" }),
+        row(6694, 200, 2510, { confidence: "too_few_games" }),
+        rare(3071, 80, 2510),
+        rare(3078, 30, 2510),
+      ],
+      more: 2,
+    },
   ],
   rune_rows: leeSinRuneRows,
 };
@@ -367,7 +382,10 @@ const leeSin: Plan = {
     { slot: 1, value: 6692, label: "popular" },
     { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640 },
     { slot: 3, value: 3026, label: "best_bet", wpa: 0.012, ci: [0.0, 0.024], games: 160 },
+    // Guardian Angel, item 3, left out of the late items' list.
+    { slot: 4, value: 3053, label: "popular", then: [3156, 6333, 6694, 3071, 3078] },
   ],
+  late_slot: 4,
   alternatives: leeSinAlternatives,
 };
 

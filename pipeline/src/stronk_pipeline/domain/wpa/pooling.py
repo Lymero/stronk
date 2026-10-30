@@ -48,8 +48,15 @@ def pool_by_class(table: DecisionTable) -> Pooled:
         (*table.feature_names, *(CHAMPION_PREFIX + c for c in champions)),
     )
     # Canonical order for the new champion column. A participant plays one champion per game,
-    # so no two rows share (class, role, slot, match, participant) and none is dropped.
+    # so no two rows share (class, role, slot, match, participant, minute) and none is dropped.
     order = np.lexsort(
-        (pooled.participant, pooled.match_id, pooled.slot, pooled.role, pooled.champion)
+        (
+            pooled.minute,
+            pooled.participant,
+            pooled.match_id,
+            pooled.slot,
+            pooled.role,
+            pooled.champion,
+        )
     )
     return Pooled(pooled.take(order), order, table.champion[order])

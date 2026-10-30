@@ -30,6 +30,7 @@
     },
     { "slot": 1, "item": 6692, "wpa": null, "ci": null, "n": 140, "flags": ["low_sample", "low_overlap"], "picks": 140 }
   ],
+  "lateSlot": 4,
   "spells": [{ "spells": [4, 11], "wpa": null, "ci": null, "n": 18000, "flags": [], "games": 18000 }],
   "skillOrder": [{ "order": ["Q", "E", "W", "Q", "Q", "R"], "n": 12000 }],
   "runeChoices": [

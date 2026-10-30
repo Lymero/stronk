@@ -45,7 +45,7 @@ function setup(name: keyof typeof scenarios, store = memory(), picks = memoryPic
 const facts = (el: HTMLElement) => [...el.querySelectorAll(".facts > span")].map((s) => s.textContent);
 
 /** The sheet's tab for a slot: "Item 2", "Runes", "Spells". */
-const tab = (slot: string) => screen.getByRole("tab", { name: new RegExp(`^${slot}:`) });
+const tab = (slot: string) => screen.getByRole("tab", { name: new RegExp(`^${slot.replace("+", "\\+")}:`) });
 /** Opens a slot from the sheet; its options, in the panel beside it. */
 async function open(slot: string) {
   await fireEvent.click(tab(slot));
@@ -109,6 +109,7 @@ describe("App with MockBackend", () => {
       "Item 1: Eclipse",
       "Item 2: Sundered Sky, Stronk's change +2.1",
       "Item 3: Guardian Angel, Stronk's best bet +1.2",
+      "Items 4+: Sterak's Gage",
     ]);
     // It opens on the slot Stronk changes.
     expect(tab("Item 2")).toHaveAttribute("aria-selected", "true");
@@ -279,6 +280,24 @@ describe("App with MockBackend", () => {
     expect(option(spells, "Smite + Ignite")).toHaveAttribute("aria-checked", "false");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     expect(sent().at(-1)).toEqual({});
+  });
+
+  it("lists the late items as one slot, its pick first, then the most played others", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    // Guardian Angel, Stronk's item 3, is left out of the list.
+    expect(tab("Items 4+")).toHaveTextContent("then Maw of Malmortius, Death's Dance, Serylda's Grudge, Black Cleaver, Trinity Force");
+    const late = await open("Items 4+");
+    expect(screen.getByRole("tabpanel", { name: "Items 4+" })).toBeInTheDocument();
+    expect(option(late, "Sterak's Gage")).toHaveTextContent("baseline");
+    expect(option(late, "Guardian Angel")).toHaveTextContent("in item 3");
+    // Picking Maw first puts it at the head, and Sterak's Gage back in the list.
+    await fireEvent.click(option(late, "Maw of Malmortius"));
+    expect(tab("Items 4+")).toHaveTextContent("then Sterak's Gage, Death's Dance, Serylda's Grudge, Black Cleaver, Trinity Force");
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ items: [{ slot: 4, item: 3156 }] });
   });
 
   it("marks an item picked for two slots", async () => {

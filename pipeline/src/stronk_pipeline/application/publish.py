@@ -22,7 +22,12 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationEr
 from stronk_contracts.build_v1 import Build
 from stronk_contracts.manifest_v1 import Manifest
 from stronk_pipeline.application.registry import Command, CommandError
-from stronk_pipeline.domain.extract.decision_points import is_rune_slot, rune_row
+from stronk_pipeline.domain.extract.decision_points import (
+    LATE_SLOT,
+    MAX_SLOT,
+    is_rune_slot,
+    rune_row,
+)
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.publish import Played, played
 from stronk_pipeline.domain.result import Err, Ok, Result
@@ -195,7 +200,7 @@ def _builds(
         ]
         items = [
             {"slot": e.slot, "item": int(e.option), "picks": e.chosen, **_numbers(e)}
-            for e in _ranked(o for o in options if 1 <= o.slot <= 6)
+            for e in _ranked(o for o in options if 1 <= o.slot <= MAX_SLOT)
         ]
         choices = [
             {
@@ -221,6 +226,7 @@ def _builds(
                 "games": seen.games[(champion, role)],
                 "runes": runes,
                 "items": items,
+                "lateSlot": LATE_SLOT,
                 "spells": spells,
                 "runeChoices": choices,
             }

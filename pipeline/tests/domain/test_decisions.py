@@ -19,6 +19,25 @@ def test_duplicate_decisions_count_once(table_factory: TableFactory) -> None:
     assert len(table) == 2
 
 
+def test_a_players_late_items_share_a_slot_and_all_count() -> None:
+    # Two late items of one player (ADR-067), and the first again from a duplicated match.
+    table = DecisionTable.create(
+        match_id=np.array(["M1", "M1", "M1"]),
+        participant=np.ones(3, dtype=np.int64),
+        champion=np.array(["Jinx"] * 3),
+        champion_class=np.array(["marksman"] * 3),
+        role=np.array(["BOTTOM"] * 3),
+        slot=np.full(3, 4, dtype=np.int64),
+        minute=np.array([31.0, 24.0, 24.0]),
+        option=np.array(["3031", "3033", "3033"]),
+        outcome=np.ones(3, dtype=np.int64),
+        features=np.zeros((3, 1)),
+        feature_names=("gold_diff",),
+    )
+    assert table.option.tolist() == ["3033", "3031"]
+    assert table.minute.tolist() == [24.0, 31.0]
+
+
 def test_decision_points_partition_rows(table_factory: TableFactory) -> None:
     table = table_factory(["A", "B", "A"], [1, 0, 1], champions=["Zed", "Ahri", "Zed"])
     points = dict(table.decision_points())

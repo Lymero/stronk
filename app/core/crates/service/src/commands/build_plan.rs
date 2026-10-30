@@ -37,7 +37,14 @@ pub struct SlotChoice {
     pub slot: u64,
     #[serde(flatten)]
     pub choice: Choice<i64>,
+    /// The late slot only (ADR-067): the other late items the import lists after the choice,
+    /// most played first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub then: Vec<i64>,
 }
+
+/// Items in the late slot's block: its choice, then the most played others.
+pub const LATE_ITEMS: usize = 6;
 
 #[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct SlotRanked {
@@ -89,6 +96,9 @@ pub struct Plan {
     /// D then F, in the pair's usual order; the import moves Flash to the player's key.
     pub spells: Option<Choice<(i64, i64)>>,
     pub items: Vec<SlotChoice>,
+    /// The slot of the late items: the item completed there and every later one, as one
+    /// decision (ADR-067). None for data from before it, where every slot is its own.
+    pub late_slot: Option<u64>,
     pub alternatives: Alternatives,
 }
 
@@ -184,7 +194,11 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         .collect();
     let items: Vec<SlotChoice> = choose_items(&candidates)
         .into_iter()
-        .map(|(slot, choice)| SlotChoice { slot, choice })
+        .map(|(slot, choice)| SlotChoice {
+            slot,
+            choice,
+            then: Vec::new(),
+        })
         .collect();
     // The page chosen by its keystone, which the pages' list marks (each page stands for its
     // keystone); then its rows' best bets, which the import writes and the rune rows mark.
@@ -209,7 +223,7 @@ pub fn plan(build: &Build, role: Role) -> Plan {
             .collect(),
         rune_rows,
     };
-    Plan {
+    let mut plan = Plan {
         champion: build.champion.to_string(),
         role,
         patch: build.patch.to_string(),
@@ -219,7 +233,40 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         runes: runes_choice,
         spells: spells_choice,
         items,
+        late_slot: build.late_slot.map(|s| s.get()),
         alternatives,
+    };
+    with_late_items(&mut plan);
+    plan
+}
+
+/// The late slot's other items (ADR-067): its options most played first, without any item
+/// another slot or the late choice already has, up to [`LATE_ITEMS`] with the choice. Called
+/// again when the player's picks change the items.
+pub fn with_late_items(plan: &mut Plan) {
+    let Some(late) = plan.late_slot else { return };
+    let taken: Vec<i64> = plan.items.iter().map(|s| s.choice.value).collect();
+    let then: Vec<i64> = plan
+        .alternatives
+        .items
+        .iter()
+        .find(|s| s.slot == late)
+        .map(|s| {
+            s.ranked
+                .rows
+                .iter()
+                .map(|r| r.value)
+                .filter(|v| !taken.contains(v))
+                .take(LATE_ITEMS - 1)
+                .collect()
+        })
+        .unwrap_or_default();
+    for s in &mut plan.items {
+        s.then = if s.slot == late {
+            then.clone()
+        } else {
+            Vec::new()
+        };
     }
 }
 
@@ -401,11 +448,60 @@ fn to_i64(v: u64) -> i64 {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     fn choices(json: serde_json::Value) -> Vec<RuneChoice> {
         serde_json::from_value(json).unwrap()
+    }
+
+    /// A build with these items (slot, item, picks), late items from slot 4.
+    pub(crate) fn with_items(items: &[(u64, i64, u64)]) -> Build {
+        let items: Vec<serde_json::Value> = items
+            .iter()
+            .map(|(slot, item, picks)| {
+                serde_json::json!({"slot": slot, "item": item, "picks": picks, "n": picks,
+                                   "wpa": null, "ci": null, "flags": ["low_sample"]})
+            })
+            .collect();
+        serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1, "patch": "16.20", "region": "all", "elo": "master_plus",
+            "champion": "LeeSin", "role": "JUNGLE", "games": 100, "runes": [], "spells": [],
+            "items": items, "lateSlot": 4
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn the_late_slot_lists_its_choice_then_the_most_played_others() {
+        let mut items = vec![(1, 6698, 90), (2, 6699, 80), (3, 6333, 70), (4, 6333, 9)];
+        items.extend([(4, 3026, 60), (4, 3156, 50), (4, 3053, 40), (4, 6694, 30)]);
+        items.extend([(4, 3071, 20), (4, 6610, 10), (4, 3742, 5)]);
+        let mut plan = plan(&with_items(&items), Role::Jungle);
+        assert_eq!(plan.late_slot, Some(4));
+        let late = plan.items.iter().find(|s| s.slot == 4).unwrap();
+        assert_eq!(late.choice.value, 3026);
+        // Death's Dance, already item 3, is left out; six items in all.
+        assert_eq!(late.then, vec![3156, 3053, 6694, 3071, 6610]);
+        assert!(
+            plan.items
+                .iter()
+                .filter(|s| s.slot != 4)
+                .all(|s| s.then.is_empty())
+        );
+        // The player's pick in another slot leaves the late items too.
+        plan.items[0].choice.value = 3156;
+        with_late_items(&mut plan);
+        assert_eq!(plan.items[3].then, vec![3053, 6694, 3071, 6610, 3742]);
+    }
+
+    #[test]
+    fn data_from_before_the_late_slot_keeps_every_slot_its_own() {
+        let mut build = with_items(&[(4, 3026, 60), (5, 3156, 50)]);
+        build.late_slot = None;
+        let plan = plan(&build, Role::Jungle);
+        assert_eq!(plan.late_slot, None);
+        assert!(plan.items.iter().all(|s| s.then.is_empty()));
     }
 
     #[test]

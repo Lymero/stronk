@@ -4,6 +4,8 @@ from dataclasses import replace
 from riot_builders import Json, buy, domain_match, domain_static, undo
 
 from stronk_pipeline.domain.extract.decision_points import (
+    LATE_SLOT,
+    MAX_ITEMS,
     MAX_SLOT,
     DecisionPoint,
     decision_points,
@@ -130,10 +132,17 @@ def test_unfinished_slot_with_several_possible_items_is_dropped_and_counted() ->
     assert dropped == {"unfinished_slot": 1}
 
 
-def test_slots_stop_at_the_maximum() -> None:
-    events = [buy((5 + 2 * i) * MIN, 1, 3031) for i in range(MAX_SLOT + 2)]
+def test_items_from_the_fourth_share_the_late_slot_up_to_the_seventh() -> None:
+    events = [buy((5 + 2 * i) * MIN, 1, 3031) for i in range(MAX_ITEMS + 2)]
     points, _ = items_of(events)
-    assert [p.slot for p in points] == list(range(1, MAX_SLOT + 1))
+    assert [p.slot for p in points] == [1, 2, 3, LATE_SLOT, LATE_SLOT, LATE_SLOT, LATE_SLOT]
+    assert [p.timestamp for p in points][3:] == [(5 + 2 * i) * MIN for i in range(3, MAX_ITEMS)]
+
+
+def test_an_unfinished_late_item_takes_the_late_slot() -> None:
+    events = [buy((5 + 2 * i) * MIN, 1, 3031) for i in range(5)] + [buy(20 * MIN, 1, 1038)]
+    points, _ = items_of(events)
+    assert points[-1] == DecisionPoint(1, LATE_SLOT, 20 * MIN, "3031", inferred=True)
 
 
 def test_players_are_independent() -> None:

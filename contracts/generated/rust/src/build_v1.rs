@@ -14,6 +14,12 @@ pub struct Build {
     #[doc = "Games behind this file."]
     pub games: u64,
     pub items: ::std::vec::Vec<ItemOption>,
+    #[doc = "The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own."]
+    #[serde(
+        rename = "lateSlot",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub late_slot: ::std::option::Option<::std::num::NonZeroU64>,
     pub patch: Patch,
     #[doc = "Riot platform or region id, lower case (for example \"euw1\")."]
     pub region: BuildRegion,

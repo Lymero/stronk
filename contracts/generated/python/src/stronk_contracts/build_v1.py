@@ -255,6 +255,10 @@ class Build(BaseModel):
     runes: list[RuneOption]
     items: list[ItemOption]
     spells: list[SpellOption]
+    late_slot: Annotated[int | None, Field(alias="lateSlot", ge=1, le=6)] = None
+    """
+    The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own.
+    """
     skill_order: Annotated[list[SkillOrderOption] | None, Field(alias="skillOrder")] = (
         None
     )

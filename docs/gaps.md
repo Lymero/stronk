@@ -12,7 +12,7 @@ Status: **missing** · **partial** · **done**
 | Rune ranking by WPA | Coachless | partial: keystones estimated, published with their usual page |
 | Confidence intervals and sample sizes shown | none | partial: published in build files; the app shows WPA and flags, not yet intervals |
 | Flags for meta-locked or low-sample choices | none | done: published, shown by the app instead of numbers |
-| Per-slot item ranking | Coachless | partial: per slot in build files; ranking claims need FDR survivors |
+| Per-slot item ranking | Coachless | partial: per slot in build files, items 1 to 3 each and the late items pooled as "4+" (ADR-067); ranking claims need FDR survivors |
 | Elo filters | Coachless, u.gg | missing |
 | Matchup-adjusted builds | u.gg, Blitz | missing |
 | Skill order | u.gg, Blitz | missing |

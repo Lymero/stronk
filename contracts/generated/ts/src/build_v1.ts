@@ -60,6 +60,10 @@ export interface Build {
   runes: RuneOption[];
   items: ItemOption[];
   spells: SpellOption[];
+  /**
+   * The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own.
+   */
+  lateSlot?: number;
   skillOrder?: SkillOrderOption[];
   /**
    * Each rune row on its own, for information: every primary row, the secondary pair and every stat shard row (ADR-057). Imports still write a whole page from `runes`.
