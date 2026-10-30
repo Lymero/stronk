@@ -21,7 +21,7 @@
 
 <main>
   <header>
-    <h1>Stronk</h1>
+    <h1><span class="mark" aria-hidden="true"></span>STRONK</h1>
     {#if onstep}<button type="button" class="dev" onclick={onstep}>Next step</button>{/if}
   </header>
 
@@ -83,9 +83,21 @@
     align-items: center;
   }
   h1 {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
     margin: 0;
     font-size: var(--text-md);
-    letter-spacing: 0.02em;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+  }
+  /* The wordmark's glyph: a forge-amber bar. */
+  .mark {
+    width: 6px;
+    height: 18px;
+    border-radius: 2px;
+    background: var(--color-accent);
+    box-shadow: 0 0 12px var(--color-accent);
   }
   .dev {
     margin-left: auto;
@@ -111,8 +123,9 @@
     padding: var(--space-2) var(--space-6);
     border-color: var(--color-accent);
     background: var(--color-accent);
-    color: var(--color-surface);
-    font-weight: 600;
+    color: var(--color-on-accent);
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
   .quiet:hover {
     background: var(--color-bg);

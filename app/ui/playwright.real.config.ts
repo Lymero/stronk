@@ -19,6 +19,7 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:5173",
     viewport: { width: 1200, height: 900 },
+    colorScheme: "dark", // the app's own look, as on a dark Windows desktop
     launchOptions: process.env.STRONK_CHROMIUM ? { executablePath: process.env.STRONK_CHROMIUM } : {},
   },
   webServer: [

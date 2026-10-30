@@ -1,15 +1,15 @@
 <script lang="ts">
-  // The build Stronk would import as a board of panels (ADR-059): the rune page built by clicking
-  // runes, the spells and each item slot as rows of options, every option with its numbers and
-  // the lit ones what the import writes. Nothing to open or scroll through. It opens with what
-  // Stronk changes from the most played build (ADR-060).
+  // The build Stronk would import (ADR-062): on the left the build sheet, every slot's pick by name
+  // with what Stronk changes from the most played build; on the right the slot opened from it: the
+  // rune page built by clicking runes, or a slot's options against its baseline. Opens on the first
+  // slot Stronk changes, else the runes.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
-  import Icon from "../../ui/Icon.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
-  import ChoicePanel from "./ChoicePanel.svelte";
-  import RunesPanel from "./RunesPanel.svelte";
   import type { Pick, Picks } from "../../state/picks.ts";
+  import Loadout from "./Loadout.svelte";
+  import OptionTable from "./OptionTable.svelte";
+  import RunesPanel from "./RunesPanel.svelte";
   import {
     allPopular,
     changes,
@@ -50,13 +50,10 @@
       : "Stronk imports the most played options, except where another one is clearly better.") +
       " Open a slot and click any option to import it instead.",
   );
+  /** Fewer games than this behind a whole build: the board says so before anything else. */
+  const THIN = 300;
   const options = $derived(ranked(plan, picks));
   const stronkChanges = $derived(changes(options));
-  /** A change's part, option and the option it beats, in words. */
-  const what = (part: "runes" | "spells" | number) =>
-    part === "runes" ? "Runes" : part === "spells" ? "Summoner spells" : `Item ${part}`;
-  const valueOf = (part: "runes" | "spells" | number, value: unknown) =>
-    part === "runes" ? page(value as Page) : part === "spells" ? spells(value as [number, number]) : item(value as number);
   /** The page the import writes: the player's, else Stronk's. */
   const shownPage = $derived(picks.runes ?? plan.runes?.value ?? null);
   /** The client's layout of that page's trees, without which pages are picked whole. */
@@ -72,7 +69,6 @@
     src: icon(icons, kind, id),
     name: name(names, kind, id),
   });
-  /** A page's keystone and secondary tree. */
   const pageIcons = (p: Page) => [
     ...(p.perks[0] !== undefined ? [shown("runes", p.perks[0])] : []),
     shown("rune_styles", p.sub_style),
@@ -82,34 +78,96 @@
 
   /** The item each slot imports: the player's pick, else Stronk's. */
   const slotItem = (slot: number) => picks.items[slot] ?? plan.items.find((i) => i.slot === slot)?.value;
-  /** Other slots importing the same item, so a duplicate the player picks is visible. */
-  const alsoIn = (slot: number) => (id: number) => {
-    const others = plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => `item ${i.slot}`);
-    return others.length ? `Also in ${others.join(" and ")}` : "";
+  const alsoIn = (slot: number, id: number) =>
+    plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => `item ${i.slot}`);
+
+  const changedKey = (part: "runes" | "spells" | number) => (typeof part === "number" ? `item-${part}` : part);
+  const changedKeys = $derived(new Set(stronkChanges.map((c) => changedKey(c.part))));
+  const spellPair = $derived(picks.spells ?? plan.spells?.value ?? null);
+
+  const gain = (key: string) => {
+    const c = stronkChanges.find((x) => changedKey(x.part) === key);
+    return c?.row.wpa != null ? wins(c.row.wpa) : null;
   };
+  const slots = $derived([
+    ...(shownPage
+      ? [
+          {
+            key: "runes",
+            name: "Runes",
+            value: name(names, "runes", shownPage.perks[0] ?? 0),
+            detail: `${name(names, "rune_styles", shownPage.primary_style)} + ${name(names, "rune_styles", shownPage.sub_style)}`,
+            icons: [shown("runes", shownPage.perks[0] ?? 0)],
+            changed: gain("runes"),
+            yours: picks.runes !== undefined,
+          },
+        ]
+      : []),
+    ...(spellPair
+      ? [
+          {
+            key: "spells",
+            name: "Spells",
+            value: spells(spellPair),
+            icons: spellPair.map((id) => shown("spells", id)),
+            changed: gain("spells"),
+            yours: picks.spells !== undefined,
+          },
+        ]
+      : []),
+    ...plan.items.map((c) => {
+      const id = slotItem(c.slot) ?? c.value;
+      return {
+        key: `item-${c.slot}`,
+        name: `Item ${c.slot}`,
+        value: item(id),
+        icons: [shown("items", id)],
+        changed: gain(`item-${c.slot}`),
+        yours: picks.items[c.slot] !== undefined,
+      };
+    }),
+  ]);
+
+  let chosenFocus = $state<string | null>(null);
+  const firstKey = $derived(stronkChanges[0] ? changedKey(stronkChanges[0].part) : shownPage ? "runes" : "item-1");
+  const focus = $derived(chosenFocus ?? firstKey);
+  const focusedItem = $derived(focus.startsWith("item-") ? Number(focus.slice(5)) : null);
+  const itemSlot = $derived(
+    focusedItem === null ? null : (options.items.find((s) => s.slot === focusedItem) ?? { slot: focusedItem, rows: [], more: 0 }),
+  );
 
   /** What a slot's header says: what its numbers are compared with, a clear result against it,
    * and "Your pick" when the import writes the player's choice (ADR-060). */
-  function note<T>(
-    slot: Slot<T>,
-    label: (value: T) => string,
-  ): { text: string; tone: string; title: string } | null {
+  function note<T>(slot: Slot<T>, label: (value: T) => string): { text: string; tone: string; title: string } | null {
     const row = selected(slot);
     if (!row) return null;
     // Spells have no estimates at all: their blanks aren't a lack of games.
     if (slot.rows.every((r) => r.wpa === null && (r.confidence === "most_played" || r.confidence === "not_estimated")))
-      return row.chosen ? { text: "Not measured yet", tone: "muted", title: "No win impact is estimated for these yet" } : { text: "Your pick", tone: "picked", title: "" };
+      return row.chosen
+        ? { text: "Not measured yet", tone: "muted", title: "No win impact is estimated for these yet" }
+        : { text: "Your pick", tone: "picked", title: "" };
     const clear = verdict(row);
     const base = mostPlayed(slot);
     const against = base && compared(slot) ? label(base.value) : null;
     if (row.chosen && clear && base !== row && against)
       return { text: `${clear.text} vs ${against}`, tone: clear.tone, title: explain(row) };
-    if (row.chosen)
-      return against ? { text: `Compared with ${against}`, tone: "muted", title: explain(row) } : null;
+    if (row.chosen) return against ? { text: `Compared with ${against}`, tone: "muted", title: explain(row) } : null;
     const number = figure(row);
     const text = number && against ? `Your pick: ${number} vs ${against}` : "Your pick";
     return { text, tone: "picked", title: explain(row) };
   }
+
+  const panel = $derived.by(() => {
+    if (focus === "runes") return { title: "Runes", note: laidOut ? null : note(options.runes, page), extra: "" };
+    if (focus === "spells") return { title: "Summoner spells", note: note(options.spells, spells), extra: "" };
+    const slotNo = focusedItem ?? 0;
+    const also = alsoIn(slotNo, slotItem(slotNo) ?? 0);
+    return {
+      title: `Item ${slotNo}`,
+      note: itemSlot ? note(itemSlot, item) : null,
+      extra: also.length ? `Also in ${also.join(" and ")}` : "",
+    };
+  });
 
   const parts = $derived(
     imported
@@ -121,17 +179,10 @@
       : [],
   );
   const done = $derived(parts.filter(([, o]) => o.status === "imported").map(([part]) => part));
-  const skipped = $derived(
-    parts.flatMap(([part, o]) => (o.status === "skipped" ? [{ part, reason: o.reason }] : [])),
-  );
+  const skipped = $derived(parts.flatMap(([part, o]) => (o.status === "skipped" ? [{ part, reason: o.reason }] : [])));
 </script>
 
 <section class="plan" aria-label="Build">
-  <p class="meta">
-    <Facts facts={source} />
-    <span class="how" title={how} aria-label={how}>How Stronk picks</span>
-  </p>
-
   {#if imported}
     {#each skipped as s (s.part)}
       <p class="skipped" role="alert">{s.part} not imported: {s.reason}</p>
@@ -143,85 +194,75 @@
     </p>
   {/if}
 
-  <div class="take" aria-label="What Stronk changes">
-    {#if stronkChanges.length === 0}
-      <p class="headline">The most played build. No option is clearly better yet.</p>
-    {:else}
-      <p class="headline">
-        Stronk changes {stronkChanges.length === 1 ? "1 thing" : `${stronkChanges.length} things`} from the most played build
-      </p>
-      <ul>
-        {#each stronkChanges as c (c.part)}
-          <li title={explain(c.row)}>
-            <span class="part">{what(c.part)}</span>
-            <strong>{valueOf(c.part, c.row.value)}</strong>
-            {#if c.base && c.base !== c.row}<span class="base">over {valueOf(c.part, c.base.value)}</span>{/if}
-            <span class="gain">
-              {wins(c.row.wpa ?? 0)} wins per 100 games
-            </span>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-    <p class="legend">
-      <svg class="key ring" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" class="track" /><circle cx="6" cy="6" r="4.5" class="arc" pathLength="100" stroke-dasharray="35 100" /></svg>ring: share of games
-      <span class="key num" aria-hidden="true">+2.1</span>wins per 100 games compared with the most played option of its row, which reads 0
-      <span class="key clear" aria-hidden="true">▲</span>colour only when clearly better or worse
-      <span class="key none" aria-hidden="true"></span>no number: too few games
-    </p>
-  </div>
-
-  <div class="board">
-    <div class="column">
-      {#if shownPage && laidOut && names}
-        <section aria-label="Runes">
-          <h3>Runes</h3>
-          <RunesPanel
-            {plan}
-            page={shownPage}
-            stronk={plan.runes?.value ?? null}
-            {names}
-            {icons}
-            onpage={(p) => onpick({ runes: p })}
-          />
-        </section>
-      {:else if plan.runes}
-        <ChoicePanel
-          title="Runes"
-          note={note(options.runes, page)}
-          slot={options.runes}
-          label={page}
-          icons={pageIcons}
-          onpick={(p) => onpick({ runes: p })}
-        />
-      {/if}
-      {#if plan.spells}
-        <ChoicePanel
-          title="Summoner spells"
-          note={note(options.spells, spells)}
-          slot={options.spells}
-          label={spells}
-          icons={spellIcons}
-          onpick={(pair) => onpick({ spells: pair })}
-        />
+  <div class="columns">
+  <div class="card loadout-card">
+    <div class="take" aria-label="What Stronk changes">
+      {#if plan.games < THIN}
+        <p class="headline thin">
+          Only {games(plan.games)} for this champion and role: too few to measure, so Stronk imports the most played build.
+        </p>
+      {:else if stronkChanges.length === 0}
+        <p class="headline">The most played build. No option is clearly better yet.</p>
+      {:else}
+        <p class="headline">
+          Stronk changes {stronkChanges.length === 1 ? "1 thing" : `${stronkChanges.length} things`} from the most played build
+        </p>
+        <ul>
+          {#each stronkChanges as c (c.part)}
+            {@const label = c.part === "runes" ? page : c.part === "spells" ? spells : item}
+            <li title={explain(c.row)}>
+              <span class="part">{c.part === "runes" ? "Runes" : c.part === "spells" ? "Summoner spells" : `Item ${c.part}`}</span>
+              <strong>{(label as (v: unknown) => string)(c.row.value)}</strong>
+              {#if c.base && c.base !== c.row}<span class="base">over {(label as (v: unknown) => string)(c.base.value)}</span>{/if}
+              <span class="gain">{wins(c.row.wpa ?? 0)} wins per 100 games</span>
+            </li>
+          {/each}
+        </ul>
       {/if}
     </div>
+    <Loadout {slots} {focus} onfocus={(k) => (chosenFocus = k)} />
+  </div>
 
-    <section class="column" aria-label="Items">
-      <h3>Items</h3>
-      {#each plan.items as choice (choice.slot)}
-        {@const alts = options.items.find((s) => s.slot === choice.slot) ?? { rows: [], more: 0 }}
-        {@const also = alsoIn(choice.slot)(slotItem(choice.slot) ?? choice.value)}
-        <ChoicePanel
-          title={`Item ${choice.slot}${also ? `, ${also.toLowerCase()}` : ""}`}
-          note={note(alts, item)}
-          slot={alts}
+  <div class="card panel" id="slot-panel" role="tabpanel" tabindex="-1" aria-label={panel.title}>
+    <header>
+      <h3>{panel.title}</h3>
+      {#if panel.extra}<span class="also">{panel.extra}</span>{/if}
+      {#if panel.note}<span class="note {panel.note.tone}" title={panel.note.title}>{panel.note.text}</span>{/if}
+    </header>
+
+    {#if focus === "runes"}
+      {#if shownPage && laidOut && names}
+        <RunesPanel {plan} page={shownPage} stronk={plan.runes?.value ?? null} {names} {icons} onpage={(p) => onpick({ runes: p })} />
+      {:else}
+        <OptionTable slot={options.runes} label={page} icons={pageIcons} onpick={(p) => onpick({ runes: p })} />
+      {/if}
+    {:else if focus === "spells"}
+      <OptionTable slot={options.spells} label={spells} icons={spellIcons} onpick={(pair) => onpick({ spells: pair })} />
+    {:else if itemSlot}
+      {#key itemSlot.slot}
+        <OptionTable
+          slot={itemSlot}
           label={item}
           icons={itemIcons}
-          onpick={(id) => onpick({ slot: choice.slot, item: id })}
+          onpick={(id) => onpick({ slot: itemSlot.slot, item: id })}
+          elsewhere={(id) => {
+            const also = alsoIn(itemSlot.slot, id);
+            return also.length ? `in ${also.join(" and ")}` : null;
+          }}
         />
-      {/each}
-    </section>
+      {/key}
+    {/if}
+
+    <p class="meta">
+      <Facts facts={source} />
+      <span class="how" title={how} aria-label={how}>How Stronk picks</span>
+    </p>
+    <p class="legend">
+      <span><strong>+2.1</strong> wins per 100 games against the baseline, the most played option (0)</span>
+      <span><span class="clear">▲</span> colour only when clearly better or worse</span>
+      <span>No number: too few games</span>
+    </p>
+  </div>
   </div>
 </section>
 
@@ -230,37 +271,46 @@
     display: grid;
     gap: var(--space-3);
   }
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1) var(--space-3);
-    align-items: baseline;
-    margin: 0;
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-  }
-  .how {
-    border-bottom: 1px dotted var(--color-muted);
-    cursor: help;
-  }
-  .take {
-    display: grid;
-    gap: var(--space-1);
-    padding: var(--space-3) var(--space-4);
-    border-left: 3px solid var(--color-accent);
-    border-radius: var(--radius);
+  .card {
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
     background: var(--color-surface);
   }
+  .columns {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: start;
+  }
+  .loadout-card {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+  .loadout-card .take {
+    padding: var(--space-1) var(--space-2) 0;
+  }
+  @media (max-width: 900px) {
+    .columns {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
   .take p,
+  .headline.thin {
+    color: var(--color-warning);
+  }
   .take ul {
     margin: 0;
   }
   .headline {
+    font-size: var(--text-sm);
     font-weight: 600;
   }
   .take ul {
     display: grid;
     gap: 2px;
+    margin-top: var(--space-1) !important;
     padding: 0;
     list-style: none;
   }
@@ -280,68 +330,74 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  .legend {
+  .meta {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-1) var(--space-2);
-    align-items: center;
-    margin-top: var(--space-1) !important;
+    gap: var(--space-1) var(--space-3);
+    align-items: baseline;
+    margin: 0;
     color: var(--color-muted);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
   }
-  .key {
-    display: inline-block;
-    margin-left: var(--space-2);
+  .how {
+    border-bottom: 1px dotted var(--color-muted);
+    cursor: help;
   }
-  .key:first-child {
-    margin-left: 0;
-  }
-  .key.ring {
-    width: 12px;
-    height: 12px;
-    transform: rotate(-90deg);
-  }
-  .key.ring circle {
-    fill: none;
-    stroke-width: 2;
-  }
-  .key.ring .track {
-    stroke: var(--color-track);
-  }
-  .key.ring .arc {
-    stroke: var(--color-muted);
-  }
-  .key.num {
-    color: var(--color-text);
-    font-weight: 600;
-  }
-  .key.none {
-    width: 10px;
-    height: 10px;
-    border: 1px dashed var(--color-muted);
-    border-radius: 50%;
-  }
-  .key.clear {
-    color: var(--color-positive);
-  }
-  .board {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--space-4);
-    align-items: start;
-  }
-  .column {
+  .panel {
     display: grid;
     gap: var(--space-3);
-    min-width: 0;
   }
-  .column > section {
-    display: grid;
-    gap: var(--space-2);
+  .panel header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    align-items: baseline;
   }
   h3 {
     margin: 0;
     font-size: var(--text-lg);
+  }
+  .also {
+    color: var(--color-warning);
+    font-size: var(--text-sm);
+  }
+  .note {
+    margin-left: auto;
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  .note.muted {
+    color: var(--color-muted);
+  }
+  .note.positive {
+    color: var(--color-positive);
+    font-weight: 600;
+  }
+  .note.negative {
+    color: var(--color-negative);
+    font-weight: 600;
+  }
+  .note.picked {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+  .panel .meta {
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+    margin: calc(-1 * var(--space-2)) 0 0;
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+  }
+  .legend strong {
+    color: var(--color-text);
+  }
+  .legend .clear {
+    color: var(--color-positive);
   }
   .result {
     margin: 0;
@@ -362,10 +418,5 @@
     border-radius: var(--radius);
     background: var(--color-warning-bg);
     color: var(--color-warning);
-  }
-  @media (max-width: 900px) {
-    .board {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 </style>

@@ -1,20 +1,25 @@
-/* Design tokens (docs/architecture.md, section 5): every color, size and font comes from here. */
+/* Design tokens (docs/architecture.md, section 5): every color, size and font comes from here.
+   Stronk's look (ADR-062): ink surfaces and a forge-amber accent, dark by default as the League
+   client is; a light variant follows the system's setting. */
 :root {
-  --color-bg: #f6f6f4;
-  --color-surface: #ffffff;
-  --color-text: #1d1d1b;
-  --color-muted: #6a6a64;
-  --color-border: #deded8;
-  --color-accent: #2e5bd8;
-  --color-positive: #1f7a46;
-  --color-negative: #b3261e;
-  --color-warning: #8a5a00;
-  --color-warning-bg: #fff4dc;
-  --color-accent-bg: #e8eefc;
-  --color-positive-bg: #e3f3e9;
-  --color-negative-bg: #fbe7e5;
-  --color-track: #ecece6;
-  --shadow: 0 4px 16px rgb(0 0 0 / 12%);
+  color-scheme: dark;
+  --color-bg: #0e1014;
+  --color-surface: #171a21;
+  --color-raised: #1f232c;
+  --color-text: #eceef3;
+  --color-muted: #8d94a5;
+  --color-border: #2a2f3a;
+  --color-accent: #f2a93b;
+  --color-on-accent: #1a1204;
+  --color-positive: #4fd18b;
+  --color-negative: #ff7a70;
+  --color-warning: #f2c46d;
+  --color-warning-bg: #2f2612;
+  --color-accent-bg: #2b2112;
+  --color-positive-bg: #14291e;
+  --color-negative-bg: #34181a;
+  --color-track: #262a33;
+  --shadow: 0 8px 24px rgb(0 0 0 / 45%);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -23,39 +28,43 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  --radius-sm: 3px;
-  --radius: 6px;
-  --radius-lg: 10px;
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 14px;
   --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", Menlo, monospace;
+  --text-xs: 11px;
   --text-sm: 13px;
   --text-md: 15px;
   --text-lg: 20px;
   --text-xl: 28px;
-  --text-xs: 11px;
 
   --icon-sm: 20px;
   --icon-md: 32px;
   --icon-lg: 56px;
+  --icon-xl: 52px;
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --color-bg: #151514;
-    --color-surface: #1f1f1d;
-    --color-text: #ecece6;
-    --color-muted: #a3a39b;
-    --color-border: #34342f;
-    --color-accent: #7c9cff;
-    --color-positive: #5cc98a;
-    --color-negative: #ff8a80;
-    --color-warning: #f2c46d;
-    --color-warning-bg: #3a2e14;
-    --color-accent-bg: #1f2a4a;
-    --color-positive-bg: #17301f;
-    --color-negative-bg: #3a1c1a;
-    --color-track: #2c2c28;
-    --shadow: 0 4px 16px rgb(0 0 0 / 45%);
+    color-scheme: light;
+    --color-bg: #f3f1ec;
+    --color-surface: #ffffff;
+    --color-raised: #f8f6f2;
+    --color-text: #1b1c20;
+    --color-muted: #6b6f7a;
+    --color-border: #e2ded6;
+    --color-accent: #c77a0a;
+    --color-on-accent: #ffffff;
+    --color-positive: #1f7a46;
+    --color-negative: #b3261e;
+    --color-warning: #8a5a00;
+    --color-warning-bg: #fff4dc;
+    --color-accent-bg: #fbefd9;
+    --color-positive-bg: #e3f3e9;
+    --color-negative-bg: #fbe7e5;
+    --color-track: #ebe7df;
+    --shadow: 0 8px 24px rgb(0 0 0 / 10%);
   }
 }
 

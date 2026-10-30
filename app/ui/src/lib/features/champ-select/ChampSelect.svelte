@@ -70,7 +70,8 @@
     background: var(--color-surface);
   }
   .champ-select.locked {
-    box-shadow: inset 4px 0 0 var(--color-accent);
+    border-color: var(--color-accent);
+    background: linear-gradient(90deg, var(--color-accent-bg), var(--color-surface) 45%);
   }
   .who {
     flex: 1 1 160px;
