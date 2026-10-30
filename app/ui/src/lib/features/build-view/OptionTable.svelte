@@ -54,7 +54,7 @@
       <span class="mark" aria-hidden="true"></span>
       <span class="icons">{#each icons(row.value) as i, k (k)}<Icon src={i.src} name={i.name} size="md" round />{/each}</span>
       <span class="name">
-        {label(row.value)}
+        <span class="label">{label(row.value)}</span>
         {#if row.confidence === "most_played" && scaled}<span class="tag">baseline</span>{/if}
         {#if row.chosen && !row.selected}<span class="tag stronk">Stronk's pick</span>{/if}
         {#if elsewhere(row.value)}<span class="tag">{elsewhere(row.value)}</span>{/if}
@@ -122,14 +122,21 @@
     filter: none;
     opacity: 1;
   }
+  /* The name gives way before its tags do. */
   .name {
-    overflow: hidden;
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    min-width: 0;
     font-weight: 500;
+  }
+  .label {
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .tag {
-    margin-left: var(--space-2);
+    flex: none;
     padding: 1px 6px;
     border: 1px solid var(--color-border);
     border-radius: 999px;

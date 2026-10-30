@@ -3,7 +3,12 @@
 import { expect, test } from "@playwright/test";
 import { screenshot } from "./screens.ts";
 
-const next = (page: import("@playwright/test").Page) => page.getByRole("button", { name: "Next step" }).click();
+type Page = import("@playwright/test").Page;
+const next = (page: Page) => page.getByRole("button", { name: "Next step" }).click();
+/** Opens a slot from the build sheet: "Runes", "Spells", "Item 2". */
+const open = (page: Page, slot: string) => page.getByRole("tab", { name: new RegExp(`^${slot}:`) }).click();
+/** An option's row in the open slot. */
+const option = (page: Page, name: string) => page.getByRole("tabpanel").getByRole("radio", { name: new RegExp(`^${name},`) });
 
 test("follows champion select and shows the plan by name", async ({ page }) => {
   await page.goto("/?scenario=ranked-jungle");
@@ -13,9 +18,11 @@ test("follows champion select and shows the plan by name", async ({ page }) => {
   await expect(page.getByLabel("Champion select").locator(".facts > span")).toHaveText(["Jungle", "Hovering", "Declaring picks"]);
   await next(page);
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible();
+  await expect(page.getByText("▲ +2.1 wins per 100 vs Black Cleaver")).toBeVisible(); // opens on Stronk's change
+  await open(page, "Runes");
   await expect(page.getByLabel("Rune page").getByRole("button", { name: /^Conqueror/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Smite + Flash, most played" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("▲ +2.1 wins per 100 vs Black Cleaver")).toBeVisible();
+  await open(page, "Spells");
+  await expect(option(page, "Smite \\+ Flash")).toHaveAttribute("aria-checked", "true");
   await expect(page.getByLabel("Champion select").locator("img")).toHaveAttribute("src", /^data:image\/svg\+xml,/);
   await screenshot(page, "mock-hovering");
   await next(page);
@@ -28,13 +35,15 @@ test("follows champion select and shows the plan by name", async ({ page }) => {
 test("imports the options the player clicks, runes one by one", async ({ page }) => {
   await page.goto("/?scenario=ranked-jungle");
   for (let i = 0; i < 3; i++) await next(page);
-  const build = page.getByLabel("Build");
   const tree = page.getByLabel("Rune page");
-  await build.getByRole("region", { name: "Item 2" }).getByRole("button", { name: /^Black Cleaver/ }).click();
+  await open(page, "Item 2");
+  await option(page, "Black Cleaver").click();
+  await expect(option(page, "Black Cleaver")).toHaveAttribute("aria-checked", "true");
+  await open(page, "Runes");
   await tree.getByRole("button", { name: /^Lethal Tempo/ }).click();
   await tree.getByRole("button", { name: /^Biscuit Delivery/ }).click();
-  await expect(build.getByRole("button", { name: /^Black Cleaver/ })).toHaveAttribute("aria-pressed", "true");
   await expect(tree.locator(".cell.on")).toHaveCount(9);
+  await expect(page.getByRole("tab", { name: /^Item 2: Black Cleaver, your pick$/ })).toBeVisible();
   await screenshot(page, "mock-picked");
   await page.getByRole("button", { name: "Import" }).click();
   await expect(page.getByRole("status")).toHaveText(/Imported: Rune page, Item set, Spells\./);
@@ -45,38 +54,43 @@ test("imports the options the player clicks, runes one by one", async ({ page })
 test("shows rare options on request, and keeps picks after a restart", async ({ page }) => {
   await page.goto("/?scenario=ranked-jungle");
   for (let i = 0; i < 3; i++) await next(page);
-  const build = page.getByLabel("Build");
-  const item1 = build.getByRole("region", { name: "Item 1" });
   const tree = page.getByLabel("Rune page");
+  await open(page, "Runes");
   await tree.getByRole("button", { name: /^Presence of Mind/ }).click();
-  await item1.getByRole("button", { name: "+1" }).click();
-  await item1.getByRole("button", { name: /^Trinity Force/ }).click();
-  await expect(item1.getByRole("button", { name: /^Trinity Force/ })).toHaveAttribute("aria-pressed", "true");
+  await open(page, "Item 1");
+  await page.getByRole("button", { name: "Show 1 more, rarely played" }).click();
+  await option(page, "Trinity Force").click();
+  await expect(option(page, "Trinity Force")).toHaveAttribute("aria-checked", "true");
   await screenshot(page, "mock-all-options");
 
   await page.reload(); // the app starts again
   for (let i = 0; i < 3; i++) await next(page);
-  await expect(item1.getByRole("button", { name: /^Trinity Force/ })).toHaveAttribute("aria-pressed", "true");
+  await open(page, "Item 1");
+  await expect(option(page, "Trinity Force")).toHaveAttribute("aria-checked", "true");
+  await open(page, "Runes");
   await expect(tree.getByRole("button", { name: /^Presence of Mind/ })).toHaveAttribute("aria-pressed", "true");
   await screenshot(page, "mock-picks-restored");
   await page.getByRole("button", { name: "Use Stronk's picks" }).click();
   await page.reload();
   for (let i = 0; i < 3; i++) await next(page);
-  await expect(item1.getByRole("button", { name: /^Eclipse/ })).toHaveAttribute("aria-pressed", "true");
+  await open(page, "Item 1");
+  await expect(option(page, "Eclipse")).toHaveAttribute("aria-checked", "true");
 });
 
-test("shows the whole build at once, the runes as the client lays them out", async ({ page }) => {
+test("shows the build sheet beside the open slot, the runes as the client lays them out", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.goto("/?scenario=ranked-jungle");
   for (let i = 0; i < 3; i++) await next(page);
+  await screenshot(page, "mock-board");
+  await open(page, "Runes");
   const tree = page.getByLabel("Rune page");
   await expect(tree.locator(".cell.on")).toHaveCount(9); // the page's nine choices
   await expect(tree.getByRole("region", { name: "Precision, primary" }).locator(".row")).toHaveCount(4);
-  // Runes and items side by side, all on one screen.
-  const runes = await page.getByRole("region", { name: "Runes" }).boundingBox();
-  const items = await page.getByRole("region", { name: "Items" }).boundingBox();
-  expect(items && runes && items.x > runes.x + runes.width - 1).toBe(true);
-  await screenshot(page, "mock-board");
+  // The sheet and the open slot side by side, all on one screen.
+  const sheet = await page.getByRole("tablist").boundingBox();
+  const panel = await page.getByRole("tabpanel").boundingBox();
+  expect(sheet && panel && panel.x > sheet.x + sheet.width - 1 && panel.y + panel.height <= 900).toBe(true);
+  await screenshot(page, "mock-runes");
 });
 
 test("fits a narrow window, one column", async ({ page }) => {

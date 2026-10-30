@@ -44,6 +44,16 @@ function setup(name: keyof typeof scenarios, store = memory(), picks = memoryPic
 /** The facts of a line, one per item: "Jungle", "Locked in"... */
 const facts = (el: HTMLElement) => [...el.querySelectorAll(".facts > span")].map((s) => s.textContent);
 
+/** The sheet's tab for a slot: "Item 2", "Runes", "Spells". */
+const tab = (slot: string) => screen.getByRole("tab", { name: new RegExp(`^${slot}:`) });
+/** Opens a slot from the sheet; its options, in the panel beside it. */
+async function open(slot: string) {
+  await fireEvent.click(tab(slot));
+  return within(screen.getByRole("tabpanel", { name: slot === "Spells" ? "Summoner spells" : slot }));
+}
+/** An option's row in the open slot. */
+const option = (panel: ReturnType<typeof within>, name: string) => panel.getByRole("radio", { name: new RegExp(`^${name},`) });
+
 const imports = (backend: MockBackend) => backend.calls.filter((c) => c.id === "build.import").length;
 
 describe("App with MockBackend", () => {
@@ -77,7 +87,7 @@ describe("App with MockBackend", () => {
     ]);
   });
 
-  it("shows the whole build at once, every option with its numbers, coloured only when clear", async () => {
+  it("shows the build by name and one slot's options against its baseline, coloured only when clear", async () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     await next();
@@ -91,26 +101,35 @@ describe("App with MockBackend", () => {
       "All regions",
     ]);
     expect(within(build).getByTitle(/Stronk imports the most played options, except where another one is clearly better\./)).toBeInTheDocument();
-    // Nothing to open: every slot's options are on screen, what the import writes lit.
-    expect(within(build).queryByRole("button", { expanded: false, name: /^Item|^Runes|^Spells/ })).toBeNull();
-    const item2 = within(build).getByRole("region", { name: "Item 2" });
-    const better = within(item2).getByText("▲ +2.1 wins per 100 vs Black Cleaver"); // the only clear one
+    // The sheet: every slot's pick by name, Stronk's change marked with its gain.
+    expect(screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"))).toEqual([
+      "Runes: Conqueror",
+      "Spells: Smite + Flash",
+      "Item 1: Eclipse",
+      "Item 2: Sundered Sky, Stronk's change +2.1",
+      "Item 3: Sterak's Gage",
+    ]);
+    // It opens on the slot Stronk changes.
+    expect(tab("Item 2")).toHaveAttribute("aria-selected", "true");
+    const item2 = within(screen.getByRole("tabpanel", { name: "Item 2" }));
+    const better = item2.getByText("▲ +2.1 wins per 100 vs Black Cleaver"); // the only clear one
     expect(better).toHaveClass("positive");
     expect(better).toHaveAttribute(
       "title",
       "+2.1 wins per 100 games against the most played option. Likely between +0.8 and +3.4 (95%). Clearly better: the difference holds once false discoveries are controlled.",
     );
-    const sky = within(item2).getByRole("button", { name: "Sundered Sky +2.1 ± 1.3 wins per 100 against the most played" });
-    expect(sky).toHaveAttribute("aria-pressed", "true");
-    expect(sky).toHaveTextContent("▲+2.1");
-    expect(sky).not.toHaveTextContent("±"); // its uncertainty only on hover
-    expect(screen.queryByRole("tooltip")).toBeNull(); // nothing on hover either
+    const sky = option(item2, "Sundered Sky");
+    expect(sky).toHaveAttribute("aria-checked", "true");
+    expect(sky).toHaveTextContent("▲ +2.1");
+    expect(sky).not.toHaveTextContent("±");
+    const cleaver = option(item2, "Black Cleaver");
+    expect(cleaver).toHaveTextContent("baseline");
+    expect(cleaver.querySelector(".num")).toHaveTextContent(/^0$/);
+    expect(option(item2, "Death's Dance").querySelector(".num")).not.toHaveClass("positive"); // unclear: grey
     // Spells have no estimates: their header says so, as no lack of games is meant.
-    expect(within(build).getByRole("region", { name: "Summoner spells" })).toHaveTextContent("Not measured yet");
-    const cleaver = within(item2).getByRole("button", { name: /^Black Cleaver/ });
-    expect(cleaver.querySelector(".num")).not.toHaveClass("positive"); // unclear: grey
-    expect(within(build).getByRole("region", { name: "Item 3" })).toHaveTextContent("▼−1.8");
-    expect(within(build).getAllByRole("button", { name: /^Death's Dance/ })).toHaveLength(2); // slots 2 and 3
+    expect((await open("Spells")).getByText("Not measured yet")).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel")).not.toHaveTextContent(/\d% ?\d/); // no stray numbers
+    expect((await open("Item 3")).getByText("▼ −1.8")).toHaveClass("negative");
     expect(within(build).queryByText(/Popular|Most played|No clear difference/)).toBeNull();
     // It opens with what Stronk changes from the most played build, and what that beats.
     const take = within(build).getByLabelText("What Stronk changes");
@@ -124,6 +143,7 @@ describe("App with MockBackend", () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     for (let i = 0; i < 3; i++) await next();
+    await open("Runes");
     const tree = within(screen.getByLabelText("Build")).getByLabelText("Rune page");
     const precision = within(tree).getByRole("region", { name: "Precision, primary" });
     expect(precision.querySelectorAll(".row")).toHaveLength(4);
@@ -145,6 +165,7 @@ describe("App with MockBackend", () => {
     const { app, next } = setup("ranked-jungle");
     await app.refresh();
     for (let i = 0; i < 3; i++) await next();
+    await open("Runes");
     const secondary = () =>
       within(within(screen.getByLabelText("Build")).getByRole("region", { name: "Inspiration, secondary" }));
     const lit = () => secondary().getAllByRole("button", { pressed: true }).map((b) => /^[^,+−]*?(?=,| [+−]|$)/.exec(b.getAttribute("aria-label") ?? "")?.[0]);
@@ -159,6 +180,7 @@ describe("App with MockBackend", () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     for (let i = 0; i < 3; i++) await next();
+    await open("Runes");
     const build = screen.getByLabelText("Build");
     const tree = () => within(build).getByLabelText("Rune page");
     const click = async (name: RegExp) => fireEvent.click(within(tree()).getByRole("button", { name }));
@@ -197,34 +219,32 @@ describe("App with MockBackend", () => {
       backend.step();
       await app.refresh();
     }
-    const build = screen.getByLabelText("Build");
-    expect(within(build).queryByLabelText("Rune page")).toBeNull();
-    const runes = within(build).getByRole("region", { name: "Runes" });
-    expect(within(runes).getAllByRole("button", { pressed: true })).toHaveLength(1);
+    const runes = await open("Runes");
+    expect(runes.queryByLabelText("Rune page")).toBeNull();
+    expect(runes.getAllByRole("radio", { checked: true })).toHaveLength(1);
   });
 
   it("imports the option the player clicks instead of Stronk's, until reset", async () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     for (let i = 0; i < 3; i++) await next(); // Lee Sin, locked in
-    const build = screen.getByLabelText("Build");
-    const item2 = within(build).getByRole("region", { name: "Item 2" });
-    const cleaver = within(item2).getByRole("button", { name: /^Black Cleaver/ });
-    await fireEvent.click(cleaver);
-    expect(cleaver).toHaveAttribute("aria-pressed", "true");
-    expect(within(item2).getByText(/^Your pick/)).toBeInTheDocument();
-    expect(within(item2).getByRole("button", { name: /^Sundered Sky/ }).classList).toContain("stronk");
+    const item2 = await open("Item 2");
+    await fireEvent.click(option(item2, "Black Cleaver"));
+    expect(option(item2, "Black Cleaver")).toHaveAttribute("aria-checked", "true");
+    expect(item2.getByText(/^Your pick/)).toBeInTheDocument();
+    expect(option(item2, "Sundered Sky")).toHaveTextContent("Stronk's pick");
+    expect(tab("Item 2")).toHaveAccessibleName(/^Item 2: Black Cleaver, your pick$/);
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     const sent = () => backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
     expect(sent()).toEqual([{ items: [{ slot: 2, item: 3071 }] }]);
     expect(await screen.findByRole("status")).toHaveTextContent("Imported: Rune page, Item set, Spells.");
 
     // Changing a pick after the import says so; Stronk's picks come back with one click.
-    const smiteIgnite = within(build).getByRole("button", { name: /^Smite \+ Ignite/ });
-    await fireEvent.click(smiteIgnite);
+    const spells = await open("Spells");
+    await fireEvent.click(option(spells, "Smite \\+ Ignite"));
     expect(screen.getByRole("status")).toHaveTextContent("Your picks changed since: import again to use them.");
     await fireEvent.click(screen.getByRole("button", { name: "Use Stronk's picks" }));
-    expect(smiteIgnite).toHaveAttribute("aria-pressed", "false");
+    expect(option(spells, "Smite \\+ Ignite")).toHaveAttribute("aria-checked", "false");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     expect(sent().at(-1)).toEqual({});
   });
@@ -234,30 +254,26 @@ describe("App with MockBackend", () => {
     await app.refresh();
     await next();
     await next();
-    const build = screen.getByLabelText("Build");
-    const deathsDance = () => within(build).getAllByRole("button", { name: /^Death's Dance/ });
-    await fireEvent.click(deathsDance()[0] as HTMLElement); // slot 2
-    await fireEvent.click(deathsDance()[1] as HTMLElement); // slot 3
-    expect(within(build).getByRole("region", { name: "Item 2, also in item 3" })).toBeInTheDocument();
-    expect(within(build).getByRole("region", { name: "Item 3, also in item 2" })).toBeInTheDocument();
+    await fireEvent.click(option(await open("Item 2"), "Death's Dance"));
+    const item3 = await open("Item 3");
+    await fireEvent.click(option(item3, "Death's Dance"));
+    expect(item3.getByText("Also in item 2")).toBeInTheDocument();
+    expect(option(item3, "Death's Dance")).toHaveTextContent("in item 2");
+    expect((await open("Item 2")).getByText("Also in item 3")).toBeInTheDocument();
   });
 
   it("shows rarely played options on request, and imports one", async () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     for (let i = 0; i < 3; i++) await next();
-    const item1 = within(screen.getByLabelText("Build")).getByRole("region", { name: "Item 1" });
-    expect(within(item1).getByRole("button", { name: "The Collector, too few games" })).toBeInTheDocument(); // 5%: shown
-    expect(within(item1).queryByRole("button", { name: /^Trinity Force/ })).toBeNull(); // 1%: behind +1
-    const more = within(item1).getByRole("button", { name: "+1" });
+    const item1 = await open("Item 1");
+    expect(option(item1, "The Collector")).toBeInTheDocument(); // 5%: shown
+    expect(item1.queryByRole("radio", { name: /^Trinity Force/ })).toBeNull(); // 1%: behind "Show 1 more"
+    const more = item1.getByRole("button", { name: "Show 1 more, rarely played" });
     expect(more).toHaveAttribute("aria-expanded", "false");
     await fireEvent.click(more);
-    const trinity = within(item1).getByRole("button", { name: /^Trinity Force/ });
-    await fireEvent.click(trinity);
-    expect(trinity).toHaveAttribute("aria-pressed", "true");
-    // Picked, it stays in view: nothing is left behind "+N".
-    expect(within(item1).queryByRole("button", { name: /^\+\d/ })).toBeNull();
-    expect(within(item1).queryByRole("button", { name: "Fewer" })).toBeNull();
+    await fireEvent.click(option(item1, "Trinity Force"));
+    expect(option(item1, "Trinity Force")).toHaveAttribute("aria-checked", "true");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     const sent = backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
     expect(sent).toEqual([{ items: [{ slot: 1, item: 3078 }] }]);
@@ -312,14 +328,16 @@ describe("App with MockBackend", () => {
     await next();
     expect(await screen.findByText("Bans and picks")).toBeInTheDocument();
     expect(facts(screen.getByLabelText("Champion select"))).toEqual(["Jungle", "Hovering", "Bans and picks"]);
+    expect(tab("Runes")).toHaveTextContent("Precision + Inspiration");
+    await open("Runes");
     const tree = screen.getByLabelText("Rune page");
     for (const rune of ["Conqueror", "Triumph", "Legend: Alacrity", "Coup de Grace", "Magical Footwear", "Cosmic Insight"]) {
       expect(within(tree).getByRole("button", { name: new RegExp(`^${rune}`), pressed: true })).toBeInTheDocument();
     }
     expect(within(tree).getByRole("heading", { name: "Precision" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Smite + Flash, most played" })).toHaveAttribute("aria-pressed", "true");
+    expect(option(await open("Spells"), "Smite \\+ Flash")).toHaveAttribute("aria-checked", "true");
     expect(document.body.textContent).not.toContain("·"); // no middle dots anywhere
-    expect(screen.getByRole("button", { name: /^Sundered Sky/, pressed: true })).toBeInTheDocument();
+    expect(tab("Item 2")).toHaveTextContent("Sundered Sky");
   });
 
   it("asks the client for each icon on screen once", async () => {

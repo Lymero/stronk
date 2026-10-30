@@ -98,7 +98,7 @@
             value: name(names, "runes", shownPage.perks[0] ?? 0),
             detail: `${name(names, "rune_styles", shownPage.primary_style)} + ${name(names, "rune_styles", shownPage.sub_style)}`,
             icons: [shown("runes", shownPage.perks[0] ?? 0)],
-            changed: gain("runes"),
+            changed: picks.runes !== undefined ? null : gain("runes"), // the gain is Stronk's pick's, not the player's
             yours: picks.runes !== undefined,
           },
         ]
@@ -110,7 +110,7 @@
             name: "Spells",
             value: spells(spellPair),
             icons: spellPair.map((id) => shown("spells", id)),
-            changed: gain("spells"),
+            changed: picks.spells !== undefined ? null : gain("spells"), // the gain is Stronk's pick's, not the player's
             yours: picks.spells !== undefined,
           },
         ]
@@ -122,7 +122,7 @@
         name: `Item ${c.slot}`,
         value: item(id),
         icons: [shown("items", id)],
-        changed: gain(`item-${c.slot}`),
+        changed: picks.items[c.slot] !== undefined ? null : gain(`item-${c.slot}`), // the gain is Stronk's pick's, not the player's
         yours: picks.items[c.slot] !== undefined,
       };
     }),
@@ -297,11 +297,11 @@
     }
   }
   .take p,
-  .headline.thin {
-    color: var(--color-warning);
-  }
   .take ul {
     margin: 0;
+  }
+  .headline.thin {
+    color: var(--color-warning);
   }
   .headline {
     font-size: var(--text-sm);

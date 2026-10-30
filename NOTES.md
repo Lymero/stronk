@@ -154,3 +154,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: "few games" clutter on thin item slots.
 - 2026-10-30: no label for options short of games (legend: "no number: too few games"), "Not measured yet" on spells, every option box one size; e2e-real now fails on boxes of different sizes or content spilling out (it caught the spell pair).
   Open: nothing new.
+- 2026-10-30: the build sheet (ADR-062): the build by name on the left, one slot open on the right (rune tree, or options ranked against the baseline with share bars), dark ink and amber look; Stronk's gain badge only while its pick is imported.
+  Open: owner to look at it on the real client.
