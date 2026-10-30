@@ -194,3 +194,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: late items still rarely reach a head-to-head (Lee Sin's most played late item has 392 purchases, the next 231); the late list's block members aren't marked in the panel, only under the pick in the sheet.
 - 2026-10-30: `just data-to-windows` copies the real data into the Windows clone named by `STRONK_WINDOWS_CLONE` (.env), and `just data-real` runs it at the end (ADR-068).
   Open: the app still reads its data only when it starts; restart `just app-real` after a copy.
+- 2026-10-30: the item set lists each slot's pick then its alternatives with 2%+ of games (4 per slot, 6 for 4+), is written first with `priority`, and is titled "Stronk: Lee Sin Jungle" (ADR-069).
+  Open: check on the real client that the set opens on top; the rune page keeps the old name until the client's limit on page names is known.

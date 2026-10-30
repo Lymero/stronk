@@ -90,12 +90,13 @@ def test_passes_the_players_item_sets_through_byte_for_byte(mock: Mock) -> None:
     result = import_build(mock)
     assert result["item_set"]["status"] == "imported"
     written = str(mock.replay.item_sets)
-    # Unknown fields, spacing, `2.50` and the `\u00e9` escape arrive as the client sent them.
-    assert written.startswith(f'{{"accountId":1,"itemSets":[{THEIR_SET},')
-    assert written.endswith('],"timestamp":0}')
+    # Stronk's set first, on top in the shop. Unknown fields, spacing, `2.50` and the `\u00e9`
+    # escape arrive as the client sent them.
+    assert written.startswith('{"accountId":1,"itemSets":[{')
+    assert written.endswith(f',{THEIR_SET}],"timestamp":0}}')
     assert [s["title"] for s in json.loads(written)["itemSets"]] == [
+        "Stronk: Lee Sin Jungle",  # the champion as the client names it
         "My Lee Sin",
-        "Stronk: LeeSin JUNGLE",
     ]
 
 

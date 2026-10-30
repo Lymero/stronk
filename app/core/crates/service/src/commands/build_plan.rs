@@ -37,14 +37,18 @@ pub struct SlotChoice {
     pub slot: u64,
     #[serde(flatten)]
     pub choice: Choice<i64>,
-    /// The late slot only (ADR-067): the other late items the import lists after the choice,
-    /// most played first.
+    /// The slot's other items the import lists after the choice in its block, most played
+    /// first (ADR-067, ADR-069).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub then: Vec<i64>,
 }
 
-/// Items in the late slot's block: its choice, then the most played others.
+/// Items in a slot's block of the item set: its choice, then the most played others.
+pub const SLOT_ITEMS: usize = 4;
+/// Items in the late slot's block, which stands for three or four items.
 pub const LATE_ITEMS: usize = 6;
+/// An alternative needs this share of its slot's games to be listed in the block.
+pub const BLOCK_MIN_SHARE: f64 = 0.02;
 
 #[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct SlotRanked {
@@ -236,37 +240,37 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         late_slot: build.late_slot.map(|s| s.get()),
         alternatives,
     };
-    with_late_items(&mut plan);
+    with_alternatives(&mut plan);
     plan
 }
 
-/// The late slot's other items (ADR-067): its options most played first, without any item
-/// another slot or the late choice already has, up to [`LATE_ITEMS`] with the choice. Called
+/// Each slot's other items for its block (ADR-069): its options with at least
+/// [`BLOCK_MIN_SHARE`] of its games, most played first, without any item a slot already takes,
+/// up to [`SLOT_ITEMS`] with the choice ([`LATE_ITEMS`] for the late slot, ADR-067). Called
 /// again when the player's picks change the items.
-pub fn with_late_items(plan: &mut Plan) {
-    let Some(late) = plan.late_slot else { return };
+pub fn with_alternatives(plan: &mut Plan) {
     let taken: Vec<i64> = plan.items.iter().map(|s| s.choice.value).collect();
-    let then: Vec<i64> = plan
-        .alternatives
-        .items
-        .iter()
-        .find(|s| s.slot == late)
-        .map(|s| {
-            s.ranked
-                .rows
-                .iter()
-                .map(|r| r.value)
-                .filter(|v| !taken.contains(v))
-                .take(LATE_ITEMS - 1)
-                .collect()
-        })
-        .unwrap_or_default();
     for s in &mut plan.items {
-        s.then = if s.slot == late {
-            then.clone()
+        let size = if plan.late_slot == Some(s.slot) {
+            LATE_ITEMS
         } else {
-            Vec::new()
+            SLOT_ITEMS
         };
+        s.then = plan
+            .alternatives
+            .items
+            .iter()
+            .find(|a| a.slot == s.slot)
+            .map(|a| {
+                a.ranked
+                    .rows
+                    .iter()
+                    .filter(|r| r.share >= BLOCK_MIN_SHARE && !taken.contains(&r.value))
+                    .map(|r| r.value)
+                    .take(size - 1)
+                    .collect()
+            })
+            .unwrap_or_default();
     }
 }
 
@@ -491,7 +495,7 @@ pub(crate) mod tests {
         );
         // The player's pick in another slot leaves the late items too.
         plan.items[0].choice.value = 3156;
-        with_late_items(&mut plan);
+        with_alternatives(&mut plan);
         assert_eq!(plan.items[3].then, vec![3053, 6694, 3071, 6610, 3742]);
     }
 

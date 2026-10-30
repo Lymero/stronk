@@ -54,6 +54,17 @@ impl Role {
             Self::Utility => "UTILITY",
         }
     }
+
+    /// As players say it, as the app shows it: "Jungle", "Mid", "Support"...
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Top => "Top",
+            Self::Jungle => "Jungle",
+            Self::Middle => "Mid",
+            Self::Bottom => "Bot",
+            Self::Utility => "Support",
+        }
+    }
 }
 
 #[cfg(test)]

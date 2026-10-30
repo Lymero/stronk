@@ -383,7 +383,7 @@ const leeSin: Plan = {
     { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640 },
     { slot: 3, value: 3026, label: "best_bet", wpa: 0.012, ci: [0.0, 0.024], games: 160 },
     // Guardian Angel, item 3, left out of the late items' list.
-    { slot: 4, value: 3053, label: "popular", then: [3156, 6333, 6694, 3071, 3078] },
+    { slot: 4, value: 3053, label: "popular", then: [3156, 6333, 6694, 3071] }, // Trinity Force: under 2%
   ],
   late_slot: 4,
   alternatives: leeSinAlternatives,

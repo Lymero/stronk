@@ -104,8 +104,8 @@ export type RowKind = "primary" | "secondary" | "shard";
 export type SlotChoice = {
   slot: number;
   /**
-   * The late slot only (ADR-067): the other late items the import lists after the choice,
-   * most played first.
+   * The slot's other items the import lists after the choice in its block, most played
+   * first (ADR-067, ADR-069).
    */
   then?: number[];
   value: number;

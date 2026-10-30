@@ -53,8 +53,10 @@
   );
   /** Fewer games than this behind a whole build: the board says so before anything else. */
   const THIN = 300;
-  /** Items in the late slot's block, as the core's `LATE_ITEMS`. */
+  /** Items in the late slot's block, and the share an alternative needs to be in a block, as the
+   * core's `LATE_ITEMS` and `BLOCK_MIN_SHARE`. */
   const LATE_ITEMS = 6;
+  const BLOCK_MIN_SHARE = 0.02;
   const options = $derived(ranked(plan, picks));
   const stronkChanges = $derived(changes(options, plan.alternatives.rune_rows));
   /** The page the import writes: the player's, else Stronk's. */
@@ -86,14 +88,18 @@
   const alsoIn = (slot: number, id: number) =>
     plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => slotName(i.slot).toLowerCase());
   /** The late slot's other items as the import lists them after its pick: the core's list
-   * (`then`, most played first) refilled the same way when the player's picks take some. */
+   * (`then`, most played first, each with 2% of the slot's games) refilled the same way when the
+   * player's picks take some (ADR-069). */
   const lateThen = $derived.by(() => {
     const late = plan.items.find((i) => i.slot === plan.late_slot);
     if (!late) return [];
     const count = Math.max(late.then?.length ?? 0, LATE_ITEMS - 1);
     const taken = new Set(plan.items.map((i) => slotItem(i.slot)));
     const rows = options.items.find((s) => s.slot === late.slot)?.rows ?? [];
-    return rows.map((r) => r.value).filter((v) => !taken.has(v)).slice(0, count);
+    return rows
+      .filter((r) => r.share >= BLOCK_MIN_SHARE && !taken.has(r.value))
+      .map((r) => r.value)
+      .slice(0, count);
   });
 
   const changedKey = (part: "runes" | "rune" | "spells" | number) =>

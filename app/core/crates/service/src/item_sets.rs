@@ -52,12 +52,13 @@ impl Document {
         self.sets.is_empty()
     }
 
-    /// The document with Stronk's sets replaced by `ours`: every set that isn't Stronk's is
-    /// copied byte for byte, and the other top-level members keep their order and their
-    /// values' raw text (only the whitespace between members is rewritten).
+    /// The document with Stronk's sets replaced by `ours`, first in the list so the shop shows
+    /// it on top: every set that isn't Stronk's is copied byte for byte, in its order, and the
+    /// other top-level members keep their order and their values' raw text (only the
+    /// whitespace between members is rewritten).
     pub fn with_ours(&self, ours: &Value) -> String {
         let ours = ours.to_string();
-        let mut kept: Vec<&str> = self
+        let kept: Vec<&str> = self
             .sets
             .iter()
             .filter(|set| {
@@ -68,8 +69,7 @@ impl Document {
             })
             .map(|set| set.get())
             .collect();
-        kept.push(&ours);
-        let list = format!("[{}]", kept.join(","));
+        let list = format!("[{}]", [vec![ours.as_str()], kept].concat().join(","));
         let members = self.members.iter().map(|(key, value)| {
             let value = if key == "itemSets" {
                 list.as_str()
@@ -132,7 +132,7 @@ mod tests {
         assert_eq!(
             document.with_ours(&json!({"title": "Stronk: Ahri MIDDLE"})),
             format!(
-                r#"{{"timestamp":5,"itemSets":[{theirs},{{"title":"Stronk: Ahri MIDDLE"}}],"accountId":1}}"#
+                r#"{{"timestamp":5,"itemSets":[{{"title":"Stronk: Ahri MIDDLE"}},{theirs}],"accountId":1}}"#
             )
         );
     }

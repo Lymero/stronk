@@ -246,7 +246,7 @@ fn plan_takes_the_popular_combination_unless_one_is_clearly_better() {
     assert_eq!(
         out["items"],
         json!([{"slot": 1, "value": 6693, "label": "clearly_better", "wpa": 0.021,
-                "ci": [0.008, 0.034], "games": 2300}])
+                "ci": [0.008, 0.034], "games": 2300, "then": [6672]}])
     );
 }
 
@@ -408,16 +408,24 @@ fn import_adds_a_stronk_item_set_and_keeps_the_players_byte_for_byte() {
     let (out, client) = import(FakeClient::new(Some(viego((4, 14)))));
     assert_eq!(out["item_set"]["label"], "clearly_better");
     let written = client.state().item_sets.unwrap();
-    // The player's set, with its unknown fields, odd spacing, `2.50` and `\u00e9`, is copied as
-    // the client sent it; so are the other members and their order.
-    let prefix = format!(r#"{{"accountId":99,"itemSets":[{THEIR_SET},"#);
-    assert!(written.starts_with(&prefix), "{written}");
-    assert!(written.ends_with(r#"],"timestamp":1}"#), "{written}");
+    // Stronk's set first, on top in the shop; the player's set, with its unknown fields, odd
+    // spacing, `2.50` and `\u00e9`, copied as the client sent it; so are the other members and
+    // their order.
+    assert!(
+        written.starts_with(r#"{"accountId":99,"itemSets":[{"#),
+        "{written}"
+    );
+    let suffix = format!(r#",{THEIR_SET}],"timestamp":1}}"#);
+    assert!(written.ends_with(&suffix), "{written}");
     let ours: Value = serde_json::from_str(&written).unwrap();
-    assert_eq!(ours["itemSets"][1]["title"], "Stronk: Viego JUNGLE");
+    let set = &ours["itemSets"][0];
+    // The champion as the client names it, the role as players say it.
+    assert_eq!(set["title"], "Stronk: Viego Jungle");
+    assert_eq!(set["priority"], true);
+    // Stronk's choice, then the slot's other item with enough games (Eclipse, at 1.6%, isn't).
     assert_eq!(
-        ours["itemSets"][1]["blocks"][0]["items"],
-        json!([{"id": "6693", "count": 1}])
+        set["blocks"][0]["items"],
+        json!([{"id": "6693", "count": 1}, {"id": "6672", "count": 1}])
     );
 }
 
@@ -496,8 +504,11 @@ fn import_writes_the_players_picks_instead_of_stronks() {
     let state = client.state();
     assert_eq!(state.spells, Some((11, 4))); // Flash stays on F
     let ours: Value = serde_json::from_str(&state.item_sets.unwrap()).unwrap();
-    let block = &ours["itemSets"][1]["blocks"][0];
-    assert_eq!(block["items"], json!([{"id": "6672", "count": 1}]));
+    let block = &ours["itemSets"][0]["blocks"][0];
+    assert_eq!(
+        block["items"],
+        json!([{"id": "6672", "count": 1}, {"id": "6693", "count": 1}])
+    );
     assert_eq!(block["type"], "Item 1: Your pick");
 }
 

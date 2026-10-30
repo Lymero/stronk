@@ -11,7 +11,7 @@ use stronk_domain::Role;
 use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page, valid_page};
 
 use crate::commands::build_get;
-use crate::commands::build_plan::{Page, Plan, SlotChoice, plan, with_late_items};
+use crate::commands::build_plan::{Page, Plan, SlotChoice, plan, with_alternatives};
 use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};
 use crate::registry::Command;
@@ -176,7 +176,7 @@ fn with_picks(
         }
     }
     plan.items.sort_by_key(|s| s.slot);
-    with_late_items(&mut plan);
+    with_alternatives(&mut plan);
     Ok(plan)
 }
 
@@ -229,7 +229,7 @@ fn item_set(ctx: &Context, plan: &Plan, champion_id: i64) -> (Outcome, Option<St
         .find(|l| matches!(l, Label::Picked))
         .or_else(|| labels().find(|l| matches!(l, Label::ClearlyBetter { .. })))
         .unwrap_or(Label::Popular);
-    let name = title(plan);
+    let name = item_set_title(ctx, plan, champion_id);
     let current = match ctx.client.item_sets() {
         Ok(current) => current,
         Err(e) => {
@@ -271,8 +271,21 @@ fn skipped(reason: &str) -> Outcome {
     }
 }
 
-/// Stronk's set: one block per slot, named with the slot and why the item was chosen; the late
-/// slot's block ("Items 4+") lists its choice, then the other late items (ADR-067).
+/// The item set's title as players read it: "Stronk: Lee Sin Jungle", the champion as the
+/// client names it (its data key when the client's names can't be read).
+fn item_set_title(ctx: &Context, plan: &Plan, champion_id: i64) -> String {
+    let champion = ctx
+        .client
+        .game_names()
+        .ok()
+        .and_then(|n| n.champions.get(&champion_id).cloned())
+        .unwrap_or_else(|| plan.champion.clone());
+    format!("{PREFIX}{champion} {}", plan.role.label())
+}
+
+/// Stronk's set, listed first (`priority`): one block per slot, named with the slot and why the
+/// item was chosen, its choice first and then the slot's other items (ADR-069); the late slot's
+/// block is "Items 4+" (ADR-067).
 fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
     let blocks: Vec<Value> = plan
         .items
@@ -303,7 +316,7 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
         "type": "custom",
         "map": "any",
         "mode": "any",
-        "priority": false,
+        "priority": true,
         "sortrank": 0,
         "associatedChampions": [champion_id],
         "associatedMaps": [],

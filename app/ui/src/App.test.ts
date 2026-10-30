@@ -287,15 +287,15 @@ describe("App with MockBackend", () => {
     await app.refresh();
     await next();
     await next();
-    // Guardian Angel, Stronk's item 3, is left out of the list.
-    expect(tab("Items 4+")).toHaveTextContent("then Maw of Malmortius, Death's Dance, Serylda's Grudge, Black Cleaver, Trinity Force");
+    // Guardian Angel, Stronk's item 3, is left out of the list, and Trinity Force, under 2%.
+    expect(tab("Items 4+")).toHaveTextContent("then Maw of Malmortius, Death's Dance, Serylda's Grudge, Black Cleaver");
     const late = await open("Items 4+");
     expect(screen.getByRole("tabpanel", { name: "Items 4+" })).toBeInTheDocument();
     expect(option(late, "Sterak's Gage")).toHaveTextContent("baseline");
     expect(option(late, "Guardian Angel")).toHaveTextContent("in item 3");
     // Picking Maw first puts it at the head, and Sterak's Gage back in the list.
     await fireEvent.click(option(late, "Maw of Malmortius"));
-    expect(tab("Items 4+")).toHaveTextContent("then Sterak's Gage, Death's Dance, Serylda's Grudge, Black Cleaver, Trinity Force");
+    expect(tab("Items 4+")).toHaveTextContent("then Sterak's Gage, Death's Dance, Serylda's Grudge, Black Cleaver");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ items: [{ slot: 4, item: 3156 }] });
   });
