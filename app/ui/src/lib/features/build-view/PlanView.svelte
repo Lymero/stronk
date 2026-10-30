@@ -1,6 +1,6 @@
 <script lang="ts">
-  // The build Stronk would import (ADR-062): on the left the build sheet, every slot's pick by name
-  // with what Stronk changes from the most played build; on the right the slot opened from it: the
+  // The build Stronk would import (ADR-062): on the left the build sheet, every slot's pick by name,
+  // Stronk's changes from the most played build marked on their slots; on the right the slot opened from it: the
   // rune page built by clicking runes, or a slot's options against its baseline. Opens on the first
   // slot Stronk changes, else the runes.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
@@ -94,15 +94,6 @@
       .sort((a, b) => (b.row.wpa ?? 0) - (a.row.wpa ?? 0))[0];
     return found ? { text: wins(found.row.wpa ?? 0), bet: found.row.confidence === "best_bet" } : null;
   };
-  /** A change's option, in words. */
-  const changeLabel = (part: "runes" | "rune" | "spells" | number, value: unknown) =>
-    part === "runes"
-      ? page(value as Page)
-      : part === "rune"
-        ? (value as number[]).map((id) => name(names, "runes", id)).join(" + ")
-        : part === "spells"
-          ? spells(value as [number, number])
-          : item(value as number);
   const slots = $derived([
     ...(shownPage
       ? [
@@ -210,34 +201,11 @@
 
   <div class="columns">
   <div class="card loadout-card">
-    <div class="take" aria-label="What Stronk changes">
-      {#if plan.games < THIN}
-        <p class="headline thin">
-          Only {games(plan.games)} for this champion and role: too few to measure, so Stronk imports the most played build.
-        </p>
-      {:else if stronkChanges.length === 0}
-        <p class="headline">The most played build. No option is clearly better yet.</p>
-      {:else}
-        <p class="headline">
-          Stronk changes {stronkChanges.length === 1 ? "1 thing" : `${stronkChanges.length} things`} from the most played build
-        </p>
-        <ul>
-          {#each stronkChanges as c, n (n)}
-            {@const label = (v: unknown) => changeLabel(c.part, v)}
-            <li title={explain(c.row)}>
-              <span class="part">{c.part === "runes" || c.part === "rune" ? "Runes" : c.part === "spells" ? "Summoner spells" : `Item ${c.part}`}</span>
-              <strong>{label(c.row.value)}</strong>
-              {#if c.base && c.base.value !== c.row.value}<span class="base">over {label(c.base.value)}</span>{/if}
-              {#if c.row.confidence === "best_bet"}
-                <span class="gain bet" title="Wins per 100 games against the most played option: ahead on the numbers so far, not yet proven">Best bet {wins(c.row.wpa ?? 0)}</span>
-              {:else}
-                <span class="gain" title="Wins per 100 games against the most played option, proven">▲ {wins(c.row.wpa ?? 0)}</span>
-              {/if}
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </div>
+    {#if plan.games < THIN}
+      <p class="thin" role="note">
+        Only {games(plan.games)} for this champion and role: too few to measure, so Stronk imports the most played build.
+      </p>
+    {/if}
     <Loadout {slots} {focus} onfocus={(k) => (chosenFocus = k)} />
   </div>
 
@@ -304,62 +272,22 @@
     gap: var(--space-3);
     align-items: start;
   }
+  .thin {
+    margin: 0;
+    padding: var(--space-1) var(--space-2) 0;
+    color: var(--color-warning);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
   .loadout-card {
     display: grid;
     gap: var(--space-3);
     padding: var(--space-3);
   }
-  .loadout-card .take {
-    padding: var(--space-1) var(--space-2) 0;
-  }
   @media (max-width: 900px) {
     .columns {
       grid-template-columns: minmax(0, 1fr);
     }
-  }
-  .take p,
-  .take ul {
-    margin: 0;
-  }
-  .headline.thin {
-    color: var(--color-warning);
-  }
-  .headline {
-    font-size: var(--text-sm);
-    font-weight: 600;
-  }
-  .take ul {
-    display: grid;
-    gap: 2px;
-    margin-top: var(--space-1) !important;
-    padding: 0;
-    list-style: none;
-  }
-  .take li {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1) var(--space-2);
-    align-items: baseline;
-  }
-  .part,
-  .base {
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-  }
-  /* As the sheet's badges: green when proven, amber for a best bet. */
-  .gain.bet {
-    background: var(--color-accent-bg);
-    color: var(--color-accent);
-  }
-  .gain {
-    padding: 0 6px;
-    border-radius: 999px;
-    background: var(--color-positive-bg);
-    font-size: var(--text-xs);
-    white-space: nowrap;
-    color: var(--color-positive);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
   }
   .meta {
     display: flex;

@@ -174,3 +174,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: nothing new.
 - 2026-10-30: Stronk imports its best bet (ADR-065): the largest shrunk gain against the most played option, labelled "Best bet" (amber) unless proven ("clearly better", green); rune pages get it row by row. Lee Sin now takes Cut Down.
   Open: τ = 0.02 and the 0.005 minimum are judgement calls; a backtest of best bets across patches (16.20 to 16.21) would say how often they hold.
+- 2026-10-30: the summary of Stronk's changes is gone from the sheet (owner's request, ADR-065); the badges mark them; the thin-data warning stays.
+  Open: nothing new.

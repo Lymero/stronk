@@ -140,11 +140,8 @@ describe("App with MockBackend", () => {
     expect(option(item3, "Guardian Angel").querySelector(".num")).not.toHaveClass("positive"); // not proven: no green
     expect(screen.getByRole("tab", { name: /^Item 3:/ })).toHaveTextContent("Best bet +1.2");
     expect(within(build).queryByText(/Popular|Most played|No clear difference/)).toBeNull();
-    // It opens with what Stronk changes from the most played build, and what that beats.
-    const take = within(build).getByLabelText("What Stronk changes");
-    expect(take).toHaveTextContent("Stronk changes 2 things from the most played build");
-    expect(take).toHaveTextContent("Item 2 Sundered Sky over Black Cleaver ▲ +2.1");
-    expect(take).toHaveTextContent("Item 3 Guardian Angel over Sterak's Gage Best bet +1.2");
+    // No summary of the changes: each is marked on its slot in the sheet.
+    expect(within(build).queryByLabelText("What Stronk changes")).toBeNull();
     // The rows come with the plan: nothing else is asked for them.
     expect(backend.calls.filter((c) => c.id === "build.get")).toEqual([]);
   });
@@ -341,6 +338,8 @@ describe("App with MockBackend", () => {
     await app.refresh();
     await next(); // Graves: every choice popular
     expect(await screen.findByTitle(/No option beats the most played one clearly yet/)).toBeInTheDocument();
+    // A board this thin says so first.
+    expect(screen.getByRole("note")).toHaveTextContent("Only 140 games for this champion and role: too few to measure");
   });
 
   it("shows names from the client instead of ids, and readable phases", async () => {
