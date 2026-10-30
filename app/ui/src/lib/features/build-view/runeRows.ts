@@ -38,6 +38,7 @@ const unplayed = (id: number): Row<number> => ({
   fragile: false,
   chosen: false,
   listed: true,
+  judged: 0,
 });
 
 function slotOf(

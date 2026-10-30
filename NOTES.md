@@ -196,3 +196,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the app still reads its data only when it starts; restart `just app-real` after a copy.
 - 2026-10-30: the item set lists each slot's pick then its alternatives with 2%+ of games (4 per slot, 6 for 4+), is written first with `priority`, and is titled "Stronk: Lee Sin Jungle" (ADR-069).
   Open: check on the real client that the set opens on top; the rune page keeps the old name until the client's limit on page names is known.
+- 2026-10-30: item set blocks list the player's pick, then Stronk's choice, then the rest by Stronk's judgement (`judged`, the shrunk head-to-head gain; 0 when unmeasured) (ADR-070).
+  Open: none beyond ADR-069's (check the set's place in the real client).

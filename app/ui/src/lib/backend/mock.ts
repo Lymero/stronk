@@ -172,9 +172,10 @@ type Perks = Page["perks"];
 const conqueror: Perks = [8010, 9111, 9104, 8014, 8304, 8347, 5005, 5008, 5001];
 const electrocute: Page = { primary_style: 8100, sub_style: 8000, perks: [8112, 8143, 8138, 8135, 9111, 9104, 5005, 5008, 5001] };
 
-/** One ranked option, as the core's `build.plan` gives it. */
+/** One ranked option, as the core's `build.plan` gives it, with Stronk's judgement as the core
+ * makes it (ADR-070): a head-to-head gain shrunk by its uncertainty (τ = 0.02), else 0. */
 function row<T>(value: T, played: number, total: number, rest: Partial<Row<T>> = {}): Row<T> {
-  return {
+  const r: Row<T> = {
     value,
     played,
     share: played / total,
@@ -185,8 +186,12 @@ function row<T>(value: T, played: number, total: number, rest: Partial<Row<T>> =
     fragile: false,
     chosen: false,
     listed: true,
+    judged: 0,
     ...rest,
   };
+  const measured = r.versus === "most_played" && r.wpa !== null && r.ci && !r.confidence.startsWith("too_few");
+  const se = r.ci ? (r.ci[1] - r.ci[0]) / (2 * 1.96) : 0;
+  return { ...r, judged: rest.judged ?? (measured ? ((r.wpa ?? 0) * 0.0004) / (0.0004 + se * se) : 0) };
 }
 
 /** An option past the short list: played less, shown when the player asks for every option. */
@@ -383,7 +388,9 @@ const leeSin: Plan = {
     { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640 },
     { slot: 3, value: 3026, label: "best_bet", wpa: 0.012, ci: [0.0, 0.024], games: 160 },
     // Guardian Angel, item 3, left out of the late items' list.
-    { slot: 4, value: 3053, label: "popular", then: [3156, 6333, 6694, 3071] }, // Trinity Force: under 2%
+    // In Stronk's order: Maw ahead, then the ones it knows nothing against, Death's Dance behind;
+    // Trinity Force is under 2%.
+    { slot: 4, value: 3053, label: "popular", then: [3156, 6694, 3071, 6333] },
   ],
   late_slot: 4,
   alternatives: leeSinAlternatives,

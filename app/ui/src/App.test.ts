@@ -287,15 +287,17 @@ describe("App with MockBackend", () => {
     await app.refresh();
     await next();
     await next();
-    // Guardian Angel, Stronk's item 3, is left out of the list, and Trinity Force, under 2%.
-    expect(tab("Items 4+")).toHaveTextContent("then Maw of Malmortius, Death's Dance, Serylda's Grudge, Black Cleaver");
+    // In Stronk's order: Maw, ahead of Sterak's Gage; then those it knows nothing against, most
+    // played first; Death's Dance, behind, last. Guardian Angel, Stronk's item 3, is left out,
+    // and Trinity Force, under 2%.
+    expect(tab("Items 4+")).toHaveTextContent("then Maw of Malmortius, Serylda's Grudge, Black Cleaver, Death's Dance");
     const late = await open("Items 4+");
     expect(screen.getByRole("tabpanel", { name: "Items 4+" })).toBeInTheDocument();
     expect(option(late, "Sterak's Gage")).toHaveTextContent("baseline");
     expect(option(late, "Guardian Angel")).toHaveTextContent("in item 3");
-    // Picking Maw first puts it at the head, and Sterak's Gage back in the list.
+    // The player's pick overrules Stronk: Maw at the head, Stronk's Sterak's Gage next.
     await fireEvent.click(option(late, "Maw of Malmortius"));
-    expect(tab("Items 4+")).toHaveTextContent("then Sterak's Gage, Death's Dance, Serylda's Grudge, Black Cleaver");
+    expect(tab("Items 4+")).toHaveTextContent("then Sterak's Gage, Serylda's Grudge, Black Cleaver, Death's Dance");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ items: [{ slot: 4, item: 3156 }] });
   });

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use common::{ClientState, FakeBackups, FakeClient, NoClient, THEIR_SET, context, viego};
 use serde_json::{Value, json};
 use stronk_domain::Role;
-use stronk_domain::select::PageInfo;
+use stronk_domain::select::{PageInfo, shrunk};
 use stronk_service::ports::{Backups, ChampSelect, LeagueClient};
 use stronk_service::{Context, ErrorCode, registry};
 
@@ -268,13 +268,15 @@ fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
         json!([{"slot": 1, "more": 0, "rows": [
             {"value": 6672, "played": 6100, "share": 6100.0 / 8540.0, "wpa": 0.008,
              "ci": [0.001, 0.015], "versus": "alternatives", "confidence": "most_played",
-             "fragile": false, "chosen": false, "listed": true},
+             "fragile": false, "chosen": false, "listed": true, "judged": 0.0},
+            // Stronk's judgement: the head-to-head gain, shrunk by its uncertainty.
             {"value": 6693, "played": 2300, "share": 2300.0 / 8540.0, "wpa": 0.021,
              "ci": [0.008, 0.034], "versus": "most_played", "confidence": "clearly_better",
-             "fragile": false, "chosen": true, "listed": true},
+             "fragile": false, "chosen": true, "listed": true,
+             "judged": shrunk(0.021, Some((0.008, 0.034)))},
             {"value": 6692, "played": 140, "share": 140.0 / 8540.0, "wpa": null, "ci": null,
              "versus": "alternatives", "confidence": "too_few_games", "fragile": false,
-             "chosen": false, "listed": true}
+             "chosen": false, "listed": true, "judged": 0.0}
         ]}])
     );
     let spells = &alternatives["spells"]["rows"][0];
@@ -318,10 +320,11 @@ fn plan_ranks_each_rune_row_and_marks_the_imported_pages_choices() {
         json!([
             {"value": [9111], "played": 5200, "share": 5200.0 / 7600.0, "wpa": 0.006,
              "ci": [-0.004, 0.016], "versus": "alternatives", "confidence": "most_played",
-             "fragile": false, "chosen": true, "listed": true},
+             "fragile": false, "chosen": true, "listed": true, "judged": 0.0},
             {"value": [8009], "played": 2400, "share": 2400.0 / 7600.0, "wpa": -0.009,
              "ci": [-0.026, 0.008], "versus": "most_played", "confidence": "no_clear_difference",
-             "fragile": false, "chosen": false, "listed": true}
+             "fragile": false, "chosen": false, "listed": true,
+             "judged": shrunk(-0.009, Some((-0.026, 0.008)))}
         ])
     );
     assert_eq!(rows[1]["rows"][0]["value"], json!([8135, 8143]));

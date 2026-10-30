@@ -88,8 +88,8 @@
   const alsoIn = (slot: number, id: number) =>
     plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => slotName(i.slot).toLowerCase());
   /** The late slot's other items as the import lists them after its pick: the core's list
-   * (`then`, most played first, each with 2% of the slot's games) refilled the same way when the
-   * player's picks take some (ADR-069). */
+   * (`then`, each with 2% of the slot's games, in Stronk's order: its choice, then its judgement)
+   * refilled the same way when the player's picks take some (ADR-069, ADR-070). */
   const lateThen = $derived.by(() => {
     const late = plan.items.find((i) => i.slot === plan.late_slot);
     if (!late) return [];
@@ -98,6 +98,7 @@
     const rows = options.items.find((s) => s.slot === late.slot)?.rows ?? [];
     return rows
       .filter((r) => r.share >= BLOCK_MIN_SHARE && !taken.has(r.value))
+      .sort((a, b) => Number(b.chosen) - Number(a.chosen) || b.judged - a.judged)
       .map((r) => r.value)
       .slice(0, count);
   });

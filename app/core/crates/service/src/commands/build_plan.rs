@@ -7,7 +7,9 @@ use stronk_contracts::build_v1::{
     Build, Comparison, Flag, Interval, RuneChoice, RuneChoiceComparison, RuneChoiceKind,
 };
 use stronk_domain::Role;
-use stronk_domain::select::{self, Candidate, Choice, Label, Ranked, choose, choose_items, rank};
+use stronk_domain::select::{
+    self, Candidate, Choice, Label, Ranked, Row, by_judgement, choose, choose_items, rank,
+};
 
 use crate::commands::build_get;
 use crate::registry::Command;
@@ -245,8 +247,10 @@ pub fn plan(build: &Build, role: Role) -> Plan {
 }
 
 /// Each slot's other items for its block (ADR-069): its options with at least
-/// [`BLOCK_MIN_SHARE`] of its games, most played first, without any item a slot already takes,
-/// up to [`SLOT_ITEMS`] with the choice ([`LATE_ITEMS`] for the late slot, ADR-067). Called
+/// [`BLOCK_MIN_SHARE`] of its games in Stronk's order (its choice, then its judgement,
+/// ADR-070), without any item a slot already takes, up to [`SLOT_ITEMS`] with the slot's item
+/// ([`LATE_ITEMS`] for the late slot, ADR-067). The block starts with the slot's item, the
+/// player's pick when they made one: a pick overrules Stronk, which then comes next. Called
 /// again when the player's picks change the items.
 pub fn with_alternatives(plan: &mut Plan) {
     let taken: Vec<i64> = plan.items.iter().map(|s| s.choice.value).collect();
@@ -262,13 +266,14 @@ pub fn with_alternatives(plan: &mut Plan) {
             .iter()
             .find(|a| a.slot == s.slot)
             .map(|a| {
-                a.ranked
+                let mut rows: Vec<&Row<i64>> = a
+                    .ranked
                     .rows
                     .iter()
                     .filter(|r| r.share >= BLOCK_MIN_SHARE && !taken.contains(&r.value))
-                    .map(|r| r.value)
-                    .take(size - 1)
-                    .collect()
+                    .collect();
+                by_judgement(&mut rows);
+                rows.iter().map(|r| r.value).take(size - 1).collect()
             })
             .unwrap_or_default();
     }
@@ -497,6 +502,42 @@ pub(crate) mod tests {
         plan.items[0].choice.value = 3156;
         with_alternatives(&mut plan);
         assert_eq!(plan.items[3].then, vec![3053, 6694, 3071, 6610, 3742]);
+    }
+
+    #[test]
+    fn a_block_follows_stronks_judgement_after_the_slots_item() {
+        // Eclipse most played; Profane Hydra ahead, not yet clear (Stronk's best bet); Bastionbreaker
+        // clearly worse; Black Cleaver and Sundered Sky not measured against Eclipse.
+        let compared = |wpa: f64, low: f64, high: f64| serde_json::json!({"versus": 6692, "wpa": wpa, "ci": [low, high], "q": 0.5});
+        let option =
+            |item: i64, picks: u64, flags: &[&str], comparison: Option<serde_json::Value>| {
+                let mut o = serde_json::json!({"slot": 1, "item": item, "picks": picks, "n": picks,
+                                           "wpa": 0.0, "ci": [-0.01, 0.01], "flags": flags});
+                if let Some(k) = comparison {
+                    o["comparison"] = k;
+                }
+                o
+            };
+        let build: Build = serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1, "patch": "16.20", "region": "all", "elo": "master_plus",
+            "champion": "LeeSin", "role": "JUNGLE", "games": 3000, "runes": [], "spells": [],
+            "items": [
+                option(6692, 1500, &[], None),
+                option(6698, 600, &["no_clear_difference"], Some(compared(0.03, 0.0, 0.06))),
+                option(3071, 400, &["low_sample"], None),
+                option(2520, 300, &[], Some(compared(-0.04, -0.06, -0.02))),
+                option(6610, 200, &["low_sample"], None),
+            ]
+        }))
+        .unwrap();
+        let mut plan = plan(&build, Role::Jungle);
+        assert_eq!(plan.items[0].choice.value, 6698);
+        // The baseline leads what Stronk knows nothing against; the clearly worse one is last.
+        assert_eq!(plan.items[0].then, vec![6692, 3071, 6610]);
+        // The player's pick overrules Stronk, whose choice comes next.
+        plan.items[0].choice.value = 3071;
+        with_alternatives(&mut plan);
+        assert_eq!(plan.items[0].then, vec![6698, 6692, 6610]);
     }
 
     #[test]

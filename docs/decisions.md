@@ -539,3 +539,12 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - Stronk's set is written first in the client's list and marked `priority`, the item set format's flag for the top of the list; the player's sets follow, byte for byte and in their order.
   - The set's title is "Stronk: Lee Sin Jungle": the champion as the player's client names it (its data key if the names can't be read) and the role as the app writes it (Top, Jungle, Mid, Bot, Support, `Role::label`). Stronk's sets are still found by the "Stronk: " prefix, so older ones are replaced.
 - **Consequences:** the shop opens on Stronk's set with a choice and its usual alternatives per slot. The rune page keeps its name ("Stronk: LeeSin JUNGLE") for now: the client's limit on page names isn't known, and "Stronk: Aurelion Sol Support" would be 28 characters.
+
+### ADR-070 · A block in Stronk's order, the player's pick first
+
+- **Context:** ADR-069 listed each block's alternatives most played first. The owner: the item the player picked before importing comes first, then the rest in Stronk's judgement, so a player can overrule Stronk (a preference of theirs can be worth more than the win impact it costs), and Stronk's ranking still orders everything else.
+- **Decision:**
+  - Each option of a slot carries `judged` (`Row`): Stronk's judgement against the slot's most played option, the head-to-head gain shrunk toward 0 by its uncertainty (`shrunk`, τ = 0.02: the number the best bet is chosen by, ADR-065), and 0 for the most played option and any option not measured against it, which are no better or worse as far as Stronk knows.
+  - A block lists the slot's item (the player's pick, else Stronk's choice), then the others in Stronk's order (`by_judgement`): Stronk's choice first, then the larger judged gain, ties to the more played. So the baseline leads the unmeasured options, and a clearly worse option comes after them. The 2% minimum and the block sizes of ADR-069 stay.
+  - The sheet's "then …" under "Items 4+" follows the same order.
+- **Consequences:** a pick overrules Stronk in its slot without hiding Stronk's view: Stronk's choice is right after it. On thin data most options are unmeasured, so the order is mostly popularity after Stronk's choice.

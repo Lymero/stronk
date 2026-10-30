@@ -473,6 +473,11 @@ export interface Int64Row {
   confidence: Confidence;
   fragile: boolean;
   /**
+   * Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
+   * best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
+   */
+  judged: number;
+  /**
    * Listed before the player asks for every option: one of the [`SHOWN`] most played, or
    * Stronk's choice.
    */
@@ -529,6 +534,11 @@ export interface ArrayOfInt64Row {
   confidence: Confidence;
   fragile: boolean;
   /**
+   * Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
+   * best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
+   */
+  judged: number;
+  /**
    * Listed before the player asks for every option: one of the [`SHOWN`] most played, or
    * Stronk's choice.
    */
@@ -580,6 +590,11 @@ export interface PageRow {
   confidence: Confidence;
   fragile: boolean;
   /**
+   * Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
+   * best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
+   */
+  judged: number;
+  /**
    * Listed before the player asks for every option: one of the [`SHOWN`] most played, or
    * Stronk's choice.
    */
@@ -630,6 +645,11 @@ export interface TupleOfInt64AndInt64Row {
   ci: [number, number] | null;
   confidence: Confidence;
   fragile: boolean;
+  /**
+   * Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
+   * best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
+   */
+  judged: number;
   /**
    * Listed before the player asks for every option: one of the [`SHOWN`] most played, or
    * Stronk's choice.

@@ -95,6 +95,17 @@ impl<T> Candidate<T> {
             .filter(|k| k.versus == popular && self.claimable() && !self.unclear)
     }
 
+    /// Stronk's judgement of it against `popular`, for ordering (ADR-070): its head-to-head
+    /// gain shrunk toward 0 by its uncertainty when compared and claimable (a clear one without
+    /// an interval at its estimate), else 0: the popular one, and any option not measured
+    /// against it, is no better or worse as far as Stronk knows.
+    fn judged_against(&self, popular: i64) -> f64 {
+        self.comparison
+            .filter(|k| k.versus == popular && self.claimable())
+            .and_then(|k| shrunk(k.wpa, k.ci).or(Some(k.wpa)))
+            .unwrap_or(0.0)
+    }
+
     /// Its comparison with `popular` and how much it stands to gain, when it may be the best
     /// bet: compared head to head and claimable, and either clear or with a shrunk gain of at
     /// least [`BEST_BET_MIN`]. A clear one without an interval counts at its estimate.
@@ -218,6 +229,15 @@ pub struct Row<T> {
     /// Listed before the player asks for every option: one of the [`SHOWN`] most played, or
     /// Stronk's choice.
     pub listed: bool,
+    /// Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
+    /// best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
+    pub judged: f64,
+}
+
+/// Stronk's order of a slot's options (ADR-070): its choice, then the larger judged gain
+/// first, ties to the more played (rows come most played first; the sort is stable).
+pub fn by_judgement<T>(rows: &mut [&Row<T>]) {
+    rows.sort_by(|a, b| b.chosen.cmp(&a.chosen).then(b.judged.total_cmp(&a.judged)));
 }
 
 /// Every option of a slot, and how many of them are left out of the short list.
@@ -276,6 +296,7 @@ pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T
                 fragile: c.fragile,
                 chosen: is_chosen(c),
                 listed: i < SHOWN || is_chosen(c),
+                judged: c.judged_against(popular),
             }
         })
         .collect();

@@ -16,6 +16,7 @@ const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   fragile: false,
   chosen: false,
   listed: true,
+  judged: 0,
   ...rest,
 });
 
