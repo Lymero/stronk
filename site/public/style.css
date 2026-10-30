@@ -63,6 +63,21 @@ figure.wide {
   margin-left: calc((100% - var(--wide)) / 2);
 }
 figure.wide figcaption { text-align: center; }
+/* One screenshot at a time, switched by "Runes" and "Items" under it (no script). */
+.shots input { position: absolute; opacity: 0; pointer-events: none; }
+.shots picture { display: block; }
+#shot-runes:checked ~ .frames .items,
+#shot-items:checked ~ .frames .runes,
+#shot-runes:checked ~ figcaption .caption.items,
+#shot-items:checked ~ figcaption .caption.runes { display: none; }
+.shots figcaption { display: grid; gap: var(--space-2); justify-items: center; }
+.shots .switch { display: inline-flex; padding: 3px; border: 1px solid var(--color-border); border-radius: 999px; }
+.shots .switch label { padding: 4px 16px; border-radius: 999px; color: var(--color-muted); cursor: pointer; font-weight: 600; }
+#shot-runes:checked ~ figcaption label[for="shot-runes"],
+#shot-items:checked ~ figcaption label[for="shot-items"] { background: var(--color-text); color: var(--color-bg); }
+#shot-runes:focus-visible ~ figcaption label[for="shot-runes"],
+#shot-items:focus-visible ~ figcaption label[for="shot-items"] { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.shots .source { font-size: 13px; }
 /* Phones get their own narrow screenshot: shown at its own width, not stretched. */
 @media (max-width: 640px) {
   figure.wide { --wide: 100%; }
