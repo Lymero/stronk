@@ -122,13 +122,15 @@ describe("App with MockBackend", () => {
     expect(sky).toHaveAttribute("aria-checked", "true");
     expect(sky).toHaveTextContent("▲ +2.1");
     expect(sky).not.toHaveTextContent("±");
+    expect(sky).toHaveTextContent("640 games"); // the games behind it
     const cleaver = option(item2, "Black Cleaver");
     expect(cleaver).toHaveTextContent("baseline");
     expect(cleaver.querySelector(".num")).toHaveTextContent(/^0$/);
     expect(option(item2, "Death's Dance").querySelector(".num")).not.toHaveClass("positive"); // unclear: grey
     // Spells have no estimates: their header says so, as no lack of games is meant.
     expect((await open("Spells")).getByText("Not measured yet")).toBeInTheDocument();
-    expect(screen.getByRole("tabpanel")).not.toHaveTextContent(/\d% ?\d/); // no stray numbers
+    const spellNumbers = [...screen.getByRole("tabpanel").querySelectorAll(".row .num")].map((n) => n.textContent);
+    expect(spellNumbers).toEqual(["", ""]); // no estimates, no numbers
     expect((await open("Item 3")).getByText("▼ −1.8")).toHaveClass("negative");
     expect(within(build).queryByText(/Popular|Most played|No clear difference/)).toBeNull();
     // It opens with what Stronk changes from the most played build, and what that beats.

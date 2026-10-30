@@ -156,3 +156,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: nothing new.
 - 2026-10-30: the build sheet (ADR-062): the build by name on the left, one slot open on the right (rune tree, or options ranked against the baseline with share bars), dark ink and amber look; Stronk's gain badge only while its pick is imported.
   Open: owner to look at it on the real client.
+- 2026-10-30: the option lists show each option's games again (ADR-062), beside its share, or under its name in a narrow window.
+  Open: the rune tree's cells still show no games (the ring gives the share).

@@ -1,9 +1,11 @@
 <script lang="ts" generics="T">
   // One slot's options as a ranked list (ADR-062): each with its name, its wins per 100 games
-  // against the baseline (the most played option, 0) and its share of games as a bar. Coloured
+  // against the baseline (the most played option, 0), its share of games as a bar, and the games
+  // it was played in. Coloured
   // only when clearly better or worse; nothing when short of games. Clicking a row picks it. The
   // rarely played ones are behind "Show N more".
   import Icon from "../../ui/Icon.svelte";
+  import { games } from "../../ui/labels.ts";
   import { compared, figure, type Shown, type Slot, verdict, wins } from "./options.ts";
 
   let {
@@ -48,7 +50,7 @@
       class="row"
       class:on={row.selected}
       aria-checked={row.selected}
-      aria-label={`${label(row.value)}${n.text ? `, ${n.text}` : ""}, ${Math.round(row.share * 100)}% of games`}
+      aria-label={`${label(row.value)}${n.text ? `, ${n.text}` : ""}, ${Math.round(row.share * 100)}% of games, ${games(row.played)}`}
       onclick={() => onpick(row.value)}
     >
       <span class="mark" aria-hidden="true"></span>
@@ -64,6 +66,7 @@
         <span class="bar"><span style:width={`${Math.max(2, row.share * 100)}%`}></span></span>
         <span class="pct">{Math.round(row.share * 100)}%</span>
       </span>
+      <span class="games">{games(row.played)}</span>
     </button>
   {/each}
   {#if hidden > 0}
@@ -80,7 +83,7 @@
   }
   .row {
     display: grid;
-    grid-template-columns: 6px auto minmax(0, 1fr) 140px 150px;
+    grid-template-columns: 6px auto minmax(0, 1fr) 120px 140px 96px;
     gap: var(--space-3);
     align-items: center;
     padding: var(--space-2) var(--space-3) var(--space-2) 0;
@@ -195,6 +198,13 @@
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
+  .games {
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
   .more {
     justify-self: start;
     margin-top: var(--space-2);
@@ -212,7 +222,21 @@
   }
   @media (max-width: 640px) {
     .row {
-      grid-template-columns: 6px auto minmax(0, 1fr) 90px;
+      grid-template-columns: 6px auto minmax(0, 1fr) auto;
+      row-gap: 0;
+    }
+    .mark {
+      grid-row: span 2;
+    }
+    .icons {
+      grid-row: span 2;
+    }
+    /* The games under the name, so the name keeps its width. */
+    .games {
+      grid-row: 2;
+      grid-column: 3;
+      font-size: var(--text-xs);
+      text-align: left;
     }
     .share {
       display: none;
