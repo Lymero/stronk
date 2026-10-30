@@ -184,3 +184,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: nothing new.
 - 2026-10-30: the site's screenshot readable (ADR-066): the wide one at near its own size in a figure wider than the text, a narrow one for phones; `just site-shot` renders both.
   Open: check the deployed site after Cloudflare builds this push.
+- 2026-10-30: the site shows two views (ADR-066): the rune page (runes.png) and an item slot (items.png), each wide and for phones; `just site-shot` renders all four.
+  Open: a video was left out (over the 512 KB file limit); check the deployed site.
