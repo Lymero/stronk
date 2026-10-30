@@ -258,7 +258,7 @@
       <span class="how" title={how} aria-label={how}>How Stronk picks</span>
     </p>
     <p class="legend">
-      <span><strong>+2.1</strong> wins per 100 games against the baseline, the most played option (0)</span>
+      <span>Numbers are wins per 100 games against the baseline, the most played option (0)</span>
       <span><span class="clear">▲</span> colour only when clearly better or worse</span>
       <span>No number: too few games</span>
     </p>
