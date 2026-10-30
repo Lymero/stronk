@@ -37,10 +37,23 @@
   const tree = (id: number) => name(names, "rune_styles", id);
 
   function pick(row: RuneRow, id: number): void {
-    onpage(row.next(id));
-    if (row.group === "secondary") last = id;
+    // A rune already on the page only brings its row into focus: the page stays as it is.
+    if (row.picked !== id) {
+      onpage(row.next(id));
+      if (row.group === "secondary") last = id;
+    }
     focus = row.key;
   }
+  /** What the list is headed by: the tree, or the shard row. Players know which row it is; screen
+   * readers get it from `title`. */
+  const heading = (row: RuneRow) =>
+    row.group === "primary"
+      ? row.key === "primary-0"
+        ? `${tree(page.primary_style)} keystones`
+        : tree(page.primary_style)
+      : row.group === "secondary"
+        ? tree(page.sub_style)
+        : `${row.label} shard`;
   const title = (row: RuneRow) =>
     row.group === "primary"
       ? `${tree(page.primary_style)}, ${row.label.toLowerCase()}`
@@ -108,7 +121,7 @@
 
   {#if focused}
     <section class="detail" aria-label={title(focused)}>
-      <h4 class="title">{title(focused)}</h4>
+      <h4 class="title">{heading(focused)}</h4>
       {#if focused.group === "secondary"}<p class="hint">Two from different rows; each number is for the pair it makes.</p>{/if}
       <OptionTable
         slot={focused.slot}
@@ -123,7 +136,7 @@
 <style>
   .runes {
     display: grid;
-    grid-template-columns: 384px minmax(0, 1fr);
+    grid-template-columns: 492px minmax(0, 1fr);
     gap: var(--space-4);
     align-items: start;
   }
@@ -201,11 +214,12 @@
     height: 16px;
     font-size: 9px;
   }
+  /* Room around the icons, so a picked rune's ring stays inside the focused row's band. */
   .line {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     justify-content: center;
-    padding: 3px 2px;
+    padding: 6px 8px;
     border-radius: 999px;
   }
   .line.focus {
@@ -224,6 +238,7 @@
   .rune :global(.icon) {
     width: var(--size);
     height: var(--size);
+    border-radius: 50%;
     filter: grayscale(1);
     opacity: 0.45;
   }
@@ -236,7 +251,7 @@
     opacity: 1;
     box-shadow:
       0 0 0 2px var(--color-accent),
-      0 0 8px var(--color-accent);
+      0 0 6px var(--color-accent);
   }
   /* Stronk's pick when the player took another: a small amber dot. */
   .rune.stronk::after {
@@ -255,13 +270,13 @@
     outline-offset: 2px;
   }
   .lg {
-    --size: 36px;
+    --size: 48px;
   }
   .md {
-    --size: 30px;
+    --size: 40px;
   }
   .sm {
-    --size: 22px;
+    --size: 32px;
   }
   .detail {
     display: grid;

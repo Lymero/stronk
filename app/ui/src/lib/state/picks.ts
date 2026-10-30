@@ -17,8 +17,11 @@ export type Pick = { runes: Page } | { spells: [number, number] } | { slot: numb
 
 export const noPicks = (): Picks => ({ items: {} });
 
-export const samePage = (a: Page, b: Page): boolean =>
-  a.primary_style === b.primary_style && a.sub_style === b.sub_style && a.perks.join() === b.perks.join();
+export const samePage = (a: Page, b: Page): boolean => {
+  // The two secondary runes are one choice, whichever order the data or the player gives them in.
+  const key = (p: Page) => [...p.perks.slice(0, 4), ...[...p.perks.slice(4, 6)].sort((x, y) => x - y), ...p.perks.slice(6)].join();
+  return a.primary_style === b.primary_style && a.sub_style === b.sub_style && key(a) === key(b);
+};
 
 /** The same two spells, whichever key each is on. */
 export const samePair = (a: readonly number[], b: readonly number[]): boolean =>

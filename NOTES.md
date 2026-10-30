@@ -168,3 +168,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: nothing new.
 - 2026-10-30: the rune page redesigned (ADR-064), chosen from three concepts rendered on real data: the client's tree with icons only, and the focused row beside it as an item-style list; shards in labelled groups.
   Open: owner to look at it on the real client.
+- 2026-10-30: rune page per the owner's review (ADR-064): bigger runes, the ring inside the focus band, no "row N" in the list's heading; fixed "Your pick" appearing after only clicking lit runes (secondary pair order in `samePage`).
+  Open: lcu-mock's placeholder icons show a square border inside the round runes; the real art doesn't.

@@ -240,6 +240,10 @@
       font-size: var(--text-xs);
       text-align: left;
     }
+    /* A long name wraps rather than being cut. */
+    .label {
+      white-space: normal;
+    }
     /* The share as its figure alone, beside the number. */
     .share {
       display: block;

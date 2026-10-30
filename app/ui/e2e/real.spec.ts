@@ -76,6 +76,10 @@ async function board(page: Page, pick: string, every: boolean): Promise<string[]
     problems.push(...(await slot(page, name.split(":")[0] ?? name)));
     if (every || t === count - 1) await shot(page, `${pick}-${t}`);
   }
+  // Looking through every slot changed nothing: no pick of the player's, nothing to reset.
+  const yours = await page.getByRole("tab", { name: /, your pick$/ }).count();
+  if (yours > 0) problems.push(`${yours} slots read "your pick" after only looking`);
+  if (await page.getByRole("button", { name: "Use Stronk's picks" }).isVisible()) problems.push(`"Use Stronk's picks" shows after only looking`);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 0) problems.push(`page scrolls sideways by ${overflow}px`);
   return problems;
