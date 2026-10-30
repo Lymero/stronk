@@ -11,7 +11,9 @@ use stronk_domain::Role;
 use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page, valid_page};
 
 use crate::commands::build_get;
-use crate::commands::build_plan::{Page, Plan, SlotChoice, plan, with_alternatives};
+use crate::commands::build_plan::{
+    Page, Plan, SlotChoice, plan, start_buy, start_items, with_alternatives,
+};
 use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};
 use crate::registry::Command;
@@ -30,6 +32,9 @@ pub struct Params {
     pub spells: Option<(i64, i64)>,
     #[serde(default)]
     pub items: Vec<ItemPick>,
+    /// A published start's items, in any order (ADR-071).
+    #[serde(default)]
+    pub start: Option<Vec<i64>>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -175,6 +180,20 @@ fn with_picks(
             }),
         }
     }
+    if let Some(items) = &params.start {
+        let mut items = items.clone();
+        items.sort_unstable();
+        items.dedup();
+        if !build.starts.iter().any(|o| start_items(&o.items) == items) {
+            return Err(invalid(format!(
+                "start: {items:?} is not a published start"
+            )));
+        }
+        if plan.start.as_ref().map(|c| &c.value) != Some(&items) {
+            plan.start_buy = start_buy(build, &items);
+            plan.start = Some(picked(items));
+        }
+    }
     plan.items.sort_by_key(|s| s.slot);
     with_alternatives(&mut plan);
     Ok(plan)
@@ -271,6 +290,16 @@ fn skipped(reason: &str) -> Outcome {
     }
 }
 
+/// Why a block's first item was chosen, as its name says it.
+fn why(label: Label) -> String {
+    match label {
+        Label::Popular => "Popular".to_owned(),
+        Label::Picked => "Your pick".to_owned(),
+        Label::ClearlyBetter { wpa, .. } => format!("Clearly better, {:+.1}% win", wpa * 100.0),
+        Label::BestBet { wpa, .. } => format!("Best bet, {:+.1}% win", wpa * 100.0),
+    }
+}
+
 /// The item set's title as players read it: "Stronk: Lee Sin Jungle", the champion as the
 /// client names it (its data key when the client's names can't be read).
 fn item_set_title(ctx: &Context, plan: &Plan, champion_id: i64) -> String {
@@ -283,34 +312,38 @@ fn item_set_title(ctx: &Context, plan: &Plan, champion_id: i64) -> String {
     format!("{PREFIX}{champion} {}", plan.role.label())
 }
 
-/// Stronk's set, listed first (`priority`): one block per slot, named with the slot and why the
-/// item was chosen, its choice first and then the slot's other items (ADR-069); the late slot's
-/// block is "Items 4+" (ADR-067).
+/// Stronk's set, listed first (`priority`): the start as bought, supplies included (ADR-071),
+/// then one block per slot, named with the slot and why the item was chosen, its choice first
+/// and then the slot's other items (ADR-069); the late slot's block is "Items 4+" (ADR-067).
 fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
-    let blocks: Vec<Value> = plan
-        .items
-        .iter()
-        .map(|s| {
-            let why = match s.choice.label {
-                Label::Popular => "Popular".to_owned(),
-                Label::Picked => "Your pick".to_owned(),
-                Label::ClearlyBetter { wpa, .. } => {
-                    format!("Clearly better, {:+.1}% win", wpa * 100.0)
-                }
-                Label::BestBet { wpa, .. } => format!("Best bet, {:+.1}% win", wpa * 100.0),
-            };
-            let name = if plan.late_slot == Some(s.slot) {
-                format!("Items {}+", s.slot)
-            } else {
-                format!("Item {}", s.slot)
-            };
-            let items: Vec<Value> = std::iter::once(s.choice.value)
-                .chain(s.then.iter().copied())
-                .map(|id| json!({"id": id.to_string(), "count": 1}))
-                .collect();
-            json!({"type": format!("{name}: {why}"), "items": items})
-        })
-        .collect();
+    let start = plan.start.as_ref().map(|c| {
+        // Repeats as one entry with its count: two Health Potions read "2".
+        let mut items: Vec<(i64, u32)> = Vec::new();
+        for id in &plan.start_buy {
+            match items.iter_mut().find(|(i, _)| i == id) {
+                Some((_, n)) => *n += 1,
+                None => items.push((*id, 1)),
+            }
+        }
+        let items: Vec<Value> = items
+            .into_iter()
+            .map(|(id, count)| json!({"id": id.to_string(), "count": count}))
+            .collect();
+        json!({"type": format!("Start: {}", why(c.label)), "items": items})
+    });
+    let slots = plan.items.iter().map(|s| {
+        let name = if plan.late_slot == Some(s.slot) {
+            format!("Items {}+", s.slot)
+        } else {
+            format!("Item {}", s.slot)
+        };
+        let items: Vec<Value> = std::iter::once(s.choice.value)
+            .chain(s.then.iter().copied())
+            .map(|id| json!({"id": id.to_string(), "count": 1}))
+            .collect();
+        json!({"type": format!("{name}: {}", why(s.choice.label)), "items": items})
+    });
+    let blocks: Vec<Value> = start.into_iter().chain(slots).collect();
     json!({
         "title": title,
         "type": "custom",

@@ -1,6 +1,10 @@
 """Where players make the choices we score (docs/wpa-method.md, section 2; ADR-026).
 
 - Slot 0, champion select: the keystone rune.
+- The start (slot `START_SLOT`, ADR-071): the items bought before `STARTING_PURCHASES_MS`,
+  without supplies (consumables and trinkets: potions, wards), as one option `"a,b"` (ids
+  sorted, each once): a jungle pet, a Doran's item, Cull, Dark Seal... Anchored at the first of
+  those purchases. A start of supplies alone adds nothing.
 - Champion select, the rest of the rune page (ADR-057), one decision each: every row of the
   primary tree (slot `tree * 10 + row`, rows 1 to 3, option the rune), the secondary tree's two
   runes as a pair (slot `tree * 10 + 5`, option `"low,high"`), and every stat shard row (slot
@@ -37,13 +41,15 @@ SECONDARY_ROW = 5
 """`tree * 10 + SECONDARY_ROW` is the secondary pair's slot."""
 SHARD_SLOTS = 50_000
 """`SHARD_SLOTS + row` is a stat shard row's slot."""
+START_SLOT = 60_000
+"""The starting items' slot (ADR-071)."""
 
 
 def is_tree(tree: int) -> bool:
     """A rune tree id (8000 to 8400 today). The API sometimes sends 0 for a tree, which would
     encode as an item slot, so such a tree's rows are left out; so is one that would land on
     the shard slots."""
-    return tree >= 1_000 and tree != SHARD_SLOTS // 10
+    return tree >= 1_000 and tree not in (SHARD_SLOTS // 10, START_SLOT // 10)
 
 
 def rune_slot(tree: int, row: int) -> int:
@@ -53,7 +59,7 @@ def rune_slot(tree: int, row: int) -> int:
 
 def is_rune_slot(slot: int) -> bool:
     """Champion select's choices besides the keystone: rune rows, secondary pairs, shards."""
-    return slot > MAX_SLOT
+    return slot > MAX_SLOT and slot != START_SLOT
 
 
 def rune_row(slot: int) -> tuple[str, int | None, int | None]:
@@ -82,9 +88,34 @@ def decision_points(match: Match, static: StaticData, dropped: Counter[str]) -> 
             _rune_rows(p.participant_id, p.primary_style, p.sub_style, p.perks, p.stat_perks)
         )
     for participant in match.participants:
-        purchases = _kept_purchases(match.items, participant.participant_id)
+        purchases = kept_purchases(match.items, participant.participant_id)
+        start = starting_items(purchases, static)
+        if start.option:
+            points.append(
+                DecisionPoint(participant.participant_id, START_SLOT, start.at, start.option)
+            )
         points.extend(_item_slots(participant.participant_id, purchases, static, dropped))
     return points
+
+
+@dataclass(frozen=True, slots=True)
+class Start:
+    """A player's starting purchases (ADR-071)."""
+
+    option: str
+    """What is measured: the items without supplies, ids sorted, each once; "" for none."""
+    bought: tuple[int, ...]
+    """Everything bought, supplies included, sorted, repeats kept: what the import writes."""
+    at: int
+    """The first purchase that isn't a supply, in ms (0 without one)."""
+
+
+def starting_items(purchases: list[ItemEvent], static: StaticData) -> Start:
+    """The purchases before `STARTING_PURCHASES_MS`, undone ones already left out."""
+    early = [p for p in purchases if p.timestamp < STARTING_PURCHASES_MS]
+    kept = [p for p in early if not static.is_supply(p.item_id)]
+    option = ",".join(str(i) for i in sorted({p.item_id for p in kept}))
+    return Start(option, tuple(sorted(p.item_id for p in early)), kept[0].timestamp if kept else 0)
 
 
 def _rune_rows(
@@ -114,7 +145,7 @@ def _rune_rows(
     return rows
 
 
-def _kept_purchases(events: tuple[ItemEvent, ...], participant_id: int) -> list[ItemEvent]:
+def kept_purchases(events: tuple[ItemEvent, ...], participant_id: int) -> list[ItemEvent]:
     """Purchases in order, without the ones the player undid."""
     kept: list[ItemEvent] = []
     for event in events:

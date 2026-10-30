@@ -106,6 +106,7 @@ describe("App with MockBackend", () => {
     expect(screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"))).toEqual([
       "Runes: Conqueror",
       "Spells: Smite + Flash",
+      "Start: Scorchclaw Pup",
       "Item 1: Eclipse",
       "Item 2: Sundered Sky, Stronk's change +2.1",
       "Item 3: Guardian Angel, Stronk's best bet +1.2",
@@ -302,6 +303,21 @@ describe("App with MockBackend", () => {
     expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ items: [{ slot: 4, item: 3156 }] });
   });
 
+  it("shows the start, potions and wards aside, and imports the one picked", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    const start = await open("Start");
+    expect(option(start, "Scorchclaw Pup")).toHaveTextContent("baseline");
+    expect(option(start, "Gustwalker Hatchling").querySelector(".num")).toHaveTextContent("−0.4");
+    expect(screen.getByRole("tabpanel", { name: "Start" })).toHaveTextContent("Before leaving base, potions and wards aside");
+    await fireEvent.click(option(start, "Gustwalker Hatchling"));
+    expect(tab("Start")).toHaveTextContent("Your pick");
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ start: [1102] });
+  });
+
   it("marks an item picked for two slots", async () => {
     const { app, next } = setup("ranked-jungle");
     await app.refresh();
@@ -403,6 +419,7 @@ describe("App with MockBackend", () => {
     const ids = (kind: string) => asked.flatMap((p) => p[kind] ?? []);
     expect(ids("champions")).toEqual([104, 64]); // Graves, then Lee Sin
     expect(ids("items")).toContain(6610);
+    expect(ids("items")).toEqual(expect.arrayContaining([1101, 1102, 1103])); // the starts
     expect(ids("runes")).toContain(8010);
     expect(new Set(ids("items")).size).toBe(ids("items").length); // never twice
     const lee = screen.getByLabelText("Champion select").querySelector("img");

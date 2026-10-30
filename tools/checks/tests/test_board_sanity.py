@@ -28,6 +28,7 @@ def plan(item_rows: list[dict[str, Any]], choice: int = 1) -> dict[str, Any]:
         "alternatives": {
             "runes": empty,
             "spells": empty,
+            "start": empty,
             "items": [{"slot": 1, "rows": item_rows, "more": 0}],
             "rune_rows": [],
         },

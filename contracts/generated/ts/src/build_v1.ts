@@ -30,6 +30,13 @@ export type Interval1 = [number, number];
  * @maxItems 2
  */
 export type Interval2 = [number, number];
+/**
+ * 95% interval [low, high] of the WPA estimate.
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Interval3 = [number, number];
 
 /**
  * Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json.
@@ -60,6 +67,10 @@ export interface Build {
   runes: RuneOption[];
   items: ItemOption[];
   spells: SpellOption[];
+  /**
+   * The starting items (ADR-071): what players buy before leaving base, without potions and wards, each start estimated among the others.
+   */
+  starts?: StartOption[];
   /**
    * The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own.
    */
@@ -149,6 +160,58 @@ export interface SpellOption {
    * Games played with this pair, whichever key each spell was on.
    */
   games?: number;
+}
+/**
+ * One start: the items bought before leaving base, without supplies (potions, wards).
+ */
+export interface StartOption {
+  /**
+   * Data Dragon item ids, smallest first, each once.
+   *
+   * @minItems 1
+   */
+  items: [number, ...number[]];
+  /**
+   * What is most often bought with this start, supplies included and repeated as bought: what an import lists.
+   *
+   * @minItems 1
+   */
+  buy: [number, ...number[]];
+  /**
+   * Games with this start.
+   */
+  games: number;
+  /**
+   * Win probability added against the other starts; null when not estimated.
+   */
+  wpa: number | null;
+  ci: Interval | null;
+  /**
+   * Decisions behind the estimate.
+   */
+  n: number;
+  flags: Flag[];
+  comparison?: StartComparison;
+}
+/**
+ * The start head to head with the most played start (ADR-036).
+ */
+export interface StartComparison {
+  /**
+   * The most played start's items.
+   *
+   * @minItems 1
+   */
+  versus: [number, ...number[]];
+  /**
+   * Win probability added by this start against `versus`.
+   */
+  wpa: number;
+  /**
+   * False-discovery-adjusted p-value of no difference, across the patch.
+   */
+  q: number;
+  ci?: Interval2;
 }
 export interface SkillOrderOption {
   /**
@@ -409,5 +472,5 @@ export interface RuneChoiceComparison {
    * False-discovery-adjusted p-value of no difference, across the patch.
    */
   q: number;
-  ci?: Interval2;
+  ci?: Interval3;
 }

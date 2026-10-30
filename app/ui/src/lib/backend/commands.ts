@@ -247,6 +247,53 @@ export type TupleOfInt64AndInt64Choice = {
     }
 );
 /**
+ * Why an option was chosen; shown next to it in the UI.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_int64Choice".
+ */
+export type ArrayOfInt64Choice = {
+  value: number[];
+} & (
+  | {
+      label: "popular";
+    }
+  | {
+      /**
+       * Its 95% interval, when published.
+       *
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      /**
+       * Games (or picks) with this option.
+       */
+      games: number;
+      label: "clearly_better";
+      /**
+       * Win probability added against the popular option.
+       */
+      wpa: number;
+    }
+  | {
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      games: number;
+      label: "best_bet";
+      /**
+       * Win probability added against the popular option, as published (not shrunk).
+       */
+      wpa: number;
+    }
+  | {
+      label: "picked";
+    }
+);
+/**
  * Stable error codes: the UI maps them to messages, scripts can match on them.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -354,6 +401,10 @@ export interface ImportParams {
    * @maxItems 2
    */
   spells?: [number, number] | null;
+  /**
+   * A published start's items, in any order (ADR-071).
+   */
+  start?: number[] | null;
 }
 /**
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -424,6 +475,16 @@ export interface Plan {
    * D then F, in the pair's usual order; the import moves Flash to the player's key.
    */
   spells: TupleOfInt64AndInt64Choice | null;
+  /**
+   * The start (ADR-071): its items without supplies, smallest id first; the import writes
+   * what is most often bought with it.
+   */
+  start: ArrayOfInt64Choice | null;
+  /**
+   * What the import writes for that start: what is most often bought with it, supplies
+   * included, repeated as bought.
+   */
+  start_buy?: number[];
 }
 /**
  * Every option of each slot, the most played and the chosen one marked as listed.
@@ -439,6 +500,10 @@ export interface Alternatives {
   rune_rows: RuneRow[];
   runes: PageRanked;
   spells: TupleOfInt64AndInt64Ranked;
+  /**
+   * The starts (ADR-071): each the items bought before leaving base, without supplies.
+   */
+  start: ArrayOfInt64Ranked;
 }
 /**
  * Every option of a slot, and how many of them are left out of the short list.
@@ -673,6 +738,19 @@ export interface TupleOfInt64AndInt64Row {
    * Win probability added, against what `versus` says.
    */
   wpa: number | null;
+}
+/**
+ * Every option of a slot, and how many of them are left out of the short list.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_int64Ranked".
+ */
+export interface ArrayOfInt64Ranked {
+  /**
+   * Options played less, not listed until the player asks for every option.
+   */
+  more: number;
+  rows: ArrayOfInt64Row[];
 }
 /**
  * This interface was referenced by `Commands`'s JSON-Schema

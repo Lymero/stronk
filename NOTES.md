@@ -198,3 +198,7 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: check on the real client that the set opens on top; the rune page keeps the old name until the client's limit on page names is known.
 - 2026-10-30: item set blocks list the player's pick, then Stronk's choice, then the rest by Stronk's judgement (`judged`, the shrunk head-to-head gain; 0 when unmeasured) (ADR-070).
   Open: none beyond ADR-069's (check the set's place in the real client).
+- 2026-10-30: the start (items bought in the first 90 s, potions and wards aside) is a decision like a slot: extracted, published as `starts` with what is bought with it, chosen and ranked by build.plan, a "Start" row in the sheet, the item set's first block (ADR-071).
+  Open: the first back (too scattered as whole purchases; try the first item bought after leaving base).
+- 2026-10-30: the app asks the client for the starts' icons too (the pets showed stand-in letters); `site_icons.py` fetches them; site screenshots refreshed with the Start row.
+  Open: `just site-shot` failed one screenshot on its first run right after fetching new icons, twice now, and passed on the rerun.

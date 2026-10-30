@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{
     Build, Comparison, Flag, Interval, RuneChoice, RuneChoiceComparison, RuneChoiceKind,
+    StartComparison, StartOption,
 };
 use stronk_domain::Role;
 use stronk_domain::select::{
@@ -64,6 +65,8 @@ pub struct SlotRanked {
 pub struct Alternatives {
     pub runes: Ranked<Page>,
     pub spells: Ranked<(i64, i64)>,
+    /// The starts (ADR-071): each the items bought before leaving base, without supplies.
+    pub start: Ranked<Vec<i64>>,
     pub items: Vec<SlotRanked>,
     /// Each rune row on its own, for information (ADR-057): imports write whole pages.
     pub rune_rows: Vec<RuneRow>,
@@ -101,6 +104,13 @@ pub struct Plan {
     pub runes: Option<Choice<Page>>,
     /// D then F, in the pair's usual order; the import moves Flash to the player's key.
     pub spells: Option<Choice<(i64, i64)>>,
+    /// The start (ADR-071): its items without supplies, smallest id first; the import writes
+    /// what is most often bought with it.
+    pub start: Option<Choice<Vec<i64>>>,
+    /// What the import writes for that start: what is most often bought with it, supplies
+    /// included, repeated as bought.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub start_buy: Vec<i64>,
     pub items: Vec<SlotChoice>,
     /// The slot of the late items: the item completed there and every later one, as one
     /// decision (ADR-067). None for data from before it, where every slot is its own.
@@ -213,10 +223,13 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         .clone()
         .map(|c| with_row_bets(c, &build.rune_choices));
     let spells_choice = choose(&spells);
+    let starts = start_candidates(&build.starts);
+    let start_choice = choose(&starts);
     let rune_rows = rune_rows(&build.rune_choices, runes_choice.as_ref().map(|c| &c.value));
     let alternatives = Alternatives {
         runes: rank(&runes, keystone_choice.as_ref().map(|c| &c.value)),
         spells: rank(&spells, spells_choice.as_ref().map(|c| &c.value)),
+        start: rank(&starts, start_choice.as_ref().map(|c| &c.value)),
         items: candidates
             .iter()
             .map(|(slot, options)| {
@@ -238,6 +251,11 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         region: build.region.to_string(),
         runes: runes_choice,
         spells: spells_choice,
+        start_buy: start_choice
+            .as_ref()
+            .map(|c| start_buy(build, &c.value))
+            .unwrap_or_default(),
+        start: start_choice,
         items,
         late_slot: build.late_slot.map(|s| s.get()),
         alternatives,
@@ -420,6 +438,63 @@ fn perks_id(perks: &[i64]) -> i64 {
         [one] => *one,
         [low, high] => low.saturating_mul(100_000).saturating_add(*high),
         _ => -1,
+    }
+}
+
+/// The published starts as candidates (ADR-071).
+fn start_candidates(starts: &[StartOption]) -> Vec<Candidate<Vec<i64>>> {
+    starts
+        .iter()
+        .map(|o| {
+            let value = start_items(&o.items);
+            Candidate {
+                id: start_id(&value),
+                value,
+                played: o.games,
+                wpa: o.wpa,
+                ci: o.ci.as_ref().map(interval),
+                too_few: too_few(&o.flags),
+                low_overlap: o.flags.contains(&Flag::LowOverlap),
+                unclear: o.flags.contains(&Flag::NoClearDifference),
+                fragile: o.flags.contains(&Flag::Fragile),
+                comparison: o.comparison.as_ref().map(start_compared),
+            }
+        })
+        .collect()
+}
+
+/// What is most often bought with the start of `items` (its items alone if it isn't published).
+pub fn start_buy(build: &Build, items: &[i64]) -> Vec<i64> {
+    build
+        .starts
+        .iter()
+        .find(|o| start_items(&o.items) == items)
+        .map_or_else(
+            || items.to_vec(),
+            |o| o.buy.iter().map(|i| to_i64(i.get())).collect(),
+        )
+}
+
+/// A start's items, smallest id first, each once, whatever order they come in.
+pub fn start_items(items: &[std::num::NonZeroU64]) -> Vec<i64> {
+    let mut value: Vec<i64> = items.iter().map(|i| to_i64(i.get())).collect();
+    value.sort_unstable();
+    value.dedup();
+    value
+}
+
+/// One id for a set of items, to match a start with the one it is compared with.
+fn start_id(items: &[i64]) -> i64 {
+    items
+        .iter()
+        .fold(0_i64, |id, i| id.wrapping_mul(1_000_003).wrapping_add(*i))
+}
+
+fn start_compared(c: &StartComparison) -> select::Comparison {
+    select::Comparison {
+        versus: start_id(&start_items(&c.versus)),
+        wpa: c.wpa,
+        ci: c.ci.as_ref().map(interval),
     }
 }
 

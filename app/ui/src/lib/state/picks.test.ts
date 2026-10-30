@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { samePage } from "./picks.ts";
+import { scenarios } from "../backend/mock.ts";
+import { published, samePage } from "./picks.ts";
 
 describe("samePage", () => {
   const page = { primary_style: 8000, sub_style: 8300, perks: [8010, 9111, 9104, 8014, 8347, 8304, 5005, 5008, 5001] };
@@ -16,5 +17,14 @@ describe("samePage", () => {
     expect(samePage(page, { ...page, sub_style: 8100 })).toBe(false);
     // Shards are in their rows, so their order counts.
     expect(samePage(page, { ...page, perks: [8010, 9111, 9104, 8014, 8347, 8304, 5008, 5005, 5001] })).toBe(false);
+  });
+});
+
+describe("published", () => {
+  const plan = scenarios["ranked-jungle"].plans["LeeSin/JUNGLE"];
+
+  it("keeps a start the plan still lists, in any order, and drops one it doesn't", () => {
+    expect(published(plan, { items: {}, start: [1102] }).start).toEqual([1102]);
+    expect(published(plan, { items: {}, start: [1055] }).start).toBeUndefined();
   });
 });

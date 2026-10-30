@@ -131,6 +131,77 @@ class RuneChoiceComparison(BaseModel):
     """
 
 
+class Versu1(RootModel[int]):
+    root: Annotated[int, Field(ge=1)]
+
+
+class StartComparison(BaseModel):
+    """
+    The start head to head with the most played start (ADR-036).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    versus: Annotated[list[Versu1], Field(min_length=1)]
+    """
+    The most played start's items.
+    """
+    wpa: float
+    """
+    Win probability added by this start against `versus`.
+    """
+    q: Annotated[float, Field(ge=0.0, le=1.0)]
+    """
+    False-discovery-adjusted p-value of no difference, across the patch.
+    """
+    ci: Interval | None = None
+    """
+    95% interval of `wpa`.
+    """
+
+
+class Item(RootModel[int]):
+    root: Annotated[int, Field(ge=1)]
+
+
+class BuyItem(RootModel[int]):
+    root: Annotated[int, Field(ge=1)]
+
+
+class StartOption(BaseModel):
+    """
+    One start: the items bought before leaving base, without supplies (potions, wards).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: Annotated[list[Item], Field(min_length=1)]
+    """
+    Data Dragon item ids, smallest first, each once.
+    """
+    buy: Annotated[list[BuyItem], Field(min_length=1)]
+    """
+    What is most often bought with this start, supplies included and repeated as bought: what an import lists.
+    """
+    games: Annotated[int, Field(ge=0)]
+    """
+    Games with this start.
+    """
+    wpa: float | None
+    """
+    Win probability added against the other starts; null when not estimated.
+    """
+    ci: Interval | None
+    n: Annotated[int, Field(ge=0)]
+    """
+    Decisions behind the estimate.
+    """
+    flags: list[Flag]
+    comparison: StartComparison | None = None
+
+
 class RuneChoice(BaseModel):
     """
     One choice of one rune row, estimated among the choices of that row.
@@ -255,6 +326,10 @@ class Build(BaseModel):
     runes: list[RuneOption]
     items: list[ItemOption]
     spells: list[SpellOption]
+    starts: list[StartOption] | None = None
+    """
+    The starting items (ADR-071): what players buy before leaving base, without potions and wards, each start estimated among the others.
+    """
     late_slot: Annotated[int | None, Field(alias="lateSlot", ge=1, le=6)] = None
     """
     The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own.

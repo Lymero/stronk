@@ -291,6 +291,25 @@ fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
 }
 
 #[test]
+fn plan_takes_the_most_played_start_and_ranks_the_others() {
+    let out = run(
+        &ctx(NoClient),
+        "build.plan",
+        json!({"champion": "Viego", "role": "JUNGLE"}),
+    )
+    .unwrap();
+    assert_eq!(out["start"], json!({"value": [1102], "label": "popular"}));
+    assert_eq!(out["start_buy"], json!([1102, 2003]));
+    let rows = &out["alternatives"]["start"]["rows"];
+    assert_eq!(rows[0]["confidence"], "most_played");
+    // Compared head to head with the most played start, no clear difference.
+    assert_eq!(
+        (&rows[1]["value"], &rows[1]["versus"], &rows[1]["wpa"]),
+        (&json!([1101]), &json!("most_played"), &json!(-0.005))
+    );
+}
+
+#[test]
 fn plan_ranks_each_rune_row_and_marks_the_imported_pages_choices() {
     let out = run(
         &ctx(NoClient),
@@ -425,9 +444,15 @@ fn import_adds_a_stronk_item_set_and_keeps_the_players_byte_for_byte() {
     // The champion as the client names it, the role as players say it.
     assert_eq!(set["title"], "Stronk: Viego Jungle");
     assert_eq!(set["priority"], true);
-    // Stronk's choice, then the slot's other item with enough games (Eclipse, at 1.6%, isn't).
+    // The start first, as bought with its potion (ADR-071).
+    assert_eq!(set["blocks"][0]["type"], "Start: Popular");
     assert_eq!(
         set["blocks"][0]["items"],
+        json!([{"id": "1102", "count": 1}, {"id": "2003", "count": 1}])
+    );
+    // Stronk's choice, then the slot's other item with enough games (Eclipse, at 1.6%, isn't).
+    assert_eq!(
+        set["blocks"][1]["items"],
         json!([{"id": "6693", "count": 1}, {"id": "6672", "count": 1}])
     );
 }
@@ -500,14 +525,20 @@ fn import_writes_the_players_picks_instead_of_stronks() {
     let (out, client, _) = import_picks(
         FakeClient::new(Some(viego((14, 4)))),
         FakeBackups::default(),
-        json!({"items": [{"slot": 1, "item": 6672}], "spells": [11, 4]}),
+        json!({"items": [{"slot": 1, "item": 6672}], "spells": [11, 4], "start": [1101]}),
     );
     assert_eq!(out["item_set"]["label"], "picked");
     assert_eq!(out["spells"]["label"], "popular"); // the published pair, whatever its order
     let state = client.state();
     assert_eq!(state.spells, Some((11, 4))); // Flash stays on F
     let ours: Value = serde_json::from_str(&state.item_sets.unwrap()).unwrap();
-    let block = &ours["itemSets"][0]["blocks"][0];
+    let start = &ours["itemSets"][0]["blocks"][0];
+    assert_eq!(start["type"], "Start: Your pick");
+    assert_eq!(
+        start["items"],
+        json!([{"id": "1101", "count": 1}, {"id": "2003", "count": 1}])
+    );
+    let block = &ours["itemSets"][0]["blocks"][1];
     assert_eq!(
         block["items"],
         json!([{"id": "6672", "count": 1}, {"id": "6693", "count": 1}])
@@ -542,6 +573,7 @@ fn a_pick_that_isnt_published_writes_nothing() {
         json!({"items": [{"slot": 2, "item": 6672}]}),
         json!({"items": [{"slot": 1, "item": 6672}, {"slot": 1, "item": 6693}]}),
         json!({"spells": [4, 14]}),
+        json!({"start": [1055]}),
         json!({"runes": {"primary_style": 8000, "sub_style": 8100, "perks": [8010]}}),
         // Two secondary runes from the same row: no client would take it.
         json!({"runes": {"primary_style": 8000, "sub_style": 8300,

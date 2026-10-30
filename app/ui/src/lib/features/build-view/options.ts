@@ -24,6 +24,8 @@ export interface Slot<T> {
 export interface Options {
   runes: Slot<Page>;
   spells: Slot<[number, number]>;
+  /** The starts (ADR-071): each its items, smallest id first. */
+  start: Slot<number[]>;
   items: ({ slot: number } & Slot<number>)[];
 }
 
@@ -37,7 +39,7 @@ function slot<T>(ranked: Ranked<T>, key: (value: T) => string, picked: ((value: 
 
 /** The plan's alternatives with the player's picks marked. */
 export function options(plan: Plan, picks: Picks = noPicks()): Options {
-  const { runes, spells, items } = plan.alternatives;
+  const { runes, spells, start, items } = plan.alternatives;
   return {
     runes: slot(
       runes,
@@ -49,6 +51,7 @@ export function options(plan: Plan, picks: Picks = noPicks()): Options {
       (pair) => [...pair].sort().join(","),
       picks.spells ? (pair) => samePair(pair, picks.spells as [number, number]) : null,
     ),
+    start: slot(start, (items) => items.join(","), picks.start ? (items) => samePair(items, picks.start as number[]) : null),
     items: items.map((s) => {
       const pick = picks.items[s.slot];
       return { slot: s.slot, ...slot(s, String, pick === undefined ? null : (item) => item === pick) };
@@ -67,7 +70,7 @@ export const share = (v: number): string => `${Math.round(v * 100)}%`;
 
 /** True when every choice is the most played one: nothing beat it clearly. */
 export const allPopular = (plan: Plan): boolean =>
-  [plan.runes, plan.spells, ...plan.items].every((c: Choice<unknown> | null) => c === null || c.label === "popular");
+  [plan.runes, plan.spells, plan.start, ...plan.items].every((c: Choice<unknown> | null) => c === null || c.label === "popular");
 
 /** The option the others are compared with: the slot's most played. */
 export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
@@ -130,7 +133,7 @@ export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "
  * Stronk's best bet against it, with the option it beats (ADR-060, ADR-065). A rune row's change
  * (`"rune"`) has the row's runes as its value. */
 export interface Change<T> {
-  part: "runes" | "rune" | "spells" | number;
+  part: "runes" | "rune" | "spells" | "start" | number;
   row: Shown<T>;
   base: Shown<T> | undefined;
 }
@@ -153,6 +156,7 @@ export function changes(options: Options, runeRows: Plan["alternatives"]["rune_r
     ...of("runes", options.runes),
     ...rows,
     ...of("spells", options.spells),
+    ...of("start", options.start),
     ...options.items.flatMap((s) => of(s.slot, s)),
   ];
 }

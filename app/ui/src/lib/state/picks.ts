@@ -8,12 +8,18 @@ import type { Page, Plan } from "../backend/backend.ts";
 export interface Picks {
   runes?: Page | undefined;
   spells?: [number, number] | undefined;
+  /** A start's items, smallest id first (ADR-071). */
+  start?: number[] | undefined;
   /** Item id by slot. */
   items: Record<number, number>;
 }
 
 /** A pick for one slot; picking Stronk's choice again drops it. */
-export type Pick = { runes: Page } | { spells: [number, number] } | { slot: number; item: number };
+export type Pick =
+  | { runes: Page }
+  | { spells: [number, number] }
+  | { start: number[] }
+  | { slot: number; item: number };
 
 export const noPicks = (): Picks => ({ items: {} });
 
@@ -23,7 +29,7 @@ export const samePage = (a: Page, b: Page): boolean => {
   return a.primary_style === b.primary_style && a.sub_style === b.sub_style && key(a) === key(b);
 };
 
-/** The same two spells, whichever key each is on. */
+/** The same two spells, whichever key each is on; the same items of a start, in any order. */
 export const samePair = (a: readonly number[], b: readonly number[]): boolean =>
   [...a].sort().join() === [...b].sort().join();
 
@@ -32,11 +38,14 @@ export const samePair = (a: readonly number[], b: readonly number[]): boolean =>
  * client's trees. The core refuses other unpublished picks anyway; this keeps the view from
  * showing one it would refuse. */
 export function published(plan: Plan, picks: Picks): Picks {
-  const { spells, items } = plan.alternatives;
+  const { spells, start, items } = plan.alternatives;
   const kept: Picks = { items: {} };
   if (picks.runes && picks.runes.perks.length === 9) kept.runes = picks.runes;
   if (picks.spells && spells.rows.some((r) => samePair(r.value, picks.spells as [number, number]))) {
     kept.spells = picks.spells;
+  }
+  if (picks.start && start.rows.some((r) => samePair(r.value, picks.start as number[]))) {
+    kept.start = picks.start;
   }
   for (const [slot, item] of Object.entries(picks.items)) {
     if (items.some((s) => s.slot === Number(slot) && s.rows.some((r) => r.value === item))) {
@@ -47,7 +56,10 @@ export function published(plan: Plan, picks: Picks): Picks {
 }
 
 export const isEmpty = (picks: Picks): boolean =>
-  picks.runes === undefined && picks.spells === undefined && Object.keys(picks.items).length === 0;
+  picks.runes === undefined &&
+  picks.spells === undefined &&
+  picks.start === undefined &&
+  Object.keys(picks.items).length === 0;
 
 /** Picks by champion and role (`LeeSin/JUNGLE`), each for the patch it was made on. */
 export type SavedPicks = Record<string, { patch: string; picks: Picks }>;
@@ -87,6 +99,11 @@ function parsePicks(v: unknown): Picks | null {
     const s = v.spells;
     if (!Array.isArray(s) || s.length !== 2 || !s.every(Number.isInteger)) return null;
     picks.spells = [s[0], s[1]];
+  }
+  if ("start" in v && v.start !== undefined) {
+    const s = v.start;
+    if (!Array.isArray(s) || s.length === 0 || !s.every(Number.isInteger)) return null;
+    picks.start = s as number[];
   }
   return picks;
 }

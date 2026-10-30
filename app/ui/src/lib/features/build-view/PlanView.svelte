@@ -2,7 +2,8 @@
   // The build Stronk would import (ADR-062): on the left the build sheet, every slot's pick by name,
   // Stronk's changes from the most played build marked on their slots; on the right the slot opened from it: the
   // rune page built by clicking runes, or a slot's options against its baseline. Opens on the first
-  // slot Stronk changes, else the runes. The late items are one slot, "Items 4+" (ADR-067): its
+  // slot Stronk changes, else the runes. The start sits before the items (ADR-071), its items
+  // without potions and wards. The late items are one slot, "Items 4+" (ADR-067): its
   // pick first, then the most played others, as the import lists them.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
@@ -103,10 +104,14 @@
       .slice(0, count);
   });
 
-  const changedKey = (part: "runes" | "rune" | "spells" | number) =>
+  const changedKey = (part: "runes" | "rune" | "spells" | "start" | number) =>
     typeof part === "number" ? `item-${part}` : part === "rune" ? "runes" : part;
   const changedKeys = $derived(new Set(stronkChanges.map((c) => changedKey(c.part))));
   const spellPair = $derived(picks.spells ?? plan.spells?.value ?? null);
+  /** The start the import writes: the player's, else Stronk's. */
+  const startItems = $derived(picks.start ?? plan.start?.value ?? null);
+  const start = (items: number[]) => items.map(item).join(" + ");
+  const startIcons = (items: number[]) => items.map((id) => shown("items", id));
 
   /** Stronk's change in a slot, as its badge reads: proven ("▲ +2.1") or its best bet ("Best bet
    * +2.7"); the largest when a rune page changes in several rows. */
@@ -139,6 +144,18 @@
             icons: spellPair.map((id) => shown("spells", id)),
             changed: picks.spells !== undefined ? null : gain("spells"), // the gain is Stronk's pick's, not the player's
             yours: picks.spells !== undefined,
+          },
+        ]
+      : []),
+    ...(startItems
+      ? [
+          {
+            key: "start",
+            name: "Start",
+            value: start(startItems),
+            icons: startIcons(startItems),
+            changed: picks.start !== undefined ? null : gain("start"), // the gain is Stronk's pick's, not the player's
+            yours: picks.start !== undefined,
           },
         ]
       : []),
@@ -189,6 +206,7 @@
   const panel = $derived.by(() => {
     if (focus === "runes") return { title: "Runes", note: laidOut ? null : note(options.runes, page), extra: "" };
     if (focus === "spells") return { title: "Summoner spells", note: note(options.spells, spells), extra: "" };
+    if (focus === "start") return { title: "Start", note: note(options.start, start), extra: "Before leaving base, potions and wards aside" };
     const slotNo = focusedItem ?? 0;
     const also = alsoIn(slotNo, slotItem(slotNo) ?? 0);
     return {
@@ -247,6 +265,8 @@
       {:else}
         <OptionTable slot={options.runes} label={page} icons={pageIcons} onpick={(p) => onpick({ runes: p })} />
       {/if}
+    {:else if focus === "start"}
+      <OptionTable slot={options.start} label={start} icons={startIcons} onpick={(items) => onpick({ start: items })} />
     {:else if focus === "spells"}
       <OptionTable slot={options.spells} label={spells} icons={spellIcons} onpick={(pair) => onpick({ spells: pair })} />
     {:else if itemSlot}

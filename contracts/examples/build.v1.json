@@ -30,6 +30,19 @@
     },
     { "slot": 1, "item": 6692, "wpa": null, "ci": null, "n": 140, "flags": ["low_sample", "low_overlap"], "picks": 140 }
   ],
+  "starts": [
+    { "items": [1102], "buy": [1102, 2003], "games": 9800, "wpa": 0.002, "ci": [-0.004, 0.008], "n": 9800, "flags": [] },
+    {
+      "items": [1101],
+      "buy": [1101, 2003],
+      "games": 6400,
+      "wpa": -0.003,
+      "ci": [-0.01, 0.004],
+      "n": 6400,
+      "flags": ["no_clear_difference"],
+      "comparison": { "versus": [1102], "wpa": -0.005, "q": 0.42, "ci": [-0.013, 0.003] }
+    }
+  ],
   "lateSlot": 4,
   "spells": [{ "spells": [4, 11], "wpa": null, "ci": null, "n": 18000, "flags": [], "games": 18000 }],
   "skillOrder": [{ "order": ["Q", "E", "W", "Q", "Q", "R"], "n": 12000 }],

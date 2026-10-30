@@ -42,6 +42,9 @@ pub struct Build {
     )]
     pub skill_order: ::std::vec::Vec<SkillOrderOption>,
     pub spells: ::std::vec::Vec<SpellOption>,
+    #[doc = "The starting items (ADR-071): what players buy before leaving base, without potions and wards, each start estimated among the others."]
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub starts: ::std::vec::Vec<StartOption>,
 }
 #[doc = "Data Dragon champion key (for example \"Viego\")."]
 #[derive(:: serde :: Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -664,6 +667,41 @@ pub struct SpellOption {
     pub n: u64,
     #[doc = "Summoner spell ids, D then F."]
     pub spells: [::std::num::NonZeroU64; 2usize],
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub wpa: ::std::option::Option<f64>,
+}
+#[doc = "The start head to head with the most played start (ADR-036)."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StartComparison {
+    #[doc = "95% interval of `wpa`."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ci: ::std::option::Option<Interval>,
+    #[doc = "False-discovery-adjusted p-value of no difference, across the patch."]
+    pub q: f64,
+    #[doc = "The most played start's items."]
+    pub versus: ::std::vec::Vec<::std::num::NonZeroU64>,
+    #[doc = "Win probability added by this start against `versus`."]
+    pub wpa: f64,
+}
+#[doc = "One start: the items bought before leaving base, without supplies (potions, wards)."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StartOption {
+    #[doc = "What is most often bought with this start, supplies included and repeated as bought: what an import lists."]
+    pub buy: ::std::vec::Vec<::std::num::NonZeroU64>,
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub ci: ::std::option::Option<Interval>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub comparison: ::std::option::Option<StartComparison>,
+    pub flags: ::std::vec::Vec<Flag>,
+    #[doc = "Games with this start."]
+    pub games: u64,
+    #[doc = "Data Dragon item ids, smallest first, each once."]
+    pub items: ::std::vec::Vec<::std::num::NonZeroU64>,
+    #[doc = "Decisions behind the estimate."]
+    pub n: u64,
+    #[doc = "Win probability added against the other starts; null when not estimated."]
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub wpa: ::std::option::Option<f64>,
 }

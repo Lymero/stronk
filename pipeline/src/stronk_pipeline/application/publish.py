@@ -25,6 +25,7 @@ from stronk_pipeline.application.registry import Command, CommandError
 from stronk_pipeline.domain.extract.decision_points import (
     LATE_SLOT,
     MAX_SLOT,
+    START_SLOT,
     is_rune_slot,
     rune_row,
 )
@@ -211,6 +212,15 @@ def _builds(
             }
             for e in _ranked(o for o in options if is_rune_slot(o.slot))
         ]
+        starts = [
+            {
+                "items": _perks(e.option),
+                "buy": list(seen.starts.get((champion, role, e.option), _perks(e.option))),
+                "games": e.chosen,
+                **_numbers(e, versus=_perks),
+            }
+            for e in _ranked(o for o in options if o.slot == START_SLOT)
+        ]
         spells = [
             {"spells": list(pair), "games": n, "wpa": None, "ci": None, "n": n, "flags": []}
             for pair, n in seen.spells.get((champion, role), [])[:SPELL_PAIRS]
@@ -226,13 +236,14 @@ def _builds(
                 "games": seen.games[(champion, role)],
                 "runes": runes,
                 "items": items,
+                "starts": starts,
                 "lateSlot": LATE_SLOT,
                 "spells": spells,
                 "runeChoices": choices,
             }
         )
         data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order"})
-        for option in (*data["runes"], *data["items"], *data["runeChoices"]):
+        for option in (*data["runes"], *data["items"], *data["runeChoices"], *data["starts"]):
             for key in ("style", "row"):  # optional: absent, not null
                 if option.get(key, 0) is None:
                     option.pop(key)
@@ -253,7 +264,7 @@ def _row_of(slot: int) -> dict[str, object]:
 
 
 def _perks(option: str) -> list[int]:
-    """A rune row's option: one id, or a secondary pair `"low,high"`."""
+    """A rune row's option (one id, or a secondary pair `"low,high"`), or a start's items."""
     return [int(p) for p in option.split(",")]
 
 

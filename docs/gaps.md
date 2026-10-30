@@ -15,6 +15,8 @@ Status: **missing** · **partial** · **done**
 | Per-slot item ranking | Coachless | partial: per slot in build files, items 1 to 3 each and the late items pooled as "4+" (ADR-067); ranking claims need FDR survivors |
 | Elo filters | Coachless, u.gg | missing |
 | Matchup-adjusted builds | u.gg, Blitz | missing |
+| Starting items | u.gg, Blitz, Coachless | done: the start (items bought before leaving base, potions and wards aside) estimated and ranked like a slot, imported as the item set's first block (ADR-071) |
+| First back | u.gg, Blitz | missing: too scattered as whole purchases (ADR-071); likely the first item bought after leaving base |
 | Skill order | u.gg, Blitz | missing |
 
 ## Champion select

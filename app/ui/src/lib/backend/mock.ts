@@ -165,6 +165,10 @@ const names: GameNames = {
     "6694": "Serylda's Grudge",
     "3078": "Trinity Force",
     "3156": "Maw of Malmortius",
+    "1101": "Scorchclaw Pup",
+    "1102": "Gustwalker Hatchling",
+    "1103": "Mosstomper Seedling",
+    "2003": "Health Potion",
   },
 };
 
@@ -357,6 +361,15 @@ const leeSinAlternatives: Alternatives = {
       more: 2,
     },
   ],
+  // The starts (ADR-071): the jungle pets, Gustwalker behind Scorchclaw, Mosstomper too rare.
+  start: {
+    rows: [
+      row([1101], 1100, 1840, { wpa: 0.001, ci: [-0.008, 0.01], confidence: "most_played", chosen: true }),
+      row([1102], 600, 1840, { wpa: -0.004, ci: [-0.016, 0.008], versus: "most_played" }),
+      row([1103], 140, 1840, { confidence: "too_few_games" }),
+    ],
+    more: 0,
+  },
   rune_rows: leeSinRuneRows,
 };
 
@@ -368,6 +381,7 @@ const gravesAlternatives: Alternatives = {
   },
   spells: { rows: [row<[number, number]>([11, 4], 140, 140, { confidence: "most_played", chosen: true })], more: 0 },
   items: [{ slot: 1, rows: [row(6676, 60, 60, { confidence: "too_few_games", chosen: true })], more: 0 }],
+  start: { rows: [], more: 0 },
   rune_rows: [],
 };
 
@@ -383,6 +397,8 @@ const leeSin: Plan = {
     label: "popular",
   },
   spells: { value: [11, 4], label: "popular" },
+  start: { value: [1101], label: "popular" },
+  start_buy: [1101, 2003],
   items: [
     { slot: 1, value: 6692, label: "popular" },
     { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640 },
@@ -414,6 +430,7 @@ const graves: Plan = {
   games: 140,
   items: [{ slot: 1, value: 6676, label: "popular" }],
   alternatives: gravesAlternatives,
+  start: null,
 };
 
 export const scenarios = {

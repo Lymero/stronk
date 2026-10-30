@@ -7,10 +7,14 @@ from stronk_pipeline.domain.extract.decision_points import (
     LATE_SLOT,
     MAX_ITEMS,
     MAX_SLOT,
+    START_SLOT,
     DecisionPoint,
     decision_points,
     is_rune_slot,
+    kept_purchases,
+    starting_items,
 )
+from stronk_pipeline.domain.match import ItemEvent
 
 STATIC = domain_static()
 MIN = 60_000
@@ -151,3 +155,33 @@ def test_players_are_independent() -> None:
     theirs, _ = items_of(events, participant_id=2)
     assert theirs == [DecisionPoint(2, 1, 5 * MIN, "3031")]
     assert mine == []  # 1037 alone could become Death's Dance or Infinity Edge
+
+
+def start_of(events: list[Json], participant_id: int = 1) -> list[DecisionPoint]:
+    points = decision_points(domain_match(events=events), STATIC, Counter())
+    return [p for p in points if p.participant_id == participant_id and p.slot == START_SLOT]
+
+
+def test_the_start_is_its_items_without_supplies() -> None:
+    # A trinket and potions come with Doran's Blade: the start is Doran's Blade.
+    events = [buy(2_000, 1, 3340), buy(5_000, 1, 1055), buy(5_000, 1, 2003), buy(6_000, 1, 2003)]
+    assert start_of(events) == [DecisionPoint(1, START_SLOT, 5_000, "1055")]
+    assert not is_rune_slot(START_SLOT)
+
+
+def test_a_start_of_several_items_is_one_option_and_keeps_what_was_bought() -> None:
+    events = [buy(5_000, 1, 1055), buy(5_000, 1, 1036), buy(5_000, 1, 2003), buy(5_000, 1, 2003)]
+    assert start_of(events) == [DecisionPoint(1, START_SLOT, 5_000, "1036,1055")]
+    purchases = kept_purchases(domain_match(events=events).items, 1)
+    assert starting_items(purchases, STATIC).bought == (1036, 1055, 2003, 2003)
+
+
+def test_supplies_alone_and_undone_or_late_purchases_make_no_start() -> None:
+    assert start_of([buy(5_000, 1, 2003), buy(5_000, 1, 3340)]) == []
+    assert start_of([buy(5_000, 1, 1055), undo(7_000, 1, 1055)]) == []
+    assert start_of([buy(2 * MIN, 1, 1055)]) == []
+
+
+def test_unknown_items_count_in_the_start() -> None:
+    late_patch_item = ItemEvent(timestamp=5_000, participant_id=1, action="purchased", item_id=9999)
+    assert starting_items([late_patch_item], STATIC).option == "9999"

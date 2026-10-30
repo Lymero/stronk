@@ -114,6 +114,7 @@ export function createApp(
     const params: ImportParams = {
       ...(picks.runes ? { runes: picks.runes } : {}),
       ...(picks.spells ? { spells: picks.spells } : {}),
+      ...(picks.start ? { start: picks.start } : {}),
       ...(Object.keys(picks.items).length
         ? { items: Object.entries(picks.items).map(([slot, item]) => ({ slot: Number(slot), item })) }
         : {}),
@@ -156,6 +157,10 @@ export function createApp(
         for (const spell of pair) ids.spells.add(spell);
       }
       for (const id of [...items.flatMap((s) => s.rows.map((r) => r.value)), ...plan.items.map((i) => i.value)]) {
+        ids.items.add(id);
+      }
+      // The starts' items (ADR-071).
+      for (const id of [...plan.alternatives.start.rows.flatMap((r) => r.value), ...(plan.start?.value ?? [])]) {
         ids.items.add(id);
       }
     }
@@ -262,6 +267,9 @@ export function createApp(
     } else if ("spells" in choice) {
       const stronk = plan.value.spells?.value;
       picks.spells = stronk && samePair(stronk, choice.spells) ? undefined : choice.spells;
+    } else if ("start" in choice) {
+      const stronk = plan.value.start?.value;
+      picks.start = stronk && samePair(stronk, choice.start) ? undefined : choice.start;
     } else {
       const stronk = plan.value.items.find((i) => i.slot === choice.slot)?.value;
       if (stronk === choice.item) delete picks.items[choice.slot];

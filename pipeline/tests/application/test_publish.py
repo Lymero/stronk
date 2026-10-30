@@ -4,7 +4,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from riot_builders import domain_match, domain_static
+from riot_builders import buy, domain_match, domain_static
 
 from stronk_contracts.build_v1 import Build
 from stronk_contracts.manifest_v1 import Manifest
@@ -15,6 +15,7 @@ from stronk_pipeline.adapters.match_store import FileMatchStore
 from stronk_pipeline.adapters.minisign import MinisignKeys
 from stronk_pipeline.application.publish import PublishParams, PublishResult, publish_command
 from stronk_pipeline.application.registry import CommandError
+from stronk_pipeline.domain.extract.decision_points import START_SLOT
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate
 
@@ -58,6 +59,26 @@ ESTIMATES = [
         "Champ1", "fighter", "TOP", 83005, "8135,8143", 0.002, (-0.01, 0.014), 300, chosen=300
     ),
     OptionEstimate("Champ1", "fighter", "TOP", 50002, "5008", None, None, 12, chosen=12),
+    # Starts (ADR-071): Doran's Blade, and a Long Sword start compared with it.
+    OptionEstimate(
+        "Champ1", "fighter", "TOP", START_SLOT, "1055", 0.001, (-0.01, 0.012), 700, chosen=700
+    ),
+    OptionEstimate(
+        "Champ1",
+        "fighter",
+        "TOP",
+        START_SLOT,
+        "1036",
+        -0.004,
+        (-0.02, 0.012),
+        320,
+        frozenset({Flag.NO_CLEAR_DIFFERENCE}),
+        q=0.7,
+        versus="1055",
+        contrast=-0.005,
+        contrast_ci=(-0.03, 0.02),
+        chosen=320,
+    ),
 ]
 
 
@@ -65,7 +86,9 @@ def setup(tmp_path: Path, *, patches: tuple[str, ...] = ("16.20",)) -> Path:
     store = FileMatchStore(tmp_path / "crawl")
     store.put_static("16.20", domain_static())
     for i, patch in enumerate(patches):
-        game = domain_match(f"EUW1_{i}")
+        # Champ1 starts Doran's Blade with two potions and a trinket.
+        start = [buy(2_000, 1, 3340), buy(4_000, 1, 1055), buy(4_000, 1, 2003), buy(4_000, 1, 2003)]
+        game = domain_match(f"EUW1_{i}", events=start)
         store.put(replace(game, patch=patch))
     JsonEstimateStore().write_estimates("v1-reference", ESTIMATES, tmp_path / "estimates.json")
     MinisignKeys().generate(tmp_path / "k.key")
@@ -132,6 +155,32 @@ def test_publishes_each_rune_row_for_information(tmp_path: Path) -> None:
             "ci": [-0.01, 0.014],
             "n": 300,
             "flags": [],
+        },
+    ]
+
+
+def test_publishes_starts_with_what_is_bought_with_them(tmp_path: Path) -> None:
+    assert isinstance(publish(setup(tmp_path)), Ok)
+    path = tmp_path / "dist" / "16.20" / "all" / "master_plus" / "Champ1" / "TOP.json"
+    assert json.loads(path.read_text())["starts"] == [
+        {
+            "items": [1055],
+            "buy": [1055, 2003, 2003, 3340],
+            "games": 700,
+            "wpa": 0.001,
+            "ci": [-0.01, 0.012],
+            "n": 700,
+            "flags": [],
+        },
+        {
+            "items": [1036],
+            "buy": [1036],  # never seen in these games: its items alone
+            "games": 320,
+            "wpa": -0.004,
+            "ci": [-0.02, 0.012],
+            "n": 320,
+            "flags": ["no_clear_difference"],
+            "comparison": {"versus": [1055], "wpa": -0.005, "q": 0.7, "ci": [-0.03, 0.02]},
         },
     ]
 

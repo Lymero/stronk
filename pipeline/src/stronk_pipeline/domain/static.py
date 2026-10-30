@@ -70,6 +70,12 @@ class StaticData:
     def _recipe_trees(self) -> Mapping[int, frozenset[int]]:
         return {i: self._tree(i) for i in self.completed_items}
 
+    def is_supply(self, item_id: int) -> bool:
+        """A consumable or a trinket (potions, wards): bought along with a start, not chosen as
+        one (ADR-071). Unknown items are not supplies."""
+        item = self.items.get(item_id)
+        return item is not None and bool({"Consumable", "Trinket"} & set(item.tags))
+
     def recipe_tree(self, item_id: int) -> frozenset[int]:
         """Every component in a completed item's recipe, at any depth."""
         return self._recipe_trees.get(item_id, frozenset())

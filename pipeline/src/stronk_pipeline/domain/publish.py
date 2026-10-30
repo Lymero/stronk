@@ -1,8 +1,11 @@
 """What `publish` needs from crawled games besides the estimates: how many games each champion
-and role has, and the full rune page that goes with each keystone.
+and role has, the full rune page that goes with each keystone, and what is bought with each
+start.
 
 WPA estimates the keystone (decision slot 0); a published rune option is a whole page. For each
-champion, role and keystone, the page published is the one most often played with it.
+champion, role and keystone, the page published is the one most often played with it. A start
+is estimated without its supplies (ADR-071); what is published to buy is the full start most
+often bought with it.
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from stronk_pipeline.domain.extract.decision_points import kept_purchases, starting_items
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.static import StaticData
 
@@ -34,6 +38,9 @@ class Played:
     spells: dict[Pick, list[tuple[tuple[int, int], int]]]
     """(champion, role) -> spell pairs, most played first: (spells in their usual order, games).
     A pair is the same whichever key each spell is on."""
+    starts: dict[tuple[str, str, str], tuple[int, ...]]
+    """(champion, role, start option) -> what is most often bought with that start, supplies
+    included, sorted with repeats."""
 
 
 def played(matches: Sequence[Match], statics: Mapping[str, StaticData]) -> Played:
@@ -43,6 +50,7 @@ def played(matches: Sequence[Match], statics: Mapping[str, StaticData]) -> Playe
     pages: dict[tuple[str, str, int], Counter[RunePage]] = {}
     pairs: dict[Pick, Counter[frozenset[int]]] = {}
     orders: dict[tuple[str, str, frozenset[int]], Counter[tuple[int, int]]] = {}
+    bought: dict[tuple[str, str, str], Counter[tuple[int, ...]]] = {}
     for match in matches:
         static = statics.get(match.patch)
         if static is None:
@@ -58,6 +66,9 @@ def played(matches: Sequence[Match], statics: Mapping[str, StaticData]) -> Playe
             pair = frozenset(p.spells)
             pairs.setdefault(pick, Counter())[pair] += 1
             orders.setdefault((*pick, pair), Counter())[p.spells] += 1
+            start = starting_items(kept_purchases(match.items, p.participant_id), static)
+            if start.option:
+                bought.setdefault((*pick, start.option), Counter())[start.bought] += 1
     # Most played first; ties go to the smallest, so the choice never depends on order.
     modal = {
         key: (page := min(c, key=lambda pg: (-c[pg], pg)), c[page]) for key, c in pages.items()
@@ -66,7 +77,8 @@ def played(matches: Sequence[Match], statics: Mapping[str, StaticData]) -> Playe
     for pick, counts in pairs.items():
         ranked = sorted(counts.items(), key=lambda kv: (-kv[1], sorted(kv[0])))
         spells[pick] = [(_usual(orders[(*pick, pair)]), n) for pair, n in ranked]
-    return Played(games, modal, spells)
+    starts = {key: min(c, key=lambda b: (-c[b], b)) for key, c in bought.items()}
+    return Played(games, modal, spells, starts)
 
 
 def _usual(orders: Counter[tuple[int, int]]) -> tuple[int, int]:
