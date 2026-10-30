@@ -86,13 +86,17 @@ Send that line. The fallback is to pin that certificate: `--lcu-pin <sha256>` (o
 
 ## Run the desktop app against the real client
 
-`just app-real` reads real data from `runs\real\data` with its public key `runs\real\data.pub`. Build them once in WSL from the full corpus (22,954 games), signed with your own key (`~/.config/stronk/signing.key`), then copy them to this clone. `just data-real` stops when the key is missing: creating it is a deliberate step, once (docs/security.md), and `just keygen` prints the public key the app needs.
+`just app-real` reads real data from `runs\real\data` with its public key `runs\real\data.pub`. Build them in WSL from the full corpus (22,954 games), signed with your own key (`~/.config/stronk/signing.key`). `just data-real` stops when the key is missing: creating it is a deliberate step, once (docs/security.md), and `just keygen` prints the public key the app needs.
+
+The data isn't in git, so a pull doesn't bring it: set `STRONK_WINDOWS_CLONE` once, in the WSL clone's `.env` (or your shell), to this clone as WSL sees it, and every `just data-real` copies the data here when it's done. `just data-to-windows` copies it again without rebuilding. It refuses a path that isn't a Stronk clone.
 
 ```bash
 just keygen   # once, if you have no signing key yet
+echo 'STRONK_WINDOWS_CLONE=/mnt/c/Users/<you>/Projects/stronk' >> .env   # once
 just data-real
-mkdir -p /mnt/c/src/stronk/runs/real && cp -r runs/real/data runs/real/data.pub /mnt/c/src/stronk/runs/real/
 ```
+
+Restart `just app-real` after a copy: the app reads the data when it starts.
 
 Start League, then:
 

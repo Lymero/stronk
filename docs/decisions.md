@@ -524,3 +524,9 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - The import writes one block "Items 4+: <why>" with those six items, so the client shows the late options in one row.
   - The app: the sheet's last item row reads "Items 4+", its pick by name and "then …" under it; its panel lists every late item against the most played one, like any slot.
 - **Consequences:** fewer, fuller late estimates, and the seventh item counts. A late number now reads as "this item among the late ones", not at a given position. Shares in the late slot are of late purchases.
+
+### ADR-068 · The real data copied to the Windows clone
+
+- **Context:** the real data is built in WSL and isn't in git, while the app runs from a Windows clone. After ADR-067 the owner pulled and restarted the app and still saw the old slots: the Windows clone kept data from before the change, and copying it by hand was easy to forget.
+- **Decision:** `just data-to-windows [src]` copies `runs/real/data` and `data.pub` into `runs/real` of the clone named by `STRONK_WINDOWS_CLONE` (the environment, else the git-ignored `.env`; listed in `.env.example`), and `just data-real` runs it at the end. Without the variable it does nothing, so other setups are unchanged; it refuses a path without a `justfile` and `contracts/schemas/build.v1.schema.json`, and skips the clone it runs in. No path is in the repository.
+- **Consequences:** one `just data-real` in WSL leaves both clones on the same data; the app is restarted to read it. The rejected alternative, the Windows app reading WSL's folder or `just serve-data` directly, needs WSL running and a setting at each launch.

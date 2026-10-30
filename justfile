@@ -136,6 +136,26 @@ data-real key="~/.config/stronk/signing.key" out="runs/real":
     just publish {{ out }}/estimates.json corpus/{{ full_corpus }} "$key" {{ out }}/data > /dev/null
     cp "$key.pub" {{ out }}/data.pub
     echo "real data: {{ out }}/data, public key {{ out }}/data.pub"
+    just data-to-windows {{ out }}
+
+# `just data-real` runs this at the end; nothing happens when STRONK_WINDOWS_CLONE isn't set.
+# Copy the real data into the Windows clone set by STRONK_WINDOWS_CLONE (environment or .env)
+[unix]
+data-to-windows src="runs/real":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    clone="${STRONK_WINDOWS_CLONE:-$(sed -n 's/^STRONK_WINDOWS_CLONE=//p' .env 2>/dev/null | tail -n 1 | tr -d "\"'")}"
+    if [ -z "$clone" ]; then exit 0; fi
+    if [ ! -f "$clone/justfile" ] || [ ! -f "$clone/contracts/schemas/build.v1.schema.json" ]; then
+        echo "STRONK_WINDOWS_CLONE=$clone is not a Stronk clone: nothing copied" >&2; exit 1
+    fi
+    if [ "$(realpath "$clone")" = "$(realpath .)" ]; then exit 0; fi  # the same clone: nothing to copy
+    if [ ! -f "{{ src }}/data.pub" ]; then echo "no {{ src }}/data.pub: run \`just data-real\` first" >&2; exit 1; fi
+    rm -rf "$clone/runs/real/data"
+    mkdir -p "$clone/runs/real"
+    cp -r "{{ src }}/data" "$clone/runs/real/data"
+    cp "{{ src }}/data.pub" "$clone/runs/real/data.pub"
+    echo "copied to $clone/runs/real: restart \`just app-real\` there"
 
 # One patch's WPA contrasts against the next (ADR-055); metrics for backtest.* in floors.toml
 backtest earlier later out="runs/backtest":

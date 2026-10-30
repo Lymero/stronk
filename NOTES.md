@@ -192,3 +192,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: pairs rarely have numbers (24 of 727 boards have a second pair of 300+ games); more patches of data, not a looser rule, would fill them.
 - 2026-10-30: items 4 to 7 are one late slot, "Items 4+" (ADR-067): extract pools them (decisions now unique per minute too), build.v1 gains `lateSlot`, the import writes one block of six late items, the sheet and site show it; real data and fixtures rebuilt.
   Open: late items still rarely reach a head-to-head (Lee Sin's most played late item has 392 purchases, the next 231); the late list's block members aren't marked in the panel, only under the pick in the sheet.
+- 2026-10-30: `just data-to-windows` copies the real data into the Windows clone named by `STRONK_WINDOWS_CLONE` (.env), and `just data-real` runs it at the end (ADR-068).
+  Open: the app still reads its data only when it starts; restart `just app-real` after a copy.
