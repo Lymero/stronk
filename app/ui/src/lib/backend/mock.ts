@@ -171,6 +171,9 @@ const names: GameNames = {
     "2003": "Health Potion",
     "1036": "Long Sword",
     "1037": "Pickaxe",
+    "3047": "Plated Steelcaps",
+    "3111": "Mercury's Treads",
+    "3158": "Ionian Boots of Lucidity",
   },
 };
 
@@ -381,6 +384,15 @@ const leeSinAlternatives: Alternatives = {
     ],
     more: 0,
   },
+  // The boots (ADR-073): Plated Steelcaps most played, Mercury's Treads behind, Ionian too rare.
+  boots: {
+    rows: [
+      row(3047, 900, 1470, { wpa: 0.002, ci: [-0.007, 0.011], confidence: "most_played", chosen: true }),
+      row(3111, 450, 1470, { wpa: -0.012, ci: [-0.026, 0.002], versus: "most_played" }),
+      row(3158, 120, 1470, { confidence: "too_few_games" }),
+    ],
+    more: 0,
+  },
   rune_rows: leeSinRuneRows,
 };
 
@@ -394,6 +406,7 @@ const gravesAlternatives: Alternatives = {
   items: [{ slot: 1, rows: [row(6676, 60, 60, { confidence: "too_few_games", chosen: true })], more: 0 }],
   start: { rows: [], more: 0 },
   components: { rows: [], more: 0 },
+  boots: { rows: [], more: 0 },
   rune_rows: [],
 };
 
@@ -413,6 +426,8 @@ const leeSin: Plan = {
   start_buy: [1101, 2003],
   components: { value: [1036], label: "popular" },
   components_buy: [1036, 2003],
+  boots: { value: 3047, label: "popular" },
+  boots_then: [3111],
   items: [
     { slot: 1, value: 6692, label: "popular" },
     { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640 },
@@ -446,6 +461,7 @@ const graves: Plan = {
   alternatives: gravesAlternatives,
   start: null,
   components: null,
+  boots: null,
 };
 
 export const scenarios = {

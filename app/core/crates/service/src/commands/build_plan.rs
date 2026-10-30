@@ -70,6 +70,8 @@ pub struct Alternatives {
     /// The first components (ADR-072): each the items bought on the first trip back, without
     /// supplies, boots or completed items.
     pub components: Ranked<Vec<i64>>,
+    /// The upgraded boots (ADR-073).
+    pub boots: Ranked<i64>,
     pub items: Vec<SlotRanked>,
     /// Each rune row on its own, for information (ADR-057): imports write whole pages.
     pub rune_rows: Vec<RuneRow>,
@@ -118,6 +120,10 @@ pub struct Plan {
     pub components: Option<Choice<Vec<i64>>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub components_buy: Vec<i64>,
+    /// The upgraded boots (ADR-073), and the other boots their block lists after them.
+    pub boots: Option<Choice<i64>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub boots_then: Vec<i64>,
     pub items: Vec<SlotChoice>,
     /// The slot of the late items: the item completed there and every later one, as one
     /// decision (ADR-067). None for data from before it, where every slot is its own.
@@ -234,12 +240,30 @@ pub fn plan(build: &Build, role: Role) -> Plan {
     let start_choice = choose(&starts);
     let components = purchase_candidates(&build.first_components);
     let components_choice = choose(&components);
+    let boots: Vec<Candidate<i64>> = build
+        .boots
+        .iter()
+        .map(|o| Candidate {
+            value: to_i64(o.item.get()),
+            id: to_i64(o.item.get()),
+            played: o.games,
+            wpa: o.wpa,
+            ci: o.ci.as_ref().map(interval),
+            too_few: too_few(&o.flags),
+            low_overlap: o.flags.contains(&Flag::LowOverlap),
+            unclear: o.flags.contains(&Flag::NoClearDifference),
+            fragile: o.flags.contains(&Flag::Fragile),
+            comparison: o.comparison.as_ref().map(compared),
+        })
+        .collect();
+    let boots_choice = choose(&boots);
     let rune_rows = rune_rows(&build.rune_choices, runes_choice.as_ref().map(|c| &c.value));
     let alternatives = Alternatives {
         runes: rank(&runes, keystone_choice.as_ref().map(|c| &c.value)),
         spells: rank(&spells, spells_choice.as_ref().map(|c| &c.value)),
         start: rank(&starts, start_choice.as_ref().map(|c| &c.value)),
         components: rank(&components, components_choice.as_ref().map(|c| &c.value)),
+        boots: rank(&boots, boots_choice.as_ref().map(|c| &c.value)),
         items: candidates
             .iter()
             .map(|(slot, options)| {
@@ -271,6 +295,8 @@ pub fn plan(build: &Build, role: Role) -> Plan {
             .map(|c| purchase_buy(&build.first_components, &c.value))
             .unwrap_or_default(),
         components: components_choice,
+        boots: boots_choice,
+        boots_then: Vec::new(),
         items,
         late_slot: build.late_slot.map(|s| s.get()),
         alternatives,
@@ -298,18 +324,28 @@ pub fn with_alternatives(plan: &mut Plan) {
             .items
             .iter()
             .find(|a| a.slot == s.slot)
-            .map(|a| {
-                let mut rows: Vec<&Row<i64>> = a
-                    .ranked
-                    .rows
-                    .iter()
-                    .filter(|r| r.share >= BLOCK_MIN_SHARE && !taken.contains(&r.value))
-                    .collect();
-                by_judgement(&mut rows);
-                rows.iter().map(|r| r.value).take(size - 1).collect()
-            })
+            .map(|a| block_others(&a.ranked, &taken, size))
             .unwrap_or_default();
     }
+    // Boots are their own block (ADR-073): the other boots, in the same order.
+    let boots: Vec<i64> = plan.boots.iter().map(|c| c.value).collect();
+    plan.boots_then = if plan.boots.is_some() {
+        block_others(&plan.alternatives.boots, &boots, SLOT_ITEMS)
+    } else {
+        Vec::new()
+    };
+}
+
+/// A block's items after its first: the options with [`BLOCK_MIN_SHARE`] of the games, not
+/// `taken`, in Stronk's order, `size - 1` of them.
+fn block_others(ranked: &Ranked<i64>, taken: &[i64], size: usize) -> Vec<i64> {
+    let mut rows: Vec<&Row<i64>> = ranked
+        .rows
+        .iter()
+        .filter(|r| r.share >= BLOCK_MIN_SHARE && !taken.contains(&r.value))
+        .collect();
+    by_judgement(&mut rows);
+    rows.iter().map(|r| r.value).take(size - 1).collect()
 }
 
 /// The published rune choices grouped by row, primary rows first, then pairs, then shards, each

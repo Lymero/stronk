@@ -116,6 +116,7 @@ export function createApp(
       ...(picks.spells ? { spells: picks.spells } : {}),
       ...(picks.start ? { start: picks.start } : {}),
       ...(picks.components ? { components: picks.components } : {}),
+      ...(picks.boots !== undefined ? { boots: picks.boots } : {}),
       ...(Object.keys(picks.items).length
         ? { items: Object.entries(picks.items).map(([slot, item]) => ({ slot: Number(slot), item })) }
         : {}),
@@ -158,6 +159,9 @@ export function createApp(
         for (const spell of pair) ids.spells.add(spell);
       }
       for (const id of [...items.flatMap((s) => s.rows.map((r) => r.value)), ...plan.items.map((i) => i.value)]) {
+        ids.items.add(id);
+      }
+      for (const id of [...plan.alternatives.boots.rows.map((r) => r.value), ...(plan.boots ? [plan.boots.value] : [])]) {
         ids.items.add(id);
       }
       // The starts' and first components' items (ADR-071, ADR-072).
@@ -270,6 +274,8 @@ export function createApp(
     } else if ("spells" in choice) {
       const stronk = plan.value.spells?.value;
       picks.spells = stronk && samePair(stronk, choice.spells) ? undefined : choice.spells;
+    } else if ("boots" in choice) {
+      picks.boots = plan.value.boots?.value === choice.boots ? undefined : choice.boots;
     } else if ("start" in choice || "components" in choice) {
       const key = "start" in choice ? "start" : "components";
       const items = "start" in choice ? choice.start : choice.components;

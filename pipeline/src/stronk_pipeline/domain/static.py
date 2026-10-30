@@ -81,6 +81,18 @@ class StaticData:
         item = self.items.get(item_id)
         return item is not None and "Boots" in item.tags
 
+    def is_upgraded_boots(self, item_id: int) -> bool:
+        """Boots built from plain Boots (Berserker's Greaves, Sorcerer's Shoes...), not their
+        later upgrades, which build from these (ADR-073)."""
+        item = self.items.get(item_id)
+        if item is None or not self.is_boots(item_id):
+            return False
+        return any(
+            self.is_boots(c) and not self.items[c].builds_from
+            for c in item.builds_from
+            if c in self.items
+        )
+
     def recipe_tree(self, item_id: int) -> frozenset[int]:
         """Every component in a completed item's recipe, at any depth."""
         return self._recipe_trees.get(item_id, frozenset())

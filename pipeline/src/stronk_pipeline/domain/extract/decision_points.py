@@ -9,6 +9,9 @@
   to base, the purchases within `TRIP_MS` of the first one after the start, without supplies,
   boots or completed items, as one option the same way: Dark Seal and Amplifying Tome, a Long
   Sword... Anchored at that first purchase. Boots are their own decision.
+- Boots (slot `BOOTS_SLOT`, ADR-073): the first upgraded boots bought (Berserker's Greaves,
+  Sorcerer's Shoes...), anchored at the plain Boots bought before them, as items are at their
+  first component (at the upgrade itself without them). Boots never upgraded add nothing.
 - Champion select, the rest of the rune page (ADR-057), one decision each: every row of the
   primary tree (slot `tree * 10 + row`, rows 1 to 3, option the rune), the secondary tree's two
   runes as a pair (slot `tree * 10 + 5`, option `"low,high"`), and every stat shard row (slot
@@ -50,8 +53,10 @@ START_SLOT = 60_000
 """The starting items' slot (ADR-071)."""
 COMPONENTS_SLOT = 60_001
 """The first components' slot (ADR-072)."""
+BOOTS_SLOT = 60_002
+"""The boots' slot (ADR-073)."""
 PURCHASE_SLOTS = range(START_SLOT, START_SLOT + 10)
-"""The slots of purchases measured as a set of items: the start, the first components."""
+"""The slots of purchases outside the item slots: the start, the first components, boots."""
 TRIP_MS = 30_000
 """Purchases within this of a trip's first one are bought on the same trip back."""
 
@@ -108,6 +113,9 @@ def decision_points(match: Match, static: StaticData, dropped: Counter[str]) -> 
                 points.append(
                     DecisionPoint(participant.participant_id, slot, bought.at, bought.option)
                 )
+        boots = first_boots(purchases, static)
+        if boots is not None:
+            points.append(DecisionPoint(participant.participant_id, BOOTS_SLOT, *boots))
         points.extend(_item_slots(participant.participant_id, purchases, static, dropped))
     return points
 
@@ -154,6 +162,25 @@ def first_components(purchases: list[ItemEvent], static: StaticData) -> Purchase
     return _purchase(
         [p for p in later if first.timestamp <= p.timestamp < first.timestamp + TRIP_MS], counts
     )
+
+
+def first_boots(purchases: list[ItemEvent], static: StaticData) -> tuple[int, str] | None:
+    """The first upgraded boots and when the choice began (ADR-073): the plain Boots bought
+    before them, else the upgrade itself. None when no boots were upgraded."""
+    upgrade = next((p for p in purchases if static.is_upgraded_boots(p.item_id)), None)
+    if upgrade is None:
+        return None
+    plain = next(
+        (
+            p
+            for p in purchases
+            if p.timestamp <= upgrade.timestamp
+            and static.is_boots(p.item_id)
+            and not static.is_upgraded_boots(p.item_id)
+        ),
+        upgrade,
+    )
+    return plain.timestamp, str(upgrade.item_id)
 
 
 def _rune_rows(

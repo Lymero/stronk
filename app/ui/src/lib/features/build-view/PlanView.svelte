@@ -3,7 +3,8 @@
   // Stronk's changes from the most played build marked on their slots; on the right the slot opened from it: the
   // rune page built by clicking runes, or a slot's options against its baseline. Opens on the first
   // slot Stronk changes, else the runes. The start and the first components sit before the items
-  // (ADR-071, ADR-072), each a set of items without potions and wards (and boots). The late items are one slot, "Items 4+" (ADR-067): its
+  // (ADR-071, ADR-072), each a set of items without potions and wards (and boots); boots are
+  // their own slot after the first item (ADR-073). The late items are one slot, "Items 4+" (ADR-067): its
   // pick first, then the most played others, as the import lists them.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
@@ -104,10 +105,20 @@
       .slice(0, count);
   });
 
-  const changedKey = (part: "runes" | "rune" | "spells" | Purchase | number) =>
+  const changedKey = (part: "runes" | "rune" | "spells" | Purchase | "boots" | number) =>
     typeof part === "number" ? `item-${part}` : part === "rune" ? "runes" : part;
   const changedKeys = $derived(new Set(stronkChanges.map((c) => changedKey(c.part))));
   const spellPair = $derived(picks.spells ?? plan.spells?.value ?? null);
+  /** The boots the import writes: the player's, else Stronk's (ADR-073). */
+  const bootsItem = $derived(picks.boots ?? plan.boots?.value ?? null);
+  const bootsSlot = (id: number) => ({
+    key: "boots",
+    name: "Boots",
+    value: item(id),
+    icons: [shown("items", id)],
+    changed: picks.boots !== undefined ? null : gain("boots"), // the gain is Stronk's pick's, not the player's
+    yours: picks.boots !== undefined,
+  });
   /** The purchases made as a set of items, each named and explained. */
   const PURCHASE: Record<Purchase, { name: string; title: string; about: string }> = {
     start: { name: "Start", title: "Start", about: "Before leaving base, potions and wards aside" },
@@ -169,10 +180,10 @@
         },
       ];
     }),
-    ...plan.items.map((c) => {
+    ...plan.items.flatMap((c) => {
       const id = slotItem(c.slot) ?? c.value;
       const then = c.slot === plan.late_slot ? lateThen : [];
-      return {
+      const slot = {
         key: `item-${c.slot}`,
         name: slotName(c.slot),
         value: item(id),
@@ -181,6 +192,8 @@
         changed: picks.items[c.slot] !== undefined ? null : gain(`item-${c.slot}`), // the gain is Stronk's pick's, not the player's
         yours: picks.items[c.slot] !== undefined,
       };
+      // Boots after the first item, when they're usually bought (ADR-073).
+      return c === plan.items[0] && bootsItem !== null ? [slot, bootsSlot(bootsItem)] : [slot];
     }),
   ]);
 
@@ -216,6 +229,7 @@
   const panel = $derived.by(() => {
     if (focus === "runes") return { title: "Runes", note: laidOut ? null : note(options.runes, page), extra: "" };
     if (focus === "spells") return { title: "Summoner spells", note: note(options.spells, spells), extra: "" };
+    if (focus === "boots") return { title: "Boots", note: note(options.boots, item), extra: "The first upgrade" };
     if (isPurchase(focus)) return { title: PURCHASE[focus].title, note: note(options[focus], set), extra: PURCHASE[focus].about };
     const slotNo = focusedItem ?? 0;
     const also = alsoIn(slotNo, slotItem(slotNo) ?? 0);
@@ -275,6 +289,8 @@
       {:else}
         <OptionTable slot={options.runes} label={page} icons={pageIcons} onpick={(p) => onpick({ runes: p })} />
       {/if}
+    {:else if focus === "boots"}
+      <OptionTable slot={options.boots} label={item} icons={itemIcons} onpick={(id) => onpick({ boots: id })} />
     {:else if isPurchase(focus)}
       {@const key = focus}
       {#key key}

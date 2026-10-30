@@ -3,10 +3,32 @@
 #![allow(clippy::match_single_binding)]
 #![allow(clippy::clone_on_copy)]
 
+#[doc = "One pair of upgraded boots."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BootsOption {
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub ci: ::std::option::Option<Interval>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub comparison: ::std::option::Option<Comparison>,
+    pub flags: ::std::vec::Vec<Flag>,
+    #[doc = "Games with these boots."]
+    pub games: u64,
+    #[doc = "Data Dragon item id."]
+    pub item: ::std::num::NonZeroU64,
+    #[doc = "Decisions behind the estimate."]
+    pub n: u64,
+    #[doc = "Win probability added against the other boots; null when not estimated."]
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub wpa: ::std::option::Option<f64>,
+}
 #[doc = "Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Build {
+    #[doc = "The boots (ADR-073): the first upgraded boots each player bought, estimated among the others."]
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub boots: ::std::vec::Vec<BootsOption>,
     #[doc = "Data Dragon champion key (for example \"Viego\")."]
     pub champion: BuildChampion,
     #[doc = "Elo bracket id (for example \"diamond_plus\")."]

@@ -568,3 +568,13 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - `build.plan` chooses and ranks them like the start (`components`, `components_buy`, `alternatives.components`); `build.import` takes picked `components` and writes them as the item set's second block, "First components: <why>", as bought (boots and potions bought with them included).
   - The app: a "First back" row after the start ("First components" didn't fit beside a badge), several items shown as one choice ("Dark Seal + Amplifying Tome"); its panel, "First components", reads "The first trip back, potions, wards and boots aside". In the sheet, a slot's several icons overlap like stacked avatars and its label stays on one line, leaving the names room.
 - **Consequences:** the first back is compared as players make it, a set; one set rarely reaches 300 games against the most played, so numbers will be rarer than for the start. Buying more on a trip mostly means having more gold: the estimate is anchored at the trip with the game state then (gold included), but a larger set's number may still carry some of being ahead (on 16.20 Lee Sin's Long Sword + Pickaxe reads +4.3 over Long Sword alone, a best bet). Boots get their own section next.
+
+### ADR-073 · Boots, their own section
+
+- **Context:** the owner asked for boots in a section of their own, left out of the first components (ADR-072). Boots were also outside the item slots, which count only completed items, and boots aren't one.
+- **Decision:**
+  - `extract`: one decision per player at `BOOTS_SLOT` (60002): the first upgraded boots bought (`StaticData.is_upgraded_boots`: Boots-tagged and built from plain Boots, so Berserker's Greaves but not their later upgrade), anchored at the plain Boots bought before them, as items are at their first component (at the upgrade itself without them). Boots never upgraded add nothing.
+  - `build.v1` gains optional `boots` (`BootsOption`: item, games, estimate, flags, comparison with the most played boots).
+  - `build.plan` chooses and ranks them like a slot (`boots`, `alternatives.boots`), and lists the other boots for the block (`boots_then`: 2% of games or more, in Stronk's order, four in all, ADR-069, ADR-070). `build.import` takes picked `boots` and writes "Boots: <why>" after the first item's block, when boots are usually bought.
+  - The app: a "Boots" row after Item 1, its panel "The first upgrade".
+- **Consequences:** every purchase a player plans in champion select now has a section: the start, the first back, the items, the boots and the late items.

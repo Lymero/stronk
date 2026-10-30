@@ -23,6 +23,7 @@ from stronk_contracts.build_v1 import Build
 from stronk_contracts.manifest_v1 import Manifest
 from stronk_pipeline.application.registry import Command, CommandError
 from stronk_pipeline.domain.extract.decision_points import (
+    BOOTS_SLOT,
     COMPONENTS_SLOT,
     LATE_SLOT,
     MAX_SLOT,
@@ -231,6 +232,10 @@ def _builds(
                 "items": items,
                 "starts": _purchases(options, seen, START_SLOT),
                 "firstComponents": _purchases(options, seen, COMPONENTS_SLOT),
+                "boots": [
+                    {"item": int(e.option), "games": e.chosen, **_numbers(e)}
+                    for e in _ranked(o for o in options if o.slot == BOOTS_SLOT)
+                ],
                 "lateSlot": LATE_SLOT,
                 "spells": spells,
                 "runeChoices": choices,
@@ -238,7 +243,7 @@ def _builds(
         )
         data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order"})
         every = (*data["runes"], *data["items"], *data["runeChoices"])
-        for option in (*every, *data["starts"], *data["firstComponents"]):
+        for option in (*every, *data["starts"], *data["firstComponents"], *data["boots"]):
             for key in ("style", "row"):  # optional: absent, not null
                 if option.get(key, 0) is None:
                     option.pop(key)

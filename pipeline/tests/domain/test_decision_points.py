@@ -4,6 +4,7 @@ from dataclasses import replace
 from riot_builders import Json, buy, domain_match, domain_static, undo
 
 from stronk_pipeline.domain.extract.decision_points import (
+    BOOTS_SLOT,
     COMPONENTS_SLOT,
     LATE_SLOT,
     MAX_ITEMS,
@@ -211,3 +212,16 @@ def test_a_trip_starts_at_its_first_component_and_skips_completed_items() -> Non
     events += [buy(6 * MIN + 1_000, 1, 6333)]
     assert components_of(events) == [DecisionPoint(1, COMPONENTS_SLOT, 6 * MIN, "1037")]
     assert components_of([buy(3 * MIN, 1, 2003)]) == []
+
+
+def boots_of(events: list[Json], participant_id: int = 1) -> list[DecisionPoint]:
+    points = decision_points(domain_match(events=events), STATIC, Counter())
+    return [p for p in points if p.participant_id == participant_id and p.slot == BOOTS_SLOT]
+
+
+def test_boots_are_the_first_upgrade_anchored_at_the_plain_boots() -> None:
+    events = [buy(5 * MIN, 1, 1001), buy(12 * MIN, 1, 3006)]
+    assert boots_of(events) == [DecisionPoint(1, BOOTS_SLOT, 5 * MIN, "3006")]
+    # Bought upgraded at once: anchored there. Never upgraded: no decision.
+    assert boots_of([buy(9 * MIN, 1, 3006)]) == [DecisionPoint(1, BOOTS_SLOT, 9 * MIN, "3006")]
+    assert boots_of([buy(5 * MIN, 1, 1001)]) == []

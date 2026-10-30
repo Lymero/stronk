@@ -5,7 +5,7 @@
 
 Runs `build.plan` for every champion and role of the newest patch (one `stronk-core serve`)
 and checks each slot the board draws: the runes, the spells, the start, the first components,
-every item slot and rune row.
+the boots, every item slot and rune row.
 
 Failures (exit 1), each with up to five examples:
 - `few-games-false`: "few games" under an option with at least 300 games, the pipeline's own
@@ -81,6 +81,7 @@ def slots(plan: dict[str, Any]) -> list[tuple[str, dict[str, Any], Any]]:
             alt["components"],
             plan["components"]["value"] if plan.get("components") else None,
         ),
+        ("boots", alt["boots"], plan["boots"]["value"] if plan.get("boots") else None),
     ]
     out += [(f"item {s['slot']}", s, choice.get(s["slot"])) for s in alt["items"]]
     out += [

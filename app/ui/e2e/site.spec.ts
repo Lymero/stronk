@@ -48,6 +48,10 @@ async function open(page: Page, view: string): Promise<void> {
   await page.mouse.move(0, 0);
 }
 
+/** The names route off once the picture is taken: a request still in flight when the page
+ * closes would otherwise fail the run outside any test. */
+const done = (page: Page) => page.unrouteAll({ behavior: "ignoreErrors" });
+
 for (const view of Object.keys(VIEWS)) {
   test.describe(`${view}, wide`, () => {
     test.use({ viewport: { width: 1200, height: 900 }, deviceScaleFactor: 2 });
@@ -62,6 +66,7 @@ for (const view of Object.keys(VIEWS)) {
         path: resolve(IMG, `${view}.png`),
         clip: { x: 0, y, width: 1200, height: bottom.y + bottom.height + 12 - y },
       });
+      await done(page);
     });
   });
 
@@ -81,6 +86,7 @@ for (const view of Object.keys(VIEWS)) {
         path: resolve(IMG, `${view}-phone.png`),
         clip: { x: 0, y: top.y - 8, width: 420, height: panel.y + panel.height + 8 - (top.y - 8) },
       });
+      await done(page);
     });
   });
 }

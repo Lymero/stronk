@@ -109,6 +109,7 @@ describe("App with MockBackend", () => {
       "Start: Scorchclaw Pup",
       "First back: Long Sword",
       "Item 1: Eclipse",
+      "Boots: Plated Steelcaps",
       "Item 2: Sundered Sky, Stronk's change +2.1",
       "Item 3: Guardian Angel, Stronk's best bet +1.2",
       "Items 4+: Sterak's Gage",
@@ -336,6 +337,21 @@ describe("App with MockBackend", () => {
     expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ components: [1036, 1037] });
   });
 
+  it("shows the boots after the first item, and imports the ones picked", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    const boots = await open("Boots");
+    expect(screen.getByRole("tabpanel", { name: "Boots" })).toHaveTextContent("The first upgrade");
+    expect(option(boots, "Plated Steelcaps")).toHaveTextContent("baseline");
+    expect(option(boots, "Mercury's Treads").querySelector(".num")).toHaveTextContent("−1.2");
+    await fireEvent.click(option(boots, "Mercury's Treads"));
+    expect(tab("Boots")).toHaveTextContent("Your pick");
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ boots: 3111 });
+  });
+
   it("marks an item picked for two slots", async () => {
     const { app, next } = setup("ranked-jungle");
     await app.refresh();
@@ -437,7 +453,7 @@ describe("App with MockBackend", () => {
     const ids = (kind: string) => asked.flatMap((p) => p[kind] ?? []);
     expect(ids("champions")).toEqual([104, 64]); // Graves, then Lee Sin
     expect(ids("items")).toContain(6610);
-    expect(ids("items")).toEqual(expect.arrayContaining([1101, 1102, 1103, 1036, 1037])); // starts, first components
+    expect(ids("items")).toEqual(expect.arrayContaining([1101, 1102, 1103, 1036, 1037, 3047, 3111])); // starts, first back, boots
     expect(ids("runes")).toContain(8010);
     expect(new Set(ids("items")).size).toBe(ids("items").length); // never twice
     const lee = screen.getByLabelText("Champion select").querySelector("img");

@@ -6,9 +6,9 @@ The fake client serves placeholders at the paths its game data names. For the sc
 fetches the real images for the same ids from CommunityDragon, the public mirror of the League
 client's game data, and saves each under the path the fake client serves, so lcu-mock can serve
 it instead (`STRONK_LCU_ASSETS`). Fetched: the session's champions, every rune, shard and rune
-tree, every summoner spell, and the items, starts and first components of the picks' builds.
-Kept in `runs/`, never committed; already fetched files are kept. Network: this is a tool, not a
-test.
+tree, every summoner spell, and the items, starts, first components and boots of the picks'
+builds. Kept in `runs/`, never committed; already fetched files are kept. Network: this is a
+tool, not a test.
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ def ids_in_builds(session: dict[str, Any], data: Path) -> set[int]:
         items |= {o["item"] for o in build["items"]}
         for kind in ("starts", "firstComponents"):
             items |= {i for o in build.get(kind, []) for i in o["items"]}
+        items |= {o["item"] for o in build.get("boots", [])}
     return items
 
 

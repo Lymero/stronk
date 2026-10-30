@@ -38,6 +38,9 @@ pub struct Params {
     /// Published first components, in any order (ADR-072).
     #[serde(default)]
     pub components: Option<Vec<i64>>,
+    /// Published upgraded boots (ADR-073).
+    #[serde(default)]
+    pub boots: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -211,6 +214,14 @@ fn with_picks(
             *choice = Some(picked(items));
         }
     }
+    if let Some(boots) = params.boots {
+        if !build.boots.iter().any(|o| id(o.item.get()) == boots) {
+            return Err(invalid(format!("boots: {boots} are not published")));
+        }
+        if plan.boots.as_ref().map(|c| c.value) != Some(boots) {
+            plan.boots = Some(picked(boots));
+        }
+    }
     plan.items.sort_by_key(|s| s.slot);
     with_alternatives(&mut plan);
     Ok(plan)
@@ -330,7 +341,8 @@ fn item_set_title(ctx: &Context, plan: &Plan, champion_id: i64) -> String {
 }
 
 /// Stronk's set, listed first (`priority`): the start and the first components as bought,
-/// supplies included (ADR-071, ADR-072), then one block per slot, named with the slot and why the item was chosen, its choice first
+/// supplies included (ADR-071, ADR-072), then one block per slot (boots after the first item,
+/// when they're usually bought, ADR-073), named with the slot and why the item was chosen, its choice first
 /// and then the slot's other items (ADR-069); the late slot's block is "Items 4+" (ADR-067).
 fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
     let purchase = |name: &str, choice: &Option<Choice<Vec<i64>>>, buy: &[i64]| {
@@ -364,6 +376,17 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
             .collect();
         json!({"type": format!("{name}: {}", why(s.choice.label)), "items": items})
     });
+    let boots = plan.boots.as_ref().map(|c| {
+        let items: Vec<Value> = std::iter::once(c.value)
+            .chain(plan.boots_then.iter().copied())
+            .map(|id| json!({"id": id.to_string(), "count": 1}))
+            .collect();
+        json!({"type": format!("Boots: {}", why(c.label)), "items": items})
+    });
+    let mut slots: Vec<Value> = slots.collect();
+    if let Some(boots) = boots {
+        slots.insert(slots.len().min(1), boots);
+    }
     let blocks: Vec<Value> = start.into_iter().chain(components).chain(slots).collect();
     json!({
         "title": title,

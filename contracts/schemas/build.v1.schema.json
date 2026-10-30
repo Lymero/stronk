@@ -27,6 +27,11 @@
       "items": { "$ref": "#/$defs/PurchaseOption" },
       "description": "The first components (ADR-072): what players buy on their first trip back to base, without potions, wards, boots or completed items, each estimated among the others."
     },
+    "boots": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/BootsOption" },
+      "description": "The boots (ADR-073): the first upgraded boots each player bought, estimated among the others."
+    },
     "lateSlot": { "type": "integer", "minimum": 1, "maximum": 6, "description": "The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own." },
     "skillOrder": { "type": "array", "items": { "$ref": "#/$defs/SkillOrderOption" } },
     "runeChoices": {
@@ -96,6 +101,21 @@
         "wpa": { "type": "number", "description": "Win probability added by this choice against `versus`." },
         "q": { "type": "number", "minimum": 0, "maximum": 1, "description": "False-discovery-adjusted p-value of no difference, across the patch." },
         "ci": { "$ref": "#/$defs/Interval", "description": "95% interval of `wpa`." }
+      }
+    },
+    "BootsOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "games", "wpa", "ci", "n", "flags"],
+      "description": "One pair of upgraded boots.",
+      "properties": {
+        "item": { "type": "integer", "minimum": 1, "description": "Data Dragon item id." },
+        "games": { "type": "integer", "minimum": 0, "description": "Games with these boots." },
+        "wpa": { "type": ["number", "null"], "description": "Win probability added against the other boots; null when not estimated." },
+        "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
+        "n": { "type": "integer", "minimum": 0, "description": "Decisions behind the estimate." },
+        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
+        "comparison": { "$ref": "#/$defs/Comparison" }
       }
     },
     "PurchaseComparison": {

@@ -12,6 +12,8 @@ export interface Picks {
   start?: number[] | undefined;
   /** First components, smallest id first (ADR-072). */
   components?: number[] | undefined;
+  /** Upgraded boots (ADR-073). */
+  boots?: number | undefined;
   /** Item id by slot. */
   items: Record<number, number>;
 }
@@ -22,6 +24,7 @@ export type Pick =
   | { spells: [number, number] }
   | { start: number[] }
   | { components: number[] }
+  | { boots: number }
   | { slot: number; item: number };
 
 export const noPicks = (): Picks => ({ items: {} });
@@ -51,6 +54,9 @@ export function published(plan: Plan, picks: Picks): Picks {
   if (picks.spells && spells.rows.some((r) => samePair(r.value, picks.spells as [number, number]))) {
     kept.spells = picks.spells;
   }
+  if (picks.boots !== undefined && plan.alternatives.boots.rows.some((r) => r.value === picks.boots)) {
+    kept.boots = picks.boots;
+  }
   for (const key of PURCHASES) {
     const items = picks[key];
     if (items && plan.alternatives[key].rows.some((r) => samePair(r.value, items))) kept[key] = items;
@@ -68,6 +74,7 @@ export const isEmpty = (picks: Picks): boolean =>
   picks.spells === undefined &&
   picks.start === undefined &&
   picks.components === undefined &&
+  picks.boots === undefined &&
   Object.keys(picks.items).length === 0;
 
 /** Picks by champion and role (`LeeSin/JUNGLE`), each for the patch it was made on. */
@@ -108,6 +115,10 @@ function parsePicks(v: unknown): Picks | null {
     const s = v.spells;
     if (!Array.isArray(s) || s.length !== 2 || !s.every(Number.isInteger)) return null;
     picks.spells = [s[0], s[1]];
+  }
+  if ("boots" in v && v.boots !== undefined) {
+    if (!Number.isInteger(v.boots)) return null;
+    picks.boots = v.boots as number;
   }
   for (const key of PURCHASES) {
     if (!(key in v)) continue;

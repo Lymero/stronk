@@ -15,7 +15,7 @@ from stronk_pipeline.adapters.match_store import FileMatchStore
 from stronk_pipeline.adapters.minisign import MinisignKeys
 from stronk_pipeline.application.publish import PublishParams, PublishResult, publish_command
 from stronk_pipeline.application.registry import CommandError
-from stronk_pipeline.domain.extract.decision_points import START_SLOT
+from stronk_pipeline.domain.extract.decision_points import BOOTS_SLOT, START_SLOT
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate
 
@@ -79,6 +79,8 @@ ESTIMATES = [
         contrast_ci=(-0.03, 0.02),
         chosen=320,
     ),
+    # Boots (ADR-073): Berserker's Greaves.
+    OptionEstimate("Champ1", "fighter", "TOP", BOOTS_SLOT, "3006", None, None, 40, chosen=40),
 ]
 
 
@@ -182,6 +184,14 @@ def test_publishes_starts_with_what_is_bought_with_them(tmp_path: Path) -> None:
             "flags": ["no_clear_difference"],
             "comparison": {"versus": [1055], "wpa": -0.005, "q": 0.7, "ci": [-0.03, 0.02]},
         },
+    ]
+
+
+def test_publishes_boots(tmp_path: Path) -> None:
+    assert isinstance(publish(setup(tmp_path)), Ok)
+    path = tmp_path / "dist" / "16.20" / "all" / "master_plus" / "Champ1" / "TOP.json"
+    assert json.loads(path.read_text())["boots"] == [
+        {"item": 3006, "games": 40, "wpa": None, "ci": None, "n": 40, "flags": []}
     ]
 
 

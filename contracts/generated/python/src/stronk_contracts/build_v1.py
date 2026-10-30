@@ -131,6 +131,35 @@ class RuneChoiceComparison(BaseModel):
     """
 
 
+class BootsOption(BaseModel):
+    """
+    One pair of upgraded boots.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    item: Annotated[int, Field(ge=1)]
+    """
+    Data Dragon item id.
+    """
+    games: Annotated[int, Field(ge=0)]
+    """
+    Games with these boots.
+    """
+    wpa: float | None
+    """
+    Win probability added against the other boots; null when not estimated.
+    """
+    ci: Interval | None
+    n: Annotated[int, Field(ge=0)]
+    """
+    Decisions behind the estimate.
+    """
+    flags: list[Flag]
+    comparison: Comparison | None = None
+
+
 class Versu1(RootModel[int]):
     root: Annotated[int, Field(ge=1)]
 
@@ -335,6 +364,10 @@ class Build(BaseModel):
     ] = None
     """
     The first components (ADR-072): what players buy on their first trip back to base, without potions, wards, boots or completed items, each estimated among the others.
+    """
+    boots: list[BootsOption] | None = None
+    """
+    The boots (ADR-073): the first upgraded boots each player bought, estimated among the others.
     """
     late_slot: Annotated[int | None, Field(alias="lateSlot", ge=1, le=6)] = None
     """

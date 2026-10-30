@@ -308,6 +308,8 @@ fn plan_takes_the_most_played_start_and_ranks_the_others() {
         out["alternatives"]["components"]["rows"][1]["value"],
         json!([1036, 1037])
     );
+    assert_eq!(out["boots"], json!({"value": 3047, "label": "popular"}));
+    assert_eq!(out["boots_then"], json!([3111]));
     let rows = &out["alternatives"]["start"]["rows"];
     assert_eq!(rows[0]["confidence"], "most_played");
     // Compared head to head with the most played start, no clear difference.
@@ -469,6 +471,12 @@ fn import_adds_a_stronk_item_set_and_keeps_the_players_byte_for_byte() {
         set["blocks"][2]["items"],
         json!([{"id": "6693", "count": 1}, {"id": "6672", "count": 1}])
     );
+    // Boots after the first item (ADR-073); Ionian Boots, under 2% of games, aren't listed.
+    assert_eq!(set["blocks"][3]["type"], "Boots: Popular");
+    assert_eq!(
+        set["blocks"][3]["items"],
+        json!([{"id": "3047", "count": 1}, {"id": "3111", "count": 1}])
+    );
 }
 
 #[test]
@@ -540,7 +548,7 @@ fn import_writes_the_players_picks_instead_of_stronks() {
         FakeClient::new(Some(viego((14, 4)))),
         FakeBackups::default(),
         json!({"items": [{"slot": 1, "item": 6672}], "spells": [11, 4], "start": [1101],
-               "components": [1037, 1036]}),
+               "components": [1037, 1036], "boots": 3111}),
     );
     assert_eq!(out["item_set"]["label"], "picked");
     assert_eq!(out["spells"]["label"], "popular"); // the published pair, whatever its order
@@ -558,6 +566,12 @@ fn import_writes_the_players_picks_instead_of_stronks() {
     assert_eq!(
         components["items"],
         json!([{"id": "1001", "count": 1}, {"id": "1036", "count": 1}, {"id": "1037", "count": 1}])
+    );
+    let boots = &ours["itemSets"][0]["blocks"][3];
+    assert_eq!(boots["type"], "Boots: Your pick");
+    assert_eq!(
+        boots["items"],
+        json!([{"id": "3111", "count": 1}, {"id": "3047", "count": 1}])
     );
     let block = &ours["itemSets"][0]["blocks"][2];
     assert_eq!(
@@ -596,6 +610,7 @@ fn a_pick_that_isnt_published_writes_nothing() {
         json!({"spells": [4, 14]}),
         json!({"start": [1055]}),
         json!({"components": [1037]}),
+        json!({"boots": 3006}),
         json!({"runes": {"primary_style": 8000, "sub_style": 8100, "perks": [8010]}}),
         // Two secondary runes from the same row: no client would take it.
         json!({"runes": {"primary_style": 8000, "sub_style": 8300,

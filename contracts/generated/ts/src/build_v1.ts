@@ -76,6 +76,10 @@ export interface Build {
    */
   firstComponents?: PurchaseOption[];
   /**
+   * The boots (ADR-073): the first upgraded boots each player bought, estimated among the others.
+   */
+  boots?: BootsOption[];
+  /**
    * The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own.
    */
   lateSlot?: number;
@@ -216,6 +220,30 @@ export interface PurchaseComparison {
    */
   q: number;
   ci?: Interval2;
+}
+/**
+ * One pair of upgraded boots.
+ */
+export interface BootsOption {
+  /**
+   * Data Dragon item id.
+   */
+  item: number;
+  /**
+   * Games with these boots.
+   */
+  games: number;
+  /**
+   * Win probability added against the other boots; null when not estimated.
+   */
+  wpa: number | null;
+  ci: Interval | null;
+  /**
+   * Decisions behind the estimate.
+   */
+  n: number;
+  flags: Flag[];
+  comparison?: Comparison;
 }
 export interface SkillOrderOption {
   /**

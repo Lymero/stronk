@@ -56,6 +56,19 @@
       "comparison": { "versus": [1036], "wpa": 0.003, "q": 0.5, "ci": [-0.009, 0.015] }
     }
   ],
+  "boots": [
+    { "item": 3047, "games": 9200, "wpa": 0.001, "ci": [-0.006, 0.008], "n": 9200, "flags": [] },
+    {
+      "item": 3111,
+      "games": 5100,
+      "wpa": -0.002,
+      "ci": [-0.01, 0.006],
+      "n": 5100,
+      "flags": ["no_clear_difference"],
+      "comparison": { "versus": 3047, "wpa": -0.003, "q": 0.6, "ci": [-0.012, 0.006] }
+    },
+    { "item": 3158, "games": 120, "wpa": null, "ci": null, "n": 120, "flags": ["low_sample"] }
+  ],
   "lateSlot": 4,
   "spells": [{ "spells": [4, 11], "wpa": null, "ci": null, "n": 18000, "flags": [], "games": 18000 }],
   "skillOrder": [{ "order": ["Q", "E", "W", "Q", "Q", "R"], "n": 12000 }],

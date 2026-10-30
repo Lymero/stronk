@@ -204,3 +204,7 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: `just site-shot` failed one screenshot on its first run right after fetching new icons, twice now, and passed on the rerun.
 - 2026-10-31: the first components (what the first trip back buys, supplies, boots and completed items aside) are a choice like the start: extracted, published as `firstComponents`, chosen and ranked, a sheet row and the item set's second block (ADR-072).
   Open: boots as their own section.
+- 2026-10-31: boots are their own section: the first upgraded boots, anchored at the plain Boots, published as `boots`, chosen and ranked, a "Boots" row and block after the first item (ADR-073).
+  Open: the sheet's item names shorten beside a badge when a row has two icons ("Long Swor…"); the panel shows them in full.
+- 2026-10-31: `just site-shot`'s failures on some runs came from the names route still holding a request when a page closed; each test now drops its routes after its picture (`unrouteAll`, ignoring errors). Site screenshots show the start, first back and boots.
+  Open: none.

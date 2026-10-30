@@ -27,6 +27,8 @@ export interface Options {
   /** The starts (ADR-071) and first components (ADR-072): each its items, smallest id first. */
   start: Slot<number[]>;
   components: Slot<number[]>;
+  /** The upgraded boots (ADR-073). */
+  boots: Slot<number>;
   items: ({ slot: number } & Slot<number>)[];
 }
 
@@ -40,7 +42,7 @@ function slot<T>(ranked: Ranked<T>, key: (value: T) => string, picked: ((value: 
 
 /** The plan's alternatives with the player's picks marked. */
 export function options(plan: Plan, picks: Picks = noPicks()): Options {
-  const { runes, spells, start, components, items } = plan.alternatives;
+  const { runes, spells, start, components, boots, items } = plan.alternatives;
   return {
     runes: slot(
       runes,
@@ -53,6 +55,7 @@ export function options(plan: Plan, picks: Picks = noPicks()): Options {
       picks.spells ? (pair) => samePair(pair, picks.spells as [number, number]) : null,
     ),
     start: slot(start, (items) => items.join(","), picks.start ? (items) => samePair(items, picks.start as number[]) : null),
+    boots: slot(boots, String, picks.boots === undefined ? null : (item) => item === picks.boots),
     components: slot(
       components,
       (items) => items.join(","),
@@ -76,7 +79,7 @@ export const share = (v: number): string => `${Math.round(v * 100)}%`;
 
 /** True when every choice is the most played one: nothing beat it clearly. */
 export const allPopular = (plan: Plan): boolean =>
-  [plan.runes, plan.spells, plan.start, plan.components, ...plan.items].every((c: Choice<unknown> | null) => c === null || c.label === "popular");
+  [plan.runes, plan.spells, plan.start, plan.components, plan.boots, ...plan.items].every((c: Choice<unknown> | null) => c === null || c.label === "popular");
 
 /** The option the others are compared with: the slot's most played. */
 export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
@@ -139,7 +142,7 @@ export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "
  * Stronk's best bet against it, with the option it beats (ADR-060, ADR-065). A rune row's change
  * (`"rune"`) has the row's runes as its value. */
 export interface Change<T> {
-  part: "runes" | "rune" | "spells" | "start" | "components" | number;
+  part: "runes" | "rune" | "spells" | "start" | "components" | "boots" | number;
   row: Shown<T>;
   base: Shown<T> | undefined;
 }
@@ -164,6 +167,7 @@ export function changes(options: Options, runeRows: Plan["alternatives"]["rune_r
     ...of("spells", options.spells),
     ...of("start", options.start),
     ...of("components", options.components),
+    ...of("boots", options.boots),
     ...options.items.flatMap((s) => of(s.slot, s)),
   ];
 }
