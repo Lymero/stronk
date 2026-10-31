@@ -20,6 +20,7 @@ from typing import Annotated
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
 
 from stronk_contracts.build_v1 import Build
+from stronk_contracts.champions_v1 import Champions
 from stronk_contracts.manifest_v1 import Manifest
 from stronk_pipeline.application.registry import Command, CommandError
 from stronk_pipeline.domain.extract.decision_points import (
@@ -31,6 +32,7 @@ from stronk_pipeline.domain.extract.decision_points import (
     is_rune_slot,
     rune_row,
 )
+from stronk_pipeline.domain.extract.situation import MAGIC_FROM, PHYSICAL_BELOW, PROFILES
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.publish import Played, played
 from stronk_pipeline.domain.result import Err, Ok, Result
@@ -106,6 +108,8 @@ def publish_command(
                 pass
         try:
             files = _builds(rows, played(matches, statics), patch, params)
+            if patch in statics:
+                files[CHAMPIONS] = _champions(statics[patch], patch)
         except (ValidationError, ValueError) as e:
             return Err(CommandError(code="invalid_input", message=f"not publishable: {e}"))
         now = clock()
@@ -233,8 +237,8 @@ def _builds(
                 "starts": _purchases(options, seen, START_SLOT),
                 "firstComponents": _purchases(options, seen, COMPONENTS_SLOT),
                 "boots": [
-                    {"item": int(e.option), "games": e.chosen, **_numbers(e)}
-                    for e in _ranked(o for o in options if o.slot == BOOTS_SLOT)
+                    {"item": int(e.option), **_against(e.slot), "games": e.chosen, **_numbers(e)}
+                    for e in _ranked(o for o in options if BOOTS_SLOT <= o.slot <= BOOTS_SLOT + 3)
                 ],
                 "lateSlot": LATE_SLOT,
                 "spells": spells,
@@ -244,7 +248,7 @@ def _builds(
         data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order"})
         every = (*data["runes"], *data["items"], *data["runeChoices"])
         for option in (*every, *data["starts"], *data["firstComponents"], *data["boots"]):
-            for key in ("style", "row"):  # optional: absent, not null
+            for key in ("style", "row", "against"):  # optional: absent, not null
                 if option.get(key, 0) is None:
                     option.pop(key)
             if option.get("comparison") is None:  # optional: absent, not null
@@ -265,6 +269,31 @@ def _purchases(options: list[OptionEstimate], seen: Played, slot: int) -> list[d
         }
         for e in _ranked(o for o in options if o.slot == slot)
     ]
+
+
+def _against(slot: int) -> dict[str, str]:
+    """Boots against one kind of enemy team (ADR-074): nothing for every game."""
+    return {} if slot == BOOTS_SLOT else {"against": PROFILES[slot - BOOTS_SLOT - 1]}
+
+
+CHAMPIONS = "champions.json"
+"""Each champion's damage ratings and the enemy profile cuts, per patch (ADR-074)."""
+
+
+def _champions(static: StaticData, patch: str) -> bytes:
+    data = Champions.model_validate(
+        {
+            "schemaVersion": 1,
+            "patch": patch,
+            "physicalBelow": PHYSICAL_BELOW,
+            "magicFrom": MAGIC_FROM,
+            "champions": [
+                {"id": c.champion_id, "attack": c.attack, "magic": c.magic}
+                for c in sorted(static.champions.values(), key=lambda c: c.champion_id)
+            ],
+        }
+    )
+    return _canonical(data.model_dump(mode="json", by_alias=True))
 
 
 def _ranked(options: Iterable[OptionEstimate]) -> list[OptionEstimate]:

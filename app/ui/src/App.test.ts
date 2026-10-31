@@ -71,7 +71,7 @@ describe("App with MockBackend", () => {
     expect(screen.getByText("Builds for patch 16.20 are ready.")).toBeInTheDocument();
   });
 
-  it("plans the hovered champion's build once, and lock-in reuses it", async () => {
+  it("plans the hovered champion's build once, and asks again only as the enemies pick", async () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
     await next();
@@ -85,7 +85,10 @@ describe("App with MockBackend", () => {
     expect(planned).toEqual([
       { champion: "Graves", role: "JUNGLE" },
       { champion: "LeeSin", role: "JUNGLE" },
+      { champion: "LeeSin", role: "JUNGLE", enemies: [103, 103, 104] }, // three enemies picked by lock-in
     ]);
+    await app.refresh();
+    expect(backend.calls.filter((c) => c.id === "build.plan")).toHaveLength(3); // same picks: no new ask
   });
 
   it("shows the build by name and one slot's options against its baseline, coloured only when clear", async () => {
@@ -350,6 +353,21 @@ describe("App with MockBackend", () => {
     expect(tab("Boots")).toHaveTextContent("Your pick");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
     expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ boots: 3111 });
+  });
+
+  it("asks for the plan again as the enemies pick, and chooses the boots against them", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    expect(tab("Boots")).toHaveTextContent("Plated Steelcaps");
+    await open("Boots");
+    expect(screen.getByRole("tabpanel", { name: "Boots" })).toHaveTextContent("over every game until three enemies are picked");
+    await next(); // locked in, three enemies picked
+    const asked = backend.calls.filter((c) => c.id === "build.plan").map((c) => c.params);
+    expect(asked.at(-1)).toEqual({ champion: "LeeSin", role: "JUNGLE", enemies: [103, 103, 104] });
+    expect(tab("Boots")).toHaveTextContent("Mercury's Treads");
+    expect(screen.getByRole("tabpanel", { name: "Boots" })).toHaveTextContent("against a magic damage team");
   });
 
   it("marks an item picked for two slots", async () => {

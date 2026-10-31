@@ -10,12 +10,14 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from stronk_contracts.build_v1 import Build
+from stronk_contracts.champions_v1 import Champions
 from stronk_contracts.index_v1 import Index
 from stronk_contracts.manifest_v1 import Manifest
 
 CONTRACTS = Path(__file__).resolve().parents[1]
 CASES: list[tuple[str, type[BaseModel]]] = [
     ("build.v1", Build),
+    ("champions.v1", Champions),
     ("index.v1", Index),
     ("manifest.v1", Manifest),
 ]
@@ -30,6 +32,14 @@ INVALID: dict[str, list[tuple[tuple[str | int, ...], Any]]] = {
         (("items", 2, "flags", 0), "unknown_flag"),
         (("items", 0, "ci"), [0.1]),
         (("runes", 0, "page", "perks"), [1, 2, 3]),
+        (("extra",), True),
+        (("boots", 0, "against"), "tank"),
+    ],
+    "champions.v1": [
+        (("schemaVersion",), 2),
+        (("magicFrom",), 1.5),
+        (("champions", 0, "id"), 0),
+        (("champions", 0, "magic"), 11),
         (("extra",), True),
     ],
     "index.v1": [

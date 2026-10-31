@@ -79,8 +79,9 @@ ESTIMATES = [
         contrast_ci=(-0.03, 0.02),
         chosen=320,
     ),
-    # Boots (ADR-073): Berserker's Greaves.
+    # Boots (ADR-073): Berserker's Greaves, in every game and against magic teams (ADR-074).
     OptionEstimate("Champ1", "fighter", "TOP", BOOTS_SLOT, "3006", None, None, 40, chosen=40),
+    OptionEstimate("Champ1", "fighter", "TOP", BOOTS_SLOT + 3, "3006", None, None, 15, chosen=15),
 ]
 
 
@@ -191,8 +192,30 @@ def test_publishes_boots(tmp_path: Path) -> None:
     assert isinstance(publish(setup(tmp_path)), Ok)
     path = tmp_path / "dist" / "16.20" / "all" / "master_plus" / "Champ1" / "TOP.json"
     assert json.loads(path.read_text())["boots"] == [
-        {"item": 3006, "games": 40, "wpa": None, "ci": None, "n": 40, "flags": []}
+        {"item": 3006, "games": 40, "wpa": None, "ci": None, "n": 40, "flags": []},
+        {
+            "item": 3006,
+            "against": "magic",
+            "games": 15,
+            "wpa": None,
+            "ci": None,
+            "n": 15,
+            "flags": [],
+        },
     ]
+
+
+def test_publishes_the_champions_damage_ratings_and_profile_cuts(tmp_path: Path) -> None:
+    assert isinstance(publish(setup(tmp_path)), Ok)
+    champions = json.loads((tmp_path / "dist" / "16.20" / "champions.json").read_text())
+    assert (champions["physicalBelow"], champions["magicFrom"]) == (0.43, 0.5)
+    assert champions["champions"][0] == {
+        "id": 1,
+        "attack": champions["champions"][0]["attack"],
+        "magic": champions["champions"][0]["magic"],
+    }
+    manifest = json.loads((tmp_path / "dist" / "16.20" / "manifest.json").read_text())
+    assert "champions.json" in [f["path"] for f in manifest["files"]]
 
 
 def test_publishes_signed_valid_builds(tmp_path: Path) -> None:
@@ -206,10 +229,12 @@ def test_publishes_signed_valid_builds(tmp_path: Path) -> None:
     manifest = Manifest.model_validate_json(manifest_bytes)
     assert manifest.key_id == result.value.key_id
     assert manifest.run_id.startswith("20261018T120000Z-")
-    assert [f.path for f in manifest.files] == ["all/master_plus/Champ1/TOP.json"]
-    data = (root / manifest.files[0].path).read_bytes()
-    assert hashlib.sha256(data).hexdigest() == manifest.files[0].sha256
-    assert len(data) == manifest.files[0].bytes
+    paths = [f.path for f in manifest.files]
+    assert paths == ["all/master_plus/Champ1/TOP.json", "champions.json"]
+    entry = manifest.files[0]
+    data = (root / entry.path).read_bytes()
+    assert hashlib.sha256(data).hexdigest() == entry.sha256
+    assert len(data) == entry.bytes
     build = Build.model_validate_json(data)
     assert build.games == 1
     assert build.runes[0].page.perks[0].root == 8010

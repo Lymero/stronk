@@ -43,7 +43,8 @@ export interface AppState {
   icons: Record<GameKind, Record<string, string | null>>;
   /** What an import would write for the champion picked or hovered, and each slot's
    * alternatives; loaded as soon as known. */
-  plan: { key: string; value: Plan } | null;
+  /** The plan for `key` (champion/role), asked with these enemy picks (sorted ids, ADR-074). */
+  plan: { key: string; value: Plan; enemies?: string } | null;
   /** The player's picks instead of Stronk's choices, for one champion and role (ADR-050);
    * kept between runs until the patch changes (ADR-051). */
   picks: { key: string; value: Picks } | null;
@@ -226,16 +227,20 @@ export function createApp(
       return;
     }
     const key = `${champion}/${role}`;
-    if (state.plan?.key !== key) {
-      const plan = await backend.run("build.plan", { champion, role });
+    // Asked again as the enemies pick: boots follow their damage (ADR-074).
+    const enemies = session?.enemies ?? [];
+    const seen = [...enemies].sort((a, b) => a - b).join(",");
+    if (state.plan?.key !== key || (state.plan.enemies ?? "") !== seen) {
+      const plan = await backend.run("build.plan", { champion, role, ...(enemies.length ? { enemies } : {}) });
       if (!plan.ok) {
         state.plan = null;
         state.error = plan.error;
         return;
       }
-      state.plan = { key, value: plan.value }; // hovered earlier: lock-in is a cache hit
+      const fresh = state.plan?.key !== key;
+      state.plan = { key, value: plan.value, enemies: seen }; // hovered earlier: lock-in is a cache hit
       state.error = null;
-      restorePicks(key, plan.value);
+      if (fresh) restorePicks(key, plan.value);
     }
     if (session?.locked && state.settings.autoImport && state.imported?.key !== key) {
       await importBuild();

@@ -13,6 +13,7 @@ use stronk_service::ports::ChampSelect;
 pub struct Session {
     pub local_player_cell_id: i64,
     pub my_team: Vec<TeamMember>,
+    pub their_team: Vec<TeamMember>,
     pub actions: Vec<Vec<Action>>,
     pub timer: Timer,
 }
@@ -75,6 +76,12 @@ impl Session {
             spells: me
                 .map(|m| (m.spell1_id, m.spell2_id))
                 .filter(|&(d, f)| d > 0 && f > 0),
+            enemies: self
+                .their_team
+                .iter()
+                .map(|m| m.champion_id)
+                .filter(|&id| id > 0)
+                .collect(),
         }
     }
 }
@@ -263,6 +270,17 @@ mod tests {
         );
         assert_eq!(locked.local().champion_id, 121);
         assert!(locked.local().locked);
+    }
+
+    #[test]
+    fn the_enemies_are_the_champions_they_picked_so_far() {
+        let s = session(
+            r#"{"localPlayerCellId": 1, "myTeam": [{"cellId": 1, "championId": 64}],
+            "theirTeam": [{"cellId": 5, "championId": 86}, {"cellId": 6, "championId": 0},
+                          {"cellId": 7, "championId": 103}]}"#,
+        );
+        assert_eq!(s.local().enemies, vec![86, 103]);
+        assert!(session("{}").local().enemies.is_empty());
     }
 
     #[test]

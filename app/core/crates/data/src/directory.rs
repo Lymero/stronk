@@ -3,8 +3,9 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use stronk_contracts::build_v1::Build;
+use stronk_contracts::champions_v1::Champions;
 use stronk_domain::{BuildKey, Patch};
-use stronk_service::ports::{BuildSource, DataStatus, PortError};
+use stronk_service::ports::{BuildSource, CHAMPIONS, DataStatus, PortError};
 
 use crate::verify::{TrustedKey, VerifiedManifest};
 
@@ -60,6 +61,15 @@ impl BuildSource for DirectorySource {
         }
         let data = read(&self.root.join(patch.to_string()).join(&path))?;
         verified.parse_build(key, &data)
+    }
+
+    fn champions(&self, patch: Patch) -> Result<Champions, PortError> {
+        let verified = self.manifest(patch)?;
+        if verified.entry(CHAMPIONS).is_none() {
+            return Err(PortError::NotFound(format!("{patch} {CHAMPIONS}")));
+        }
+        let data = read(&self.root.join(patch.to_string()).join(CHAMPIONS))?;
+        verified.parse_champions(&data)
     }
 }
 

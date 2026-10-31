@@ -110,6 +110,7 @@
       "description": "One pair of upgraded boots.",
       "properties": {
         "item": { "type": "integer", "minimum": 1, "description": "Data Dragon item id." },
+        "against": { "type": "string", "enum": ["physical", "mixed", "magic"], "description": "Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game." },
         "games": { "type": "integer", "minimum": 0, "description": "Games with these boots." },
         "wpa": { "type": ["number", "null"], "description": "Win probability added against the other boots; null when not estimated." },
         "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },

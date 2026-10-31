@@ -67,7 +67,9 @@
       "flags": ["no_clear_difference"],
       "comparison": { "versus": 3047, "wpa": -0.003, "q": 0.6, "ci": [-0.012, 0.006] }
     },
-    { "item": 3158, "games": 120, "wpa": null, "ci": null, "n": 120, "flags": ["low_sample"] }
+    { "item": 3158, "games": 120, "wpa": null, "ci": null, "n": 120, "flags": ["low_sample"] },
+    { "item": 3111, "against": "magic", "games": 2600, "wpa": 0.003, "ci": [-0.006, 0.012], "n": 2600, "flags": [] },
+    { "item": 3047, "against": "magic", "games": 1400, "wpa": -0.004, "ci": [-0.015, 0.007], "n": 1400, "flags": [] }
   ],
   "lateSlot": 4,
   "spells": [{ "spells": [4, 11], "wpa": null, "ci": null, "n": 18000, "flags": [], "games": 18000 }],

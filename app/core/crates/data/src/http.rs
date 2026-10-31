@@ -24,9 +24,10 @@ use rustls::ClientConfig;
 use rustls_platform_verifier::BuilderVerifierExt;
 use sha2::{Digest, Sha256};
 use stronk_contracts::build_v1::Build;
+use stronk_contracts::champions_v1::Champions;
 use stronk_contracts::index_v1::Index;
 use stronk_domain::{BuildKey, Patch};
-use stronk_service::ports::{BuildSource, DataStatus, PortError};
+use stronk_service::ports::{BuildSource, CHAMPIONS, DataStatus, PortError};
 
 use crate::verify::{TrustedKey, VerifiedManifest};
 
@@ -373,6 +374,26 @@ impl BuildSource for HttpSource {
         let build = verified.parse_build(key, &data)?;
         self.store(&cached_path, &data, None);
         Ok(build)
+    }
+
+    fn champions(&self, patch: Patch) -> Result<Champions, PortError> {
+        let verified = self.known(patch)?;
+        let bytes = verified
+            .entry(CHAMPIONS)
+            .ok_or_else(|| PortError::NotFound(format!("{patch} {CHAMPIONS}")))?
+            .bytes;
+        let cached_path = format!("{patch}/{CHAMPIONS}");
+        if let Some(data) = read(&self.cache.join(&cached_path))
+            && let Ok(champions) = verified.parse_champions(&data)
+        {
+            return Ok(champions);
+        }
+        let Fetched::Fresh { data, .. } = self.get(&cached_path, None, bytes)? else {
+            return Err(self.unexpected(&cached_path));
+        };
+        let champions = verified.parse_champions(&data)?;
+        self.store(&cached_path, &data, None);
+        Ok(champions)
     }
 }
 

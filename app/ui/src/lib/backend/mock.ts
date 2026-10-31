@@ -62,8 +62,8 @@ export interface Scenario {
 const lobby: ChampSelectState = { session: null, champion: null, role: null };
 const status: DataStatus = { patch: "16.20", run_id: "fixture", key_id: "036EAC4B585E4DCA", files: 80 };
 
-function selecting(champion: string, champion_id: number, phase: string, locked = false): ChampSelectState {
-  return { session: { champion_id, locked, role: "JUNGLE", phase, spells: [4, 14] }, champion, role: "JUNGLE" };
+function selecting(champion: string, champion_id: number, phase: string, locked = false, enemies: number[] = []): ChampSelectState {
+  return { session: { champion_id, locked, role: "JUNGLE", phase, spells: [4, 14], enemies }, champion, role: "JUNGLE" };
 }
 
 
@@ -428,6 +428,7 @@ const leeSin: Plan = {
   components_buy: [1036, 2003],
   boots: { value: 3047, label: "popular" },
   boots_then: [3111],
+  boots_against: null,
   items: [
     { slot: 1, value: 6692, label: "popular" },
     { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640 },
@@ -450,7 +451,8 @@ const rankedJungle = [
   lobby,
   selecting("Graves", 104, "PLANNING"),
   selecting("LeeSin", 64, "BAN_PICK"),
-  selecting("LeeSin", 64, "FINALIZATION", true),
+  // By lock-in three enemies have picked, mages: boots against a magic team (ADR-074).
+  selecting("LeeSin", 64, "FINALIZATION", true, [103, 103, 104]),
 ];
 
 const graves: Plan = {
@@ -564,9 +566,12 @@ export class MockBackend implements Backend {
         return ok(icons) as Out;
       }
       case "build.plan": {
-        const { champion, role } = params as Commands["build.plan"]["params"];
+        const { champion, role, enemies } = params as Commands["build.plan"]["params"];
         const plan = this.scenario.plans[`${champion}/${role}`];
-        return (plan ? result(plan) : err("not_found", `no build for ${champion} ${role}`)) as Out;
+        if (!plan) return err("not_found", `no build for ${champion} ${role}`) as Out;
+        // Three enemies or more: the core reads their damage; here, always a magic team.
+        const against = (enemies?.length ?? 0) >= 3 && "boots" in plan && plan.boots;
+        return result(against ? { ...plan, boots: { value: 3111, label: "popular" }, boots_against: "magic" } : plan) as Out;
       }
       case "build.import": {
         if (isError(current) || !current.champion || !current.role) {

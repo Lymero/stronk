@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
 use stronk_contracts::build_v1::Build;
+use stronk_contracts::champions_v1::Champions;
 use stronk_domain::select::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
 use stronk_service::Context;
@@ -42,6 +43,16 @@ impl BuildSource for FakeBuilds {
         } else {
             Err(PortError::NotFound(key.path()))
         }
+    }
+
+    /// The contract's example ratings, whatever the patch (the example build says 26.20): Lee
+    /// Sin (64) and Viego (234) physical, Ahri (103) magic.
+    fn champions(&self, _patch: Patch) -> Result<Champions, PortError> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../contracts/examples/champions.v1.json"
+        );
+        Ok(serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap())
     }
 }
 
@@ -119,6 +130,7 @@ pub fn viego(spells: (i64, i64)) -> ChampSelect {
         role: Some(Role::Jungle),
         phase: "FINALIZATION".into(),
         spells: Some(spells),
+        enemies: vec![],
     }
 }
 

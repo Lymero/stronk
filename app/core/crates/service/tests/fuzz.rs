@@ -64,7 +64,7 @@ proptest! {
                           Just("champselect.state"), Just("data.status"), Just("x")],
         params in json(),
     ) {
-        let session = ChampSelect { champion_id: 7, locked: true, role: None, phase: "FINALIZATION".into(), spells: None };
+        let session = ChampSelect { champion_id: 7, locked: true, role: None, phase: "FINALIZATION".into(), spells: None, enemies: vec![] };
         let ctx = Context { builds: Arc::new(Empty), client: Arc::new(common::FakeClient::new(Some(session))), backups: Arc::new(common::FakeBackups::default()) };
         let _ = registry().run(&ctx, id, params);
     }

@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::Build;
+use stronk_contracts::champions_v1::Champions;
 use stronk_domain::select::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
 
@@ -48,7 +49,15 @@ pub trait BuildSource: Send + Sync {
     /// The newest patch the source has, verified.
     fn status(&self) -> Result<DataStatus, PortError>;
     fn build(&self, patch: Patch, key: &BuildKey) -> Result<Build, PortError>;
+    /// The patch's champion damage ratings and enemy profile cuts (ADR-074). A source without
+    /// them answers `NotFound`, and boots are then chosen over every game.
+    fn champions(&self, patch: Patch) -> Result<Champions, PortError> {
+        Err(PortError::NotFound(format!("{patch} {CHAMPIONS}")))
+    }
 }
+
+/// Where a patch's champion ratings are published, beside its builds.
+pub const CHAMPIONS: &str = "champions.json";
 
 /// The local player's champion select, as far as the app needs it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -61,6 +70,9 @@ pub struct ChampSelect {
     pub phase: String,
     /// The player's summoner spells now, D then F.
     pub spells: Option<(i64, i64)>,
+    /// The enemy champions picked so far (ADR-074): boots are chosen against their damage.
+    #[serde(default)]
+    pub enemies: Vec<i64>,
 }
 
 /// A rune page to create.

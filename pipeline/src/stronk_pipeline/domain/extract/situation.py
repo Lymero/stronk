@@ -91,6 +91,19 @@ def player_situation(
     return lane_gold / 1000, enemy_magic_share(match, participant.team, static)
 
 
+PHYSICAL_BELOW = 0.43
+"""An enemy team whose magic share is under this is a physical team (ADR-074)."""
+MAGIC_FROM = 0.50
+"""From this, a magic team; in between, mixed. The cuts split 16.20's games in about thirds and
+are published with the champions' ratings, so the app classifies a team the same way."""
+PROFILES = ("physical", "mixed", "magic")
+
+
+def damage_profile(share: float) -> int:
+    """The enemy team's damage profile: 0 physical, 1 mixed, 2 magic (`PROFILES`)."""
+    return 0 if share < PHYSICAL_BELOW else 2 if share >= MAGIC_FROM else 1
+
+
 def enemy_magic_share(match: Match, team: Team, static: StaticData) -> float:
     """Share of the enemy team's damage rating that is magic, from Data Dragon's ratings."""
     attack = magic = 0

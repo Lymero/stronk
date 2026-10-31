@@ -71,6 +71,27 @@ fn serves_verified_builds() {
 }
 
 #[test]
+fn serves_the_verified_champion_ratings() {
+    let source = DirectorySource::new(repo("fixtures/data"), fixture_key());
+    let champions = source.champions(patch()).unwrap();
+    assert_eq!(
+        (champions.physical_below, champions.magic_from),
+        (0.43, 0.5)
+    );
+    assert!(!champions.champions.is_empty());
+    // Changed by one byte: refused like a build.
+    let dir = copy();
+    let file = dir.path().join("16.20").join("champions.json");
+    let mut data = fs::read(&file).unwrap();
+    data.insert(1, b' ');
+    fs::write(&file, data).unwrap();
+    let err = DirectorySource::new(dir.path(), fixture_key())
+        .champions(patch())
+        .unwrap_err();
+    assert!(matches!(err, PortError::Invalid(m) if m.contains("hash mismatch")));
+}
+
+#[test]
 fn a_changed_file_is_rejected() {
     let dir = copy();
     let file = dir.path().join("16.20").join(listed_key().path());

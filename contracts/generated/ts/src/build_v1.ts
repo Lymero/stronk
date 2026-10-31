@@ -230,6 +230,10 @@ export interface BootsOption {
    */
   item: number;
   /**
+   * Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game.
+   */
+  against?: "physical" | "mixed" | "magic";
+  /**
    * Games with these boots.
    */
   games: number;

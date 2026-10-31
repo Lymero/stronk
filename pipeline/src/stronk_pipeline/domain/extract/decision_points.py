@@ -13,7 +13,9 @@
   bought then. Boots are their own decision.
 - Boots (slot `BOOTS_SLOT`, ADR-073): the first upgraded boots bought (Berserker's Greaves,
   Sorcerer's Shoes...), anchored at the plain Boots bought before them, as items are at their
-  first component (at the upgrade itself without them). Boots never upgraded add nothing.
+  first component (at the upgrade itself without them). Boots never upgraded add nothing. The
+  same decision again by the enemy team's damage (ADR-074): `BOOTS_SLOT + 1 + profile`, so
+  boots are estimated against physical, mixed and magic teams as well as over every game.
 - Champion select, the rest of the rune page (ADR-057), one decision each: every row of the
   primary tree (slot `tree * 10 + row`, rows 1 to 3, option the rune), the secondary tree's two
   runes as a pair (slot `tree * 10 + 5`, option `"low,high"`), and every stat shard row (slot
@@ -37,6 +39,7 @@ from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from stronk_pipeline.domain.extract.situation import damage_profile, enemy_magic_share
 from stronk_pipeline.domain.match import ItemEvent, Match
 from stronk_pipeline.domain.static import StaticData
 
@@ -56,7 +59,7 @@ START_SLOT = 60_000
 COMPONENTS_SLOT = 60_001
 """The first components' slot (ADR-072)."""
 BOOTS_SLOT = 60_002
-"""The boots' slot (ADR-073)."""
+"""The boots' slot (ADR-073); `BOOTS_SLOT + 1 + profile` against one enemy profile (ADR-074)."""
 PURCHASE_SLOTS = range(START_SLOT, START_SLOT + 10)
 """The slots of purchases outside the item slots: the start, the first components, boots."""
 TRIP_MS = 30_000
@@ -121,7 +124,9 @@ def decision_points(match: Match, static: StaticData, dropped: Counter[str]) -> 
                 )
         boots = first_boots(purchases, static)
         if boots is not None:
-            points.append(DecisionPoint(participant.participant_id, BOOTS_SLOT, *boots))
+            profile = damage_profile(enemy_magic_share(match, participant.team, static))
+            for slot in (BOOTS_SLOT, BOOTS_SLOT + 1 + profile):
+                points.append(DecisionPoint(participant.participant_id, slot, *boots))
         points.extend(_item_slots(participant.participant_id, purchases, static, dropped))
     return points
 

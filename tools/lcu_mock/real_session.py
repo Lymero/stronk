@@ -66,6 +66,10 @@ def sparsest(folder: Path) -> str:
     return min(games, key=lambda k: (games[k], k))
 
 
+ENEMIES = (103, 134, 99)
+"""Ahri, Syndra and Lux: the enemy picks every board is planned against, a magic team."""
+
+
 def champion(alias: str, champions: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """The client's champion summary for a data folder name, from the static data."""
     wanted = flat(ALIASES.get(alias, alias))
@@ -96,6 +100,8 @@ def session(data: Path, static: Path | None, picks: list[str] | None) -> dict[st
                 "timer": {"phase": "FINALIZATION", "adjustedTimeLeftInPhase": 30000},
                 "myTeam": [{"cellId": 0, "championId": c["id"], "championPickIntent": 0,
                             "assignedPosition": POSITIONS[role]}],
+                # Three enemy mages picked: boots against a magic team (ADR-074).
+                "theirTeam": [{"cellId": 5 + i, "championId": e} for i, e in enumerate(ENEMIES)],
                 "actions": [[{"id": 1, "actorCellId": 0, "championId": c["id"], "completed": True,
                               "isInProgress": False, "type": "pick"}]],
             },

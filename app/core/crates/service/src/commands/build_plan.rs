@@ -4,10 +4,11 @@
 
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{
-    Build, Comparison, Flag, Interval, PurchaseComparison, PurchaseOption, RuneChoice,
+    BootsOption, Build, Comparison, Flag, Interval, PurchaseComparison, PurchaseOption, RuneChoice,
     RuneChoiceComparison, RuneChoiceKind,
 };
 use stronk_domain::Role;
+use stronk_domain::damage::{self, Against};
 use stronk_domain::select::{
     self, Candidate, Choice, Label, Ranked, Row, by_judgement, choose, choose_items, rank,
 };
@@ -25,6 +26,9 @@ pub struct Params {
     pub patch: Option<String>,
     pub region: Option<String>,
     pub elo: Option<String>,
+    /// The enemy champions picked so far: boots are chosen against their damage (ADR-074).
+    #[serde(default)]
+    pub enemies: Vec<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -122,6 +126,9 @@ pub struct Plan {
     pub components_buy: Vec<i64>,
     /// The upgraded boots (ADR-073), and the other boots their block lists after them.
     pub boots: Option<Choice<i64>>,
+    /// The enemy damage the boots were chosen against (ADR-074); None: over every game, as
+    /// fewer than three enemies are known or the data has no boots for that kind of team.
+    pub boots_against: Option<Against>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub boots_then: Vec<i64>,
     pub items: Vec<SlotChoice>,
@@ -148,11 +155,38 @@ fn run(ctx: &Context, params: Params) -> Result<Plan, CommandError> {
         params.region.as_deref(),
         params.elo.as_deref(),
     )?;
-    Ok(plan(&build, params.role))
+    let against = against_for(ctx, &build, &params.enemies);
+    Ok(plan(&build, params.role, against))
 }
 
-/// The choice for every decision of `build`, and the alternatives behind it.
-pub fn plan(build: &Build, role: Role) -> Plan {
+/// The enemy team's damage from the picks so far and the patch's champion ratings (ADR-074).
+/// Without the ratings (older data), nothing: boots are then chosen over every game.
+pub fn against_for(ctx: &Context, build: &Build, enemies: &[i64]) -> Option<Against> {
+    let patch = build.patch.parse().ok()?;
+    let champions = ctx.builds.champions(patch).ok()?;
+    let rating = |id: i64| {
+        champions
+            .champions
+            .iter()
+            .find(|c| i64::try_from(c.id.get()).ok() == Some(id))
+            .map(|c| {
+                (
+                    u64::try_from(c.attack).unwrap_or(0),
+                    u64::try_from(c.magic).unwrap_or(0),
+                )
+            })
+    };
+    damage::against(
+        enemies,
+        rating,
+        champions.physical_below,
+        champions.magic_from,
+    )
+}
+
+/// The choice for every decision of `build`, and the alternatives behind it; boots against
+/// the enemy team's damage when it is known and the data has boots for it (ADR-074).
+pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
     let runes: Vec<Candidate<Page>> = build
         .runes
         .iter()
@@ -240,9 +274,18 @@ pub fn plan(build: &Build, role: Role) -> Plan {
     let start_choice = choose(&starts);
     let components = purchase_candidates(&build.first_components);
     let components_choice = choose(&components);
+    // Boots against this kind of team if the data has them, else over every game.
+    let profile = |o: &BootsOption| o.against.map(|a| a.to_string());
+    let boots_against = against.filter(|a| {
+        build
+            .boots
+            .iter()
+            .any(|o| profile(o).as_deref() == Some(a.as_str()))
+    });
     let boots: Vec<Candidate<i64>> = build
         .boots
         .iter()
+        .filter(|o| profile(o).as_deref() == boots_against.map(Against::as_str))
         .map(|o| Candidate {
             value: to_i64(o.item.get()),
             id: to_i64(o.item.get()),
@@ -297,6 +340,7 @@ pub fn plan(build: &Build, role: Role) -> Plan {
         components: components_choice,
         boots: boots_choice,
         boots_then: Vec::new(),
+        boots_against,
         items,
         late_slot: build.late_slot.map(|s| s.get()),
         alternatives,
@@ -612,7 +656,7 @@ pub(crate) mod tests {
         let mut items = vec![(1, 6698, 90), (2, 6699, 80), (3, 6333, 70), (4, 6333, 9)];
         items.extend([(4, 3026, 60), (4, 3156, 50), (4, 3053, 40), (4, 6694, 30)]);
         items.extend([(4, 3071, 20), (4, 6610, 10), (4, 3742, 5)]);
-        let mut plan = plan(&with_items(&items), Role::Jungle);
+        let mut plan = plan(&with_items(&items), Role::Jungle, None);
         assert_eq!(plan.late_slot, Some(4));
         let late = plan.items.iter().find(|s| s.slot == 4).unwrap();
         assert_eq!(late.choice.value, 3026);
@@ -656,7 +700,7 @@ pub(crate) mod tests {
             ]
         }))
         .unwrap();
-        let mut plan = plan(&build, Role::Jungle);
+        let mut plan = plan(&build, Role::Jungle, None);
         assert_eq!(plan.items[0].choice.value, 6698);
         // The baseline leads what Stronk knows nothing against; the clearly worse one is last.
         assert_eq!(plan.items[0].then, vec![6692, 3071, 6610]);
@@ -670,7 +714,7 @@ pub(crate) mod tests {
     fn data_from_before_the_late_slot_keeps_every_slot_its_own() {
         let mut build = with_items(&[(4, 3026, 60), (5, 3156, 50)]);
         build.late_slot = None;
-        let plan = plan(&build, Role::Jungle);
+        let plan = plan(&build, Role::Jungle, None);
         assert_eq!(plan.late_slot, None);
         assert!(plan.items.iter().all(|s| s.then.is_empty()));
     }

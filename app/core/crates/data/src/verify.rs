@@ -1,9 +1,10 @@
 use minisign_verify::{PublicKey, Signature};
 use sha2::{Digest, Sha256};
 use stronk_contracts::build_v1::Build;
+use stronk_contracts::champions_v1::Champions;
 use stronk_contracts::manifest_v1::{FileEntry, Manifest};
 use stronk_domain::{BuildKey, Patch};
-use stronk_service::ports::PortError;
+use stronk_service::ports::{CHAMPIONS, PortError};
 
 /// The public key the app trusts for published data.
 pub struct TrustedKey(PublicKey);
@@ -94,6 +95,24 @@ impl VerifiedManifest {
             )));
         }
         Ok(build)
+    }
+}
+
+impl VerifiedManifest {
+    /// The champion ratings `data` holds, if it is the file the manifest lists at
+    /// [`CHAMPIONS`] and describes this patch (ADR-074).
+    pub fn parse_champions(&self, data: &[u8]) -> Result<Champions, PortError> {
+        let patch = self.patch;
+        let champions: Champions = serde_json::from_slice(self.check_file(CHAMPIONS, data)?)
+            .map_err(|e| {
+                PortError::Invalid(format!("{patch} {CHAMPIONS}: not a champions.v1 ({e})"))
+            })?;
+        if champions.patch.as_str() != patch.to_string() {
+            return Err(PortError::Invalid(format!(
+                "{patch} {CHAMPIONS}: another patch"
+            )));
+        }
+        Ok(champions)
     }
 }
 

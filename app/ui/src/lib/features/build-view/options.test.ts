@@ -33,6 +33,7 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
   start: null,
   components: null,
   boots: null,
+  boots_against: null,
   late_slot: null,
   alternatives: {
     runes: { rows: [row({ primary_style: 8000, sub_style: 8300, perks: [8010, 2, 3] }, { chosen: true })], more: 0 },

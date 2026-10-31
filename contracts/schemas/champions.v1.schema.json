@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stronk.gg/schemas/champions.v1.schema.json",
+  "title": "Champions",
+  "description": "Each champion's damage ratings on a patch, published at /{patch}/champions.json, and the cuts that make an enemy team physical, mixed or magic (ADR-074). An enemy team's magic share is the sum of its champions' magic ratings over the sum of their attack and magic ratings.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "patch",
+    "physicalBelow",
+    "magicFrom",
+    "champions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [
+        1
+      ],
+      "description": "Contract major version."
+    },
+    "patch": {
+      "type": "string",
+      "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}$",
+      "description": "Game patch, major.minor."
+    },
+    "physicalBelow": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "A team whose magic share is under this is physical."
+    },
+    "magicFrom": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "From this, magic; in between, mixed."
+    },
+    "champions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Champion"
+      }
+    }
+  },
+  "$defs": {
+    "Champion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "attack",
+        "magic"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Champion id, as the League client gives it."
+        },
+        "attack": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Data Dragon's physical damage rating."
+        },
+        "magic": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Data Dragon's magic damage rating."
+        }
+      }
+    }
+  }
+}

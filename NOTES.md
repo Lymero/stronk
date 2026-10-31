@@ -210,3 +210,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: none.
 - 2026-10-31: the first components count planned backs only: a first back after a death of the player is left out and counted (`first_back_after_death`); the bias check (kills accounted for, deaths not) is recorded in ADR-072.
   Open: the order on planned backs carries over to backs after a death only loosely (8 of 10 clear pairs); revisit with more patches.
+- 2026-10-31: validation (16.20 vs 16.21): best bets held on average (+0.9 wins per 100, predicted +1.2) but boots didn't; boots now follow the enemy team's damage once three enemies are picked: per-profile estimates, a signed champions.json with the ratings and cuts, enemies from champion select (ADR-074).
+  Open: items 4+ against the enemy's damage when the data shows it; a recurring per-section holdout check.

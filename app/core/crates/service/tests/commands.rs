@@ -121,6 +121,7 @@ fn champselect_state_names_the_champion() {
         locked: false,
         role: Some(Role::Jungle),
         phase: "PLANNING".into(),
+        enemies: vec![],
     };
     let out = run(
         &ctx(FakeClient::new(Some(session))),
@@ -317,6 +318,40 @@ fn plan_takes_the_most_played_start_and_ranks_the_others() {
         (&rows[1]["value"], &rows[1]["versus"], &rows[1]["wpa"]),
         (&json!([1101]), &json!("most_played"), &json!(-0.005))
     );
+}
+
+#[test]
+fn plan_chooses_boots_against_the_enemy_teams_damage() {
+    let plan = |enemies: Value| {
+        run(
+            &ctx(NoClient),
+            "build.plan",
+            json!({"champion": "Viego", "role": "JUNGLE", "enemies": enemies}),
+        )
+        .unwrap()
+    };
+    // Two Ahris and a Lee Sin: a magic team, and the data has boots against magic teams.
+    let magic = plan(json!([103, 103, 64]));
+    assert_eq!(magic["boots_against"], "magic");
+    assert_eq!(magic["boots"]["value"], 3111);
+    assert_eq!(magic["alternatives"]["boots"]["rows"][1]["value"], 3047);
+    // A physical team, with no boots against physical teams: every game.
+    let physical = plan(json!([64, 64, 234]));
+    assert_eq!(physical["boots_against"], Value::Null);
+    assert_eq!(physical["boots"]["value"], 3047);
+    // Two enemies only: too few to read.
+    assert_eq!(plan(json!([103, 103]))["boots_against"], Value::Null);
+}
+
+#[test]
+fn import_writes_the_boots_for_the_enemy_team_it_sees() {
+    let mut session = viego((4, 14));
+    session.enemies = vec![103, 103, 64];
+    let (_, client) = import(FakeClient::new(Some(session)));
+    let ours: Value = serde_json::from_str(&client.state().item_sets.unwrap()).unwrap();
+    let boots = &ours["itemSets"][0]["blocks"][3];
+    assert_eq!(boots["type"], "Boots: Popular");
+    assert_eq!(boots["items"][0]["id"], "3111");
 }
 
 #[test]

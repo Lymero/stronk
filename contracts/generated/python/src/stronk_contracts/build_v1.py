@@ -143,6 +143,10 @@ class BootsOption(BaseModel):
     """
     Data Dragon item id.
     """
+    against: Literal["physical", "mixed", "magic"] | None = None
+    """
+    Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game.
+    """
     games: Annotated[int, Field(ge=0)]
     """
     Games with these boots.

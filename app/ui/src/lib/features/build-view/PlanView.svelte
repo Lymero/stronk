@@ -229,7 +229,15 @@
   const panel = $derived.by(() => {
     if (focus === "runes") return { title: "Runes", note: laidOut ? null : note(options.runes, page), extra: "" };
     if (focus === "spells") return { title: "Summoner spells", note: note(options.spells, spells), extra: "" };
-    if (focus === "boots") return { title: "Boots", note: note(options.boots, item), extra: "The first upgrade" };
+    if (focus === "boots")
+      return {
+        title: "Boots",
+        note: note(options.boots, item),
+        // Chosen against the enemy team's damage once three enemies are picked (ADR-074).
+        extra: plan.boots_against
+          ? `The first upgrade, against a ${plan.boots_against} damage team`
+          : "The first upgrade, over every game until three enemies are picked",
+      };
     if (isPurchase(focus)) return { title: PURCHASE[focus].title, note: note(options[focus], set), extra: PURCHASE[focus].about };
     const slotNo = focusedItem ?? 0;
     const also = alsoIn(slotNo, slotItem(slotNo) ?? 0);

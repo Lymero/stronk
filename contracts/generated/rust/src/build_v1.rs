@@ -7,6 +7,9 @@
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct BootsOption {
+    #[doc = "Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub against: ::std::option::Option<BootsOptionAgainst>,
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub ci: ::std::option::Option<Interval>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -21,6 +24,61 @@ pub struct BootsOption {
     #[doc = "Win probability added against the other boots; null when not estimated."]
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub wpa: ::std::option::Option<f64>,
+}
+#[doc = "Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game."]
+#[derive(
+    :: serde :: Deserialize,
+    :: serde :: Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BootsOptionAgainst {
+    #[serde(rename = "physical")]
+    Physical,
+    #[serde(rename = "mixed")]
+    Mixed,
+    #[serde(rename = "magic")]
+    Magic,
+}
+impl ::std::fmt::Display for BootsOptionAgainst {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Physical => f.write_str("physical"),
+            Self::Mixed => f.write_str("mixed"),
+            Self::Magic => f.write_str("magic"),
+        }
+    }
+}
+impl ::std::str::FromStr for BootsOptionAgainst {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "physical" => Ok(Self::Physical),
+            "mixed" => Ok(Self::Mixed),
+            "magic" => Ok(Self::Magic),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BootsOptionAgainst {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BootsOptionAgainst {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 #[doc = "Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]

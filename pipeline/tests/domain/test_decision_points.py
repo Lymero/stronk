@@ -17,6 +17,7 @@ from stronk_pipeline.domain.extract.decision_points import (
     kept_purchases,
     starting_items,
 )
+from stronk_pipeline.domain.extract.situation import damage_profile, enemy_magic_share
 from stronk_pipeline.domain.match import ItemEvent
 
 STATIC = domain_static()
@@ -236,3 +237,18 @@ def test_a_first_back_after_a_death_isnt_measured_but_counted() -> None:
     # A death after the first back changes nothing.
     events = [buy(4 * MIN, 1, 1036), kill(6 * MIN, 6, 1)]
     assert components_of(events) == [DecisionPoint(1, COMPONENTS_SLOT, 4 * MIN, "1036")]
+
+
+def test_boots_are_also_measured_against_the_enemy_teams_damage() -> None:
+    match = domain_match(events=[buy(5 * MIN, 1, 1001), buy(12 * MIN, 1, 3006)])
+    profile = damage_profile(enemy_magic_share(match, 100, STATIC))
+    points = [p for p in decision_points(match, STATIC, Counter()) if p.participant_id == 1]
+    boots = [p for p in points if p.slot in range(BOOTS_SLOT, BOOTS_SLOT + 4)]
+    assert boots == [
+        DecisionPoint(1, BOOTS_SLOT, 5 * MIN, "3006"),
+        DecisionPoint(1, BOOTS_SLOT + 1 + profile, 5 * MIN, "3006"),
+    ]
+
+
+def test_an_enemy_team_is_physical_mixed_or_magic_by_its_magic_share() -> None:
+    assert [damage_profile(s) for s in (0.0, 0.42, 0.43, 0.49, 0.5, 1.0)] == [0, 0, 1, 1, 2, 2]

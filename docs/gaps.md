@@ -17,7 +17,8 @@ Status: **missing** · **partial** · **done**
 | Matchup-adjusted builds | u.gg, Blitz | missing |
 | Starting items | u.gg, Blitz, Coachless | done: the start (items bought before leaving base, potions and wards aside) estimated and ranked like a slot, imported as the item set's first block (ADR-071) |
 | First back | u.gg, Blitz | done: the first components, what is bought on the first trip back without supplies, boots or completed items, as one choice (Dark Seal + Amplifying Tome), imported as the second block (ADR-072) |
-| Boots | u.gg, Blitz | done: the first upgraded boots, estimated and ranked like a slot, shown and imported after the first item (ADR-073) |
+| Boots | u.gg, Blitz | done: the first upgraded boots, estimated and ranked like a slot, shown and imported after the first item (ADR-073), chosen against the enemy team's damage once three enemies are picked (ADR-074) |
+| Situational items | Coachless, Mobalytics (matchup builds) | partial: boots follow the enemy team's damage (ADR-074); other items are averaged over every game, the first three showing no measurable dependence on it; lane matchups are too thin in one patch |
 | Skill order | u.gg, Blitz | missing |
 
 ## Champion select

@@ -12,7 +12,7 @@ use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_pag
 
 use crate::commands::build_get;
 use crate::commands::build_plan::{
-    Page, Plan, SlotChoice, plan, purchase_buy, purchase_items, with_alternatives,
+    Page, Plan, SlotChoice, against_for, plan, purchase_buy, purchase_items, with_alternatives,
 };
 use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};
@@ -97,7 +97,8 @@ fn run(ctx: &Context, params: Params) -> Result<Imported, CommandError> {
     }
     let champion = client.champion_key(session.champion_id)?;
     let build = build_get::fetch(ctx, &champion, role, None, None, None)?;
-    let plan = with_picks(plan(&build, role), &build, &params, client)?;
+    let against = against_for(ctx, &build, &session.enemies);
+    let plan = with_picks(plan(&build, role, against), &build, &params, client)?;
     let runes = runes(client, &plan)?;
     let (item_set, item_set_backup) = item_set(ctx, &plan, session.champion_id);
     Ok(Imported {
@@ -428,7 +429,11 @@ mod tests {
     #[test]
     fn the_late_slots_block_names_it_and_lists_its_items() {
         let build = with_items(&[(1, 6698, 90), (4, 3026, 60), (4, 3156, 50)]);
-        let set = item_set_json(&plan(&build, Role::Jungle), "Stronk: LeeSin JUNGLE", 64);
+        let set = item_set_json(
+            &plan(&build, Role::Jungle, None),
+            "Stronk: LeeSin JUNGLE",
+            64,
+        );
         assert_eq!(set["blocks"][0]["type"], "Item 1: Popular");
         assert_eq!(set["blocks"][1]["type"], "Items 4+: Popular");
         assert_eq!(

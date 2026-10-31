@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "patch": "16.20",
+  "physicalBelow": 0.43,
+  "magicFrom": 0.5,
+  "champions": [
+    {
+      "id": 64,
+      "attack": 8,
+      "magic": 2
+    },
+    {
+      "id": 103,
+      "attack": 3,
+      "magic": 8
+    },
+    {
+      "id": 234,
+      "attack": 7,
+      "magic": 2
+    }
+  ]
+}

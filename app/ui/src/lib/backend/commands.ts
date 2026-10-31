@@ -143,6 +143,13 @@ export type Int64Choice = {
     }
 );
 /**
+ * What kind of damage an enemy team deals.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Against".
+ */
+export type Against = "physical" | "mixed" | "magic";
+/**
  * Why an option was chosen; shown next to it in the UI.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -500,6 +507,10 @@ export interface Imported {
 export interface PlanParams {
   champion: string;
   elo?: string | null;
+  /**
+   * The enemy champions picked so far: boots are chosen against their damage (ADR-074).
+   */
+  enemies?: number[];
   patch?: string | null;
   region?: string | null;
   role: Role;
@@ -514,6 +525,11 @@ export interface Plan {
    * The upgraded boots (ADR-073), and the other boots their block lists after them.
    */
   boots: Int64Choice | null;
+  /**
+   * The enemy damage the boots were chosen against (ADR-074); None: over every game, as
+   * fewer than three enemies are known or the data has no boots for that kind of team.
+   */
+  boots_against: Against | null;
   boots_then?: number[];
   champion: string;
   /**
@@ -865,6 +881,10 @@ export interface ChampSelect {
    * Champion id, 0 while none is picked or hovered.
    */
   champion_id: number;
+  /**
+   * The enemy champions picked so far (ADR-074): boots are chosen against their damage.
+   */
+  enemies: number[];
   /**
    * Locked in, not just hovered.
    */
