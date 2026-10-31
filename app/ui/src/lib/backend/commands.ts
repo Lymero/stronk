@@ -203,6 +203,15 @@ export type ArrayOfInt64Choice = {
  * via the `definition` "SlotChoice".
  */
 export type SlotChoice = {
+  /**
+   * Items in the slot's block, its own first ([`SLOT_ITEMS`], or [`LATE_ITEMS`]).
+   */
+  block: number;
+  /**
+   * What the block's list draws from: the slot's options with [`BLOCK_MIN_SHARE`] of its
+   * games, in Stronk's order (ADR-070).
+   */
+  order?: number[];
   slot: number;
   /**
    * The slot's other items the import lists after the choice in its block, most played

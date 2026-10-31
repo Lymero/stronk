@@ -47,7 +47,6 @@ STARTING_PURCHASES_MS = 90_000
 """Purchases before this are the starting items, not a decision about slot 1."""
 LATE_SLOT = 4
 """The slot of the fourth completed item and every later one (ADR-067)."""
-MAX_SLOT = LATE_SLOT
 MAX_ITEMS = 7
 """Completed items followed per player."""
 SECONDARY_ROW = 5
@@ -80,7 +79,7 @@ def rune_slot(tree: int, row: int) -> int:
 
 def is_rune_slot(slot: int) -> bool:
     """Champion select's choices besides the keystone: rune rows, secondary pairs, shards."""
-    return slot > MAX_SLOT and slot not in PURCHASE_SLOTS
+    return slot > LATE_SLOT and slot not in PURCHASE_SLOTS
 
 
 def rune_row(slot: int) -> tuple[str, int | None, int | None]:

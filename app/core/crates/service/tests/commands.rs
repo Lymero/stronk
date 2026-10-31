@@ -247,7 +247,9 @@ fn plan_takes_the_popular_combination_unless_one_is_clearly_better() {
     assert_eq!(
         out["items"],
         json!([{"slot": 1, "value": 6693, "label": "clearly_better", "wpa": 0.021,
-                "ci": [0.008, 0.034], "games": 2300, "then": [6672]}])
+                "ci": [0.008, 0.034], "games": 2300, "then": [6672],
+                // The block draws from the slot's order (Stronk's choice first), four in all.
+                "order": [6693, 6672], "block": 4}])
     );
 }
 

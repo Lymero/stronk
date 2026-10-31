@@ -184,6 +184,8 @@ fn with_picks(
                 slot: pick.slot,
                 choice: picked(pick.item),
                 then: Vec::new(),
+                order: Vec::new(),
+                block: 0,
             }),
         }
     }

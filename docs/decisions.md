@@ -547,6 +547,7 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - Each option of a slot carries `judged` (`Row`): Stronk's judgement against the slot's most played option, the head-to-head gain shrunk toward 0 by its uncertainty (`shrunk`, τ = 0.02: the number the best bet is chosen by, ADR-065), and 0 for the most played option and any option not measured against it, which are no better or worse as far as Stronk knows.
   - A block lists the slot's item (the player's pick, else Stronk's choice), then the others in Stronk's order (`by_judgement`): Stronk's choice first, then the larger judged gain, ties to the more played. So the baseline leads the unmeasured options, and a clearly worse option comes after them. The 2% minimum and the block sizes of ADR-069 stay.
   - The sheet's "then …" under "Items 4+" follows the same order.
+  - **Amended (clean-up):** the app no longer copies the rule: each slot's choice carries `order` (its options with 2% of the games, in Stronk's order) and `block` (the block's size), and the sheet's "then …" takes the first of `order` that the player's picks leave free, as the import does. The 2% minimum, the order and the sizes live only in the core.
 - **Consequences:** a pick overrules Stronk in its slot without hiding Stronk's view: Stronk's choice is right after it. On thin data most options are unmeasured, so the order is mostly popularity after Stronk's choice.
 
 ### ADR-071 · The start: what players buy before leaving base

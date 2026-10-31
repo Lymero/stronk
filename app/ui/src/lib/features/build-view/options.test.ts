@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Plan, Row } from "../../backend/backend.ts";
-import { allPopular, changes, explain, figure, mostPlayed, options, selected, share, verdict, wins } from "./options.ts";
+import { allPopular, changes, explain, figure, mostPlayed, options, selected, verdict, wins } from "./options.ts";
 
 const row = <T>(value: T, rest: Partial<Row<T>> = {}): Row<T> => ({
   value,
@@ -29,7 +29,7 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
   region: "all",
   runes: null,
   spells: { value: [11, 4], label: "popular" },
-  items: [{ slot: 4, value: 10, label: "popular" }],
+  items: [{ slot: 4, value: 10, label: "popular", block: 4 }],
   start: null,
   components: null,
   boots: null,
@@ -130,7 +130,7 @@ describe("options", () => {
   });
 
   it("formats win impact and shares", () => {
-    expect([wins(0.021), wins(-0.004), share(0.3575)]).toEqual(["+2.1", "−0.4", "36%"]);
+    expect([wins(0.021), wins(-0.004)]).toEqual(["+2.1", "−0.4"]);
   });
 
   it("lists what Stronk imports instead of the most played option, and what it beats", () => {
@@ -179,7 +179,7 @@ describe("options", () => {
 
   it("knows when every choice is the most played one", () => {
     expect(allPopular(plan())).toBe(true);
-    const better = { slot: 4, value: 10, label: "clearly_better", wpa: 0.02, ci: null, games: 5 } as const;
+    const better = { slot: 4, value: 10, label: "clearly_better", wpa: 0.02, ci: null, games: 5, block: 4 } as const;
     expect(allPopular(plan({ items: [better] }))).toBe(false);
   });
 });

@@ -4,8 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{
-    BootsOption, Build, Comparison, Flag, Interval, PurchaseComparison, PurchaseOption, RuneChoice,
-    RuneChoiceComparison, RuneChoiceKind,
+    BootsOption, BootsOptionAgainst, Build, Comparison, Flag, Interval, PurchaseComparison,
+    PurchaseOption, RuneChoice, RuneChoiceComparison, RuneChoiceKind,
 };
 use stronk_domain::Role;
 use stronk_domain::damage::{self, Against};
@@ -48,6 +48,12 @@ pub struct SlotChoice {
     /// first (ADR-067, ADR-069).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub then: Vec<i64>,
+    /// What the block's list draws from: the slot's options with [`BLOCK_MIN_SHARE`] of its
+    /// games, in Stronk's order (ADR-070).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub order: Vec<i64>,
+    /// Items in the slot's block, its own first ([`SLOT_ITEMS`], or [`LATE_ITEMS`]).
+    pub block: usize,
 }
 
 /// Items in a slot's block of the item set: its choice, then the most played others.
@@ -187,80 +193,20 @@ pub fn against_for(ctx: &Context, build: &Build, enemies: &[i64]) -> Option<Agai
 /// The choice for every decision of `build`, and the alternatives behind it; boots against
 /// the enemy team's damage when it is known and the data has boots for it (ADR-074).
 pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
-    let runes: Vec<Candidate<Page>> = build
-        .runes
-        .iter()
-        .map(|o| Candidate {
-            value: Page {
-                primary_style: to_i64(o.page.primary_style),
-                sub_style: to_i64(o.page.sub_style),
-                perks: o.page.perks.iter().map(|p| to_i64(*p)).collect(),
-            },
-            id: o.page.perks.first().map_or(0, |k| to_i64(*k)),
-            // The estimate is the keystone's: every game with it, not only those with exactly
-            // this page (`games`), which splits a keystone across its page variants.
-            played: o.n,
-            wpa: o.wpa,
-            ci: o.ci.as_ref().map(interval),
-            too_few: too_few(&o.flags),
-            low_overlap: o.flags.contains(&Flag::LowOverlap),
-            unclear: o.flags.contains(&Flag::NoClearDifference),
-            fragile: o.flags.contains(&Flag::Fragile),
-            comparison: o.comparison.as_ref().map(compared),
-        })
-        .collect();
-    // Spells have no WPA yet, so never a claim: always the popular pair.
-    let spells: Vec<Candidate<(i64, i64)>> = build
-        .spells
-        .iter()
-        .map(|o| {
-            let [d, f] = o.spells.map(|s| to_i64(s.get()));
-            Candidate {
-                value: (d, f),
-                id: d.min(f) * 1_000 + d.max(f),
-                played: o.games.unwrap_or(o.n),
-                wpa: o.wpa,
-                ci: o.ci.as_ref().map(interval),
-                too_few: too_few(&o.flags),
-                low_overlap: o.flags.contains(&Flag::LowOverlap),
-                unclear: o.flags.contains(&Flag::NoClearDifference),
-                fragile: o.flags.contains(&Flag::Fragile),
-                comparison: None,
-            }
-        })
-        .collect();
-    let mut slots: Vec<u64> = build.items.iter().map(|o| o.slot.get()).collect();
-    slots.sort_unstable();
-    slots.dedup();
-    let candidates: Vec<(u64, Vec<Candidate<i64>>)> = slots
-        .into_iter()
-        .map(|slot| {
-            let candidates = build
-                .items
-                .iter()
-                .filter(|o| o.slot.get() == slot)
-                .map(|o| Candidate {
-                    value: to_i64(o.item.get()),
-                    id: to_i64(o.item.get()),
-                    played: o.picks.unwrap_or(o.n),
-                    wpa: o.wpa,
-                    ci: o.ci.as_ref().map(interval),
-                    too_few: too_few(&o.flags),
-                    low_overlap: o.flags.contains(&Flag::LowOverlap),
-                    unclear: o.flags.contains(&Flag::NoClearDifference),
-                    fragile: o.flags.contains(&Flag::Fragile),
-                    comparison: o.comparison.as_ref().map(compared),
-                })
-                .collect();
-            (slot, candidates)
-        })
-        .collect();
+    let runes = page_candidates(build);
+    let spells = spell_candidates(build);
+    let candidates = item_candidates(build);
+    let starts = purchase_candidates(&build.starts);
+    let components = purchase_candidates(&build.first_components);
+    let (boots, boots_against) = boots_candidates(build, against);
     let items: Vec<SlotChoice> = choose_items(&candidates)
         .into_iter()
         .map(|(slot, choice)| SlotChoice {
             slot,
             choice,
             then: Vec::new(),
+            order: Vec::new(),
+            block: 0,
         })
         .collect();
     // The page chosen by its keystone, which the pages' list marks (each page stands for its
@@ -270,43 +216,15 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
         .clone()
         .map(|c| with_row_bets(c, &build.rune_choices));
     let spells_choice = choose(&spells);
-    let starts = purchase_candidates(&build.starts);
     let start_choice = choose(&starts);
-    let components = purchase_candidates(&build.first_components);
     let components_choice = choose(&components);
-    // Boots against this kind of team if the data has them, else over every game.
-    let profile = |o: &BootsOption| o.against.map(|a| a.to_string());
-    let boots_against = against.filter(|a| {
-        build
-            .boots
-            .iter()
-            .any(|o| profile(o).as_deref() == Some(a.as_str()))
-    });
-    let boots: Vec<Candidate<i64>> = build
-        .boots
-        .iter()
-        .filter(|o| profile(o).as_deref() == boots_against.map(Against::as_str))
-        .map(|o| Candidate {
-            value: to_i64(o.item.get()),
-            id: to_i64(o.item.get()),
-            played: o.games,
-            wpa: o.wpa,
-            ci: o.ci.as_ref().map(interval),
-            too_few: too_few(&o.flags),
-            low_overlap: o.flags.contains(&Flag::LowOverlap),
-            unclear: o.flags.contains(&Flag::NoClearDifference),
-            fragile: o.flags.contains(&Flag::Fragile),
-            comparison: o.comparison.as_ref().map(compared),
-        })
-        .collect();
     let boots_choice = choose(&boots);
-    let rune_rows = rune_rows(&build.rune_choices, runes_choice.as_ref().map(|c| &c.value));
     let alternatives = Alternatives {
-        runes: rank(&runes, keystone_choice.as_ref().map(|c| &c.value)),
-        spells: rank(&spells, spells_choice.as_ref().map(|c| &c.value)),
-        start: rank(&starts, start_choice.as_ref().map(|c| &c.value)),
-        components: rank(&components, components_choice.as_ref().map(|c| &c.value)),
-        boots: rank(&boots, boots_choice.as_ref().map(|c| &c.value)),
+        runes: rank(&runes, chosen(&keystone_choice)),
+        spells: rank(&spells, chosen(&spells_choice)),
+        start: rank(&starts, chosen(&start_choice)),
+        components: rank(&components, chosen(&components_choice)),
+        boots: rank(&boots, chosen(&boots_choice)),
         items: candidates
             .iter()
             .map(|(slot, options)| {
@@ -317,7 +235,12 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
                 }
             })
             .collect(),
-        rune_rows,
+        rune_rows: rune_rows(&build.rune_choices, chosen(&runes_choice)),
+    };
+    let buy = |options: &[PurchaseOption], c: &Option<Choice<Vec<i64>>>| {
+        chosen(c)
+            .map(|v| purchase_buy(options, v))
+            .unwrap_or_default()
     };
     let mut plan = Plan {
         champion: build.champion.to_string(),
@@ -328,15 +251,9 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
         region: build.region.to_string(),
         runes: runes_choice,
         spells: spells_choice,
-        start_buy: start_choice
-            .as_ref()
-            .map(|c| purchase_buy(&build.starts, &c.value))
-            .unwrap_or_default(),
+        start_buy: buy(&build.starts, &start_choice),
         start: start_choice,
-        components_buy: components_choice
-            .as_ref()
-            .map(|c| purchase_buy(&build.first_components, &c.value))
-            .unwrap_or_default(),
+        components_buy: buy(&build.first_components, &components_choice),
         components: components_choice,
         boots: boots_choice,
         boots_then: Vec::new(),
@@ -349,47 +266,200 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
     plan
 }
 
-/// Each slot's other items for its block (ADR-069): its options with at least
-/// [`BLOCK_MIN_SHARE`] of its games in Stronk's order (its choice, then its judgement,
-/// ADR-070), without any item a slot already takes, up to [`SLOT_ITEMS`] with the slot's item
-/// ([`LATE_ITEMS`] for the late slot, ADR-067). The block starts with the slot's item, the
-/// player's pick when they made one: a pick overrules Stronk, which then comes next. Called
-/// again when the player's picks change the items.
+/// The value a choice takes, if any.
+fn chosen<T>(choice: &Option<Choice<T>>) -> Option<&T> {
+    choice.as_ref().map(|c| &c.value)
+}
+
+/// A published option as the rule reads it (ADR-043): its estimate, interval and flags.
+fn candidate<T>(
+    value: T,
+    id: i64,
+    played: u64,
+    wpa: Option<f64>,
+    ci: Option<&Interval>,
+    flags: &[Flag],
+    comparison: Option<select::Comparison>,
+) -> Candidate<T> {
+    Candidate {
+        value,
+        id,
+        played,
+        wpa,
+        ci: ci.map(interval),
+        too_few: too_few(flags),
+        low_overlap: flags.contains(&Flag::LowOverlap),
+        unclear: flags.contains(&Flag::NoClearDifference),
+        fragile: flags.contains(&Flag::Fragile),
+        comparison,
+    }
+}
+
+/// The published pages, each standing for its keystone.
+fn page_candidates(build: &Build) -> Vec<Candidate<Page>> {
+    build
+        .runes
+        .iter()
+        .map(|o| {
+            let page = Page {
+                primary_style: to_i64(o.page.primary_style),
+                sub_style: to_i64(o.page.sub_style),
+                perks: o.page.perks.iter().map(|p| to_i64(*p)).collect(),
+            };
+            let keystone = o.page.perks.first().map_or(0, |k| to_i64(*k));
+            // The estimate is the keystone's: every game with it, not only those with exactly
+            // this page (`games`), which splits a keystone across its page variants.
+            let comparison = o.comparison.as_ref().map(compared);
+            candidate(
+                page,
+                keystone,
+                o.n,
+                o.wpa,
+                o.ci.as_ref(),
+                &o.flags,
+                comparison,
+            )
+        })
+        .collect()
+}
+
+/// The published spell pairs. Spells have no WPA yet, so never a claim: always the popular pair.
+fn spell_candidates(build: &Build) -> Vec<Candidate<(i64, i64)>> {
+    build
+        .spells
+        .iter()
+        .map(|o| {
+            let [d, f] = o.spells.map(|s| to_i64(s.get()));
+            let id = d.min(f) * 1_000 + d.max(f);
+            let played = o.games.unwrap_or(o.n);
+            candidate((d, f), id, played, o.wpa, o.ci.as_ref(), &o.flags, None)
+        })
+        .collect()
+}
+
+/// Each item slot's published items, by slot.
+fn item_candidates(build: &Build) -> Vec<(u64, Vec<Candidate<i64>>)> {
+    let mut slots: Vec<u64> = build.items.iter().map(|o| o.slot.get()).collect();
+    slots.sort_unstable();
+    slots.dedup();
+    slots
+        .into_iter()
+        .map(|slot| {
+            let candidates = build
+                .items
+                .iter()
+                .filter(|o| o.slot.get() == slot)
+                .map(|o| {
+                    let item = to_i64(o.item.get());
+                    let played = o.picks.unwrap_or(o.n);
+                    let comparison = o.comparison.as_ref().map(compared);
+                    candidate(
+                        item,
+                        item,
+                        played,
+                        o.wpa,
+                        o.ci.as_ref(),
+                        &o.flags,
+                        comparison,
+                    )
+                })
+                .collect();
+            (slot, candidates)
+        })
+        .collect()
+}
+
+/// The boots against `against` if the data has them, else over every game (ADR-074), and the
+/// enemy damage they were estimated against.
+fn boots_candidates(
+    build: &Build,
+    against: Option<Against>,
+) -> (Vec<Candidate<i64>>, Option<Against>) {
+    let profile = |o: &BootsOption| o.against.map(against_of);
+    let used = against.filter(|a| build.boots.iter().any(|o| profile(o) == Some(*a)));
+    let boots = build
+        .boots
+        .iter()
+        .filter(|o| profile(o) == used)
+        .map(|o| {
+            let item = to_i64(o.item.get());
+            let comparison = o.comparison.as_ref().map(compared);
+            candidate(
+                item,
+                item,
+                o.games,
+                o.wpa,
+                o.ci.as_ref(),
+                &o.flags,
+                comparison,
+            )
+        })
+        .collect();
+    (boots, used)
+}
+
+/// The data's enemy profile as the domain's.
+fn against_of(against: BootsOptionAgainst) -> Against {
+    match against {
+        BootsOptionAgainst::Physical => Against::Physical,
+        BootsOptionAgainst::Mixed => Against::Mixed,
+        BootsOptionAgainst::Magic => Against::Magic,
+    }
+}
+
+/// Each slot's block (ADR-069): its order, the options with at least [`BLOCK_MIN_SHARE`] of its
+/// games in Stronk's order (its choice, then its judgement, ADR-070), and its size, [`SLOT_ITEMS`]
+/// ([`LATE_ITEMS`] for the late slot, ADR-067); `then`, the first of that order no slot takes.
+/// The block starts with the slot's item, the player's pick when they made one: a pick overrules
+/// Stronk, which then comes next. Called again when the player's picks change the items; the app
+/// fills the late block's list from `order` and `block` the same way.
 pub fn with_alternatives(plan: &mut Plan) {
     let taken: Vec<i64> = plan.items.iter().map(|s| s.choice.value).collect();
     for s in &mut plan.items {
-        let size = if plan.late_slot == Some(s.slot) {
+        s.block = if plan.late_slot == Some(s.slot) {
             LATE_ITEMS
         } else {
             SLOT_ITEMS
         };
-        s.then = plan
+        s.order = plan
             .alternatives
             .items
             .iter()
             .find(|a| a.slot == s.slot)
-            .map(|a| block_others(&a.ranked, &taken, size))
+            .map(|a| block_order(&a.ranked))
             .unwrap_or_default();
+        s.then = block_others(&s.order, &taken, s.block);
     }
     // Boots are their own block (ADR-073): the other boots, in the same order.
-    let boots: Vec<i64> = plan.boots.iter().map(|c| c.value).collect();
-    plan.boots_then = if plan.boots.is_some() {
-        block_others(&plan.alternatives.boots, &boots, SLOT_ITEMS)
-    } else {
-        Vec::new()
+    plan.boots_then = match &plan.boots {
+        Some(c) => block_others(
+            &block_order(&plan.alternatives.boots),
+            &[c.value],
+            SLOT_ITEMS,
+        ),
+        None => Vec::new(),
     };
 }
 
-/// A block's items after its first: the options with [`BLOCK_MIN_SHARE`] of the games, not
-/// `taken`, in Stronk's order, `size - 1` of them.
-fn block_others(ranked: &Ranked<i64>, taken: &[i64], size: usize) -> Vec<i64> {
+/// A slot's options with [`BLOCK_MIN_SHARE`] of its games, in Stronk's order.
+fn block_order(ranked: &Ranked<i64>) -> Vec<i64> {
     let mut rows: Vec<&Row<i64>> = ranked
         .rows
         .iter()
-        .filter(|r| r.share >= BLOCK_MIN_SHARE && !taken.contains(&r.value))
+        .filter(|r| r.share >= BLOCK_MIN_SHARE)
         .collect();
     by_judgement(&mut rows);
-    rows.iter().map(|r| r.value).take(size - 1).collect()
+    rows.iter().map(|r| r.value).collect()
+}
+
+/// A block's items after its first: the first `size - 1` of `order` not `taken`.
+fn block_others(order: &[i64], taken: &[i64], size: usize) -> Vec<i64> {
+    order
+        .iter()
+        .copied()
+        .filter(|v| !taken.contains(v))
+        .take(size - 1)
+        .collect()
 }
 
 /// The published rune choices grouped by row, primary rows first, then pairs, then shards, each
@@ -422,18 +492,17 @@ fn row_candidates(
         .filter(|c| row_of(c) == key)
         .map(|c| {
             let value: Vec<i64> = c.perks.iter().map(|p| to_i64(*p)).collect();
-            Candidate {
-                id: perks_id(&value),
+            let (id, played) = (perks_id(&value), c.games.unwrap_or(c.n));
+            let comparison = c.comparison.as_ref().map(row_compared);
+            candidate(
                 value,
-                played: c.games.unwrap_or(c.n),
-                wpa: c.wpa,
-                ci: c.ci.as_ref().map(interval),
-                too_few: too_few(&c.flags),
-                low_overlap: c.flags.contains(&Flag::LowOverlap),
-                unclear: c.flags.contains(&Flag::NoClearDifference),
-                fragile: c.flags.contains(&Flag::Fragile),
-                comparison: c.comparison.as_ref().map(row_compared),
-            }
+                id,
+                played,
+                c.wpa,
+                c.ci.as_ref(),
+                &c.flags,
+                comparison,
+            )
         })
         .collect()
 }
@@ -542,18 +611,17 @@ fn purchase_candidates(options: &[PurchaseOption]) -> Vec<Candidate<Vec<i64>>> {
         .iter()
         .map(|o| {
             let value = purchase_items(&o.items);
-            Candidate {
-                id: purchase_id(&value),
+            let id = purchase_id(&value);
+            let comparison = o.comparison.as_ref().map(purchase_compared);
+            candidate(
                 value,
-                played: o.games,
-                wpa: o.wpa,
-                ci: o.ci.as_ref().map(interval),
-                too_few: too_few(&o.flags),
-                low_overlap: o.flags.contains(&Flag::LowOverlap),
-                unclear: o.flags.contains(&Flag::NoClearDifference),
-                fragile: o.flags.contains(&Flag::Fragile),
-                comparison: o.comparison.as_ref().map(purchase_compared),
-            }
+                id,
+                o.games,
+                o.wpa,
+                o.ci.as_ref(),
+                &o.flags,
+                comparison,
+            )
         })
         .collect()
 }

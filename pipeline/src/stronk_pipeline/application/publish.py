@@ -27,7 +27,6 @@ from stronk_pipeline.domain.extract.decision_points import (
     BOOTS_SLOT,
     COMPONENTS_SLOT,
     LATE_SLOT,
-    MAX_SLOT,
     START_SLOT,
     is_rune_slot,
     rune_row,
@@ -207,7 +206,7 @@ def _builds(
         ]
         items = [
             {"slot": e.slot, "item": int(e.option), "picks": e.chosen, **_numbers(e)}
-            for e in _ranked(o for o in options if 1 <= o.slot <= MAX_SLOT)
+            for e in _ranked(o for o in options if 1 <= o.slot <= LATE_SLOT)
         ]
         choices = [
             {

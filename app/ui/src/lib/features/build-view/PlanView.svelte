@@ -10,7 +10,7 @@
   import Facts from "../../ui/Facts.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
   import { type Pick, type Picks, PURCHASES, type Purchase } from "../../state/picks.ts";
-  import Loadout from "./Loadout.svelte";
+  import Loadout, { type LoadoutSlot } from "./Loadout.svelte";
   import OptionTable from "./OptionTable.svelte";
   import RunePage from "./RunePage.svelte";
   import {
@@ -55,10 +55,6 @@
   );
   /** Fewer games than this behind a whole build: the board says so before anything else. */
   const THIN = 300;
-  /** Items in the late slot's block, and the share an alternative needs to be in a block, as the
-   * core's `LATE_ITEMS` and `BLOCK_MIN_SHARE`. */
-  const LATE_ITEMS = 6;
-  const BLOCK_MIN_SHARE = 0.02;
   const options = $derived(ranked(plan, picks));
   const stronkChanges = $derived(changes(options, plan.alternatives.rune_rows));
   /** The page the import writes: the player's, else Stronk's. */
@@ -89,20 +85,13 @@
   const slotName = (slot: number) => (slot === plan.late_slot ? `Items ${slot}+` : `Item ${slot}`);
   const alsoIn = (slot: number, id: number) =>
     plan.items.filter((i) => i.slot !== slot && slotItem(i.slot) === id).map((i) => slotName(i.slot).toLowerCase());
-  /** The late slot's other items as the import lists them after its pick: the core's list
-   * (`then`, each with 2% of the slot's games, in Stronk's order: its choice, then its judgement)
-   * refilled the same way when the player's picks take some (ADR-069, ADR-070). */
+  /** The late slot's other items as the import lists them after its pick (ADR-069, ADR-070):
+   * the core's order for the block, without the items the slots take with the player's picks. */
   const lateThen = $derived.by(() => {
     const late = plan.items.find((i) => i.slot === plan.late_slot);
     if (!late) return [];
-    const count = Math.max(late.then?.length ?? 0, LATE_ITEMS - 1);
     const taken = new Set(plan.items.map((i) => slotItem(i.slot)));
-    const rows = options.items.find((s) => s.slot === late.slot)?.rows ?? [];
-    return rows
-      .filter((r) => r.share >= BLOCK_MIN_SHARE && !taken.has(r.value))
-      .sort((a, b) => Number(b.chosen) - Number(a.chosen) || b.judged - a.judged)
-      .map((r) => r.value)
-      .slice(0, count);
+    return (late.order ?? []).filter((v) => !taken.has(v)).slice(0, late.block - 1);
   });
 
   const changedKey = (part: "runes" | "rune" | "spells" | Purchase | "boots" | number) =>
@@ -111,14 +100,6 @@
   const spellPair = $derived(picks.spells ?? plan.spells?.value ?? null);
   /** The boots the import writes: the player's, else Stronk's (ADR-073). */
   const bootsItem = $derived(picks.boots ?? plan.boots?.value ?? null);
-  const bootsSlot = (id: number) => ({
-    key: "boots",
-    name: "Boots",
-    value: item(id),
-    icons: [shown("items", id)],
-    changed: picks.boots !== undefined ? null : gain("boots"), // the gain is Stronk's pick's, not the player's
-    yours: picks.boots !== undefined,
-  });
   /** The purchases made as a set of items, each named and explained. */
   const PURCHASE: Record<Purchase, { name: string; title: string; about: string }> = {
     start: { name: "Start", title: "Start", about: "Before leaving base, potions and wards aside" },
@@ -140,62 +121,38 @@
       .sort((a, b) => (b.row.wpa ?? 0) - (a.row.wpa ?? 0))[0];
     return found ? { text: wins(found.row.wpa ?? 0), bet: found.row.confidence === "best_bet" } : null;
   };
-  const slots = $derived([
-    ...(shownPage
-      ? [
-          {
-            key: "runes",
-            name: "Runes",
-            value: name(names, "runes", shownPage.perks[0] ?? 0),
-            detail: `${name(names, "rune_styles", shownPage.primary_style)} + ${name(names, "rune_styles", shownPage.sub_style)}`,
-            icons: [shown("runes", shownPage.perks[0] ?? 0)],
-            changed: picks.runes !== undefined ? null : gain("runes"), // the gain is Stronk's pick's, not the player's
-            yours: picks.runes !== undefined,
-          },
-        ]
-      : []),
-    ...(spellPair
-      ? [
-          {
-            key: "spells",
-            name: "Spells",
-            value: spells(spellPair),
-            icons: spellPair.map((id) => shown("spells", id)),
-            changed: picks.spells !== undefined ? null : gain("spells"), // the gain is Stronk's pick's, not the player's
-            yours: picks.spells !== undefined,
-          },
-        ]
-      : []),
-    ...PURCHASES.flatMap((key) => {
+  /** One row of the sheet. Stronk's change shows only while the import writes Stronk's choice:
+   * the gain is Stronk's pick's, not the player's. */
+  const row = (key: string, name: string, picked: boolean, value: string, icons: LoadoutSlot["icons"], detail?: string): LoadoutSlot => ({
+    key,
+    name,
+    value,
+    icons,
+    ...(detail ? { detail } : {}),
+    changed: picked ? null : gain(key),
+    yours: picked,
+  });
+  const slots = $derived.by(() => {
+    const out: LoadoutSlot[] = [];
+    if (shownPage) {
+      const keystone = shownPage.perks[0] ?? 0;
+      const trees = `${name(names, "rune_styles", shownPage.primary_style)} + ${name(names, "rune_styles", shownPage.sub_style)}`;
+      out.push(row("runes", "Runes", picks.runes !== undefined, name(names, "runes", keystone), [shown("runes", keystone)], trees));
+    }
+    if (spellPair) out.push(row("spells", "Spells", picks.spells !== undefined, spells(spellPair), spellIcons(spellPair)));
+    for (const key of PURCHASES) {
       const items = bought(key);
-      if (!items) return [];
-      return [
-        {
-          key,
-          name: PURCHASE[key].name,
-          value: set(items),
-          icons: setIcons(items),
-          changed: picks[key] !== undefined ? null : gain(key), // the gain is Stronk's pick's, not the player's
-          yours: picks[key] !== undefined,
-        },
-      ];
-    }),
-    ...plan.items.flatMap((c) => {
+      if (items) out.push(row(key, PURCHASE[key].name, picks[key] !== undefined, set(items), setIcons(items)));
+    }
+    for (const c of plan.items) {
       const id = slotItem(c.slot) ?? c.value;
-      const then = c.slot === plan.late_slot ? lateThen : [];
-      const slot = {
-        key: `item-${c.slot}`,
-        name: slotName(c.slot),
-        value: item(id),
-        ...(then.length ? { detail: `then ${then.map(item).join(", ")}` } : {}),
-        icons: [shown("items", id)],
-        changed: picks.items[c.slot] !== undefined ? null : gain(`item-${c.slot}`), // the gain is Stronk's pick's, not the player's
-        yours: picks.items[c.slot] !== undefined,
-      };
+      const then = c.slot === plan.late_slot && lateThen.length ? `then ${lateThen.map(item).join(", ")}` : undefined;
+      out.push(row(`item-${c.slot}`, slotName(c.slot), picks.items[c.slot] !== undefined, item(id), itemIcons(id), then));
       // Boots after the first item, when they're usually bought (ADR-073).
-      return c === plan.items[0] && bootsItem !== null ? [slot, bootsSlot(bootsItem)] : [slot];
-    }),
-  ]);
+      if (c === plan.items[0] && bootsItem !== null) out.push(row("boots", "Boots", picks.boots !== undefined, item(bootsItem), itemIcons(bootsItem)));
+    }
+    return out;
+  });
 
   let chosenFocus = $state<string | null>(null);
   const firstKey = $derived(stronkChanges[0] ? changedKey(stronkChanges[0].part) : shownPage ? "runes" : "item-1");

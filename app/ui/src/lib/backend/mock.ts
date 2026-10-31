@@ -430,13 +430,15 @@ const leeSin: Plan = {
   boots_then: [3111],
   boots_against: null,
   items: [
-    { slot: 1, value: 6692, label: "popular" },
-    { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640 },
-    { slot: 3, value: 3026, label: "best_bet", wpa: 0.012, ci: [0.0, 0.024], games: 160 },
+    { slot: 1, value: 6692, label: "popular", block: 4 },
+    { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640, block: 4 },
+    { slot: 3, value: 3026, label: "best_bet", wpa: 0.012, ci: [0.0, 0.024], games: 160, block: 4 },
     // Guardian Angel, item 3, left out of the late items' list.
     // In Stronk's order: Maw ahead, then the ones it knows nothing against, Death's Dance behind;
     // Trinity Force is under 2%.
-    { slot: 4, value: 3053, label: "popular", then: [3156, 6694, 3071, 6333] },
+    // Stronk's order: its choice, Maw ahead of it, those it knows nothing against, Death's Dance
+    // behind (Trinity Force, under 2%, isn't in it).
+    { slot: 4, value: 3053, label: "popular", then: [3156, 6694, 3071, 6333], order: [3053, 3156, 3026, 6694, 3071, 6333], block: 6 },
   ],
   late_slot: 4,
   alternatives: leeSinAlternatives,
@@ -459,7 +461,7 @@ const graves: Plan = {
   ...leeSin,
   champion: "Graves",
   games: 140,
-  items: [{ slot: 1, value: 6676, label: "popular" }],
+  items: [{ slot: 1, value: 6676, label: "popular", block: 4 }],
   alternatives: gravesAlternatives,
   start: null,
   components: null,

@@ -71,12 +71,6 @@ export function options(plan: Plan, picks: Picks = noPicks()): Options {
 /** A win impact in wins per 100 games (percentage points of win probability), "+2.1" (ADR-060). */
 export const wins = (v: number): string => `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(1)}`;
 
-/** Half an interval's width in wins per 100 games. */
-export const spread = (ci: [number, number]): number => Math.abs(ci[1] - ci[0]) * 50;
-
-/** A share of games as a whole percentage. */
-export const share = (v: number): string => `${Math.round(v * 100)}%`;
-
 /** True when every choice is the most played one: nothing beat it clearly. */
 export const allPopular = (plan: Plan): boolean =>
   [plan.runes, plan.spells, plan.start, plan.components, plan.boots, ...plan.items].every((c: Choice<unknown> | null) => c === null || c.label === "popular");
@@ -170,19 +164,4 @@ export function changes(options: Options, runeRows: Plan["alternatives"]["rune_r
     ...of("boots", options.boots),
     ...options.items.flatMap((s) => of(s.slot, s)),
   ];
-}
-
-/** What an option shows beside its icon or name (ADR-060, ADR-063): its number against the most
- * played option of its row (0 for that one, ▲ or ▼ when clear), or "too few to compare" for one
- * with plenty of games but too few comparable ones; nothing when short of games, or when nearly
- * everyone takes it, as its share (shown beside it) says that better than words. */
-export function reading(row: Row<unknown> | undefined): { number: string | null; tone: string; note: string | null } {
-  if (!row) return { number: null, tone: "", note: null };
-  if (row.confidence === "almost_always") return { number: null, tone: "", note: null };
-  if (row.confidence === "too_few_to_compare") return { number: null, tone: "", note: "too few to compare" };
-  if (row.confidence === "most_played") return { number: row.wpa === null ? null : "0", tone: "", note: null };
-  if (figure(row) === null || row.wpa === null) return { number: null, tone: "", note: null };
-  const clear = verdict(row);
-  const arrow = clear?.tone === "positive" ? "▲" : clear?.tone === "negative" ? "▼" : "";
-  return { number: `${arrow}${wins(row.wpa)}`, tone: clear?.tone ?? "", note: null };
 }

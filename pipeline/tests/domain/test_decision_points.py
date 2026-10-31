@@ -8,7 +8,6 @@ from stronk_pipeline.domain.extract.decision_points import (
     COMPONENTS_SLOT,
     LATE_SLOT,
     MAX_ITEMS,
-    MAX_SLOT,
     START_SLOT,
     DecisionPoint,
     decision_points,
@@ -30,7 +29,7 @@ def items_of(
     dropped: Counter[str] = Counter()
     points = decision_points(domain_match(events=events), STATIC, dropped)
     return [
-        p for p in points if p.participant_id == participant_id and 1 <= p.slot <= MAX_SLOT
+        p for p in points if p.participant_id == participant_id and 1 <= p.slot <= LATE_SLOT
     ], dropped
 
 

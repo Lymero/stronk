@@ -46,7 +46,7 @@ export type Ranked<T> = Omit<Core.PageRanked, "rows"> & { rows: Row<T>[] };
 // The generic forms say the same as each generated copy, in both directions.
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 const same = <T extends true>(): T | undefined => undefined;
-same<Same<Choice<number>, DistributiveOmit<Core.SlotChoice, "slot">>>();
+same<Same<Choice<number>, DistributiveOmit<Core.SlotChoice, "slot" | "then" | "order" | "block">>>();
 same<Same<Choice<[number, number]>, Core.TupleOfInt64AndInt64Choice>>();
 same<Same<Row<number>, Core.Int64Row>>();
 same<Same<Row<[number, number]>, Core.TupleOfInt64AndInt64Row>>();

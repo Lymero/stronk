@@ -12,16 +12,6 @@ pub enum Against {
     Magic,
 }
 
-impl Against {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Physical => "physical",
-            Self::Mixed => "mixed",
-            Self::Magic => "magic",
-        }
-    }
-}
-
 /// Enemy picks needed before their damage is read: with fewer, one pick decides too much, and
 /// boots are chosen over every game.
 pub const ENEMIES_KNOWN: usize = 3;
