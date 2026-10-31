@@ -16,8 +16,11 @@ export interface RuneRow {
   label: string;
   /** Its runes in the client's order. */
   ids: number[];
-  /** Its runes as an item list takes them, most played first; a secondary row's have no numbers. */
-  slot: Slot<number>;
+  /** Its runes as an item list takes them, most played first; none for a secondary row, whose
+   * runes are listed as pairs (`runePairs`). */
+  slot: Slot<number> | null;
+  /** Whether Stronk's page has `id` in this row: the tree marks it when the player took another. */
+  stronk: (id: number) => boolean;
   /** The rune the page has in this row; a secondary row may have none. */
   picked: number | undefined;
   /** The page with `id` picked in this row, by the client's rules. */
@@ -85,6 +88,7 @@ export function runeRows(
         (id) => has(page, id, r, r + 1),
         (id) => has(stronk, id, r, r + 1),
       ),
+      stronk: (id: number) => has(stronk, id, r, r + 1),
       picked: ids.find((id) => page.perks[r] === id),
       next: (id: number) => withPrimaryRune(page, r, id),
     })),
@@ -93,7 +97,8 @@ export function runeRows(
       group: "secondary" as const,
       label: `Row ${r + 1}`,
       ids,
-      slot: slotOf(ids, () => undefined, (id) => has(page, id, 4, 6), (id) => has(stronk, id, 4, 6)),
+      slot: null,
+      stronk: (id: number) => has(stronk, id, 4, 6),
       picked: ids.find((id) => page.perks.slice(4, 6).includes(id)),
       next: (id: number) => withSecondaryRune(trees, page, id, last),
     })),
@@ -108,6 +113,7 @@ export function runeRows(
         (id) => page.perks[6 + r] === id,
         (id) => stronk?.perks[6 + r] === id,
       ),
+      stronk: (id: number) => stronk?.perks[6 + r] === id,
       picked: ids.find((id) => page.perks[6 + r] === id),
       next: (id: number) => withShard(page, r, id),
     })),

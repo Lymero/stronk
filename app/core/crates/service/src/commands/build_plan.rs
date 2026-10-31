@@ -107,6 +107,27 @@ pub struct RuneRow {
     pub ranked: Ranked<Vec<i64>>,
 }
 
+/// A start's or first components' choice (ADR-071, ADR-072), and what the import writes for it:
+/// what is most often bought with those items, supplies included, repeated as bought.
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
+pub struct PurchaseChoice {
+    #[serde(flatten)]
+    pub choice: Choice<Vec<i64>>,
+    pub buy: Vec<i64>,
+}
+
+/// The boots' choice (ADR-073), the other boots their block lists after it, and the enemy damage
+/// they were chosen against (ADR-074): None, over every game, as fewer than three enemies are
+/// known or the data has no boots for that kind of team.
+#[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
+pub struct BootsChoice {
+    #[serde(flatten)]
+    pub choice: Choice<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub then: Vec<i64>,
+    pub against: Option<Against>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct Plan {
     pub champion: String,
@@ -119,24 +140,12 @@ pub struct Plan {
     pub runes: Option<Choice<Page>>,
     /// D then F, in the pair's usual order; the import moves Flash to the player's key.
     pub spells: Option<Choice<(i64, i64)>>,
-    /// The start (ADR-071): its items without supplies, smallest id first; the import writes
-    /// what is most often bought with it.
-    pub start: Option<Choice<Vec<i64>>>,
-    /// What the import writes for that start: what is most often bought with it, supplies
-    /// included, repeated as bought.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub start_buy: Vec<i64>,
+    /// The start (ADR-071): its items without supplies, smallest id first.
+    pub start: Option<PurchaseChoice>,
     /// The first components (ADR-072), as the start.
-    pub components: Option<Choice<Vec<i64>>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub components_buy: Vec<i64>,
-    /// The upgraded boots (ADR-073), and the other boots their block lists after them.
-    pub boots: Option<Choice<i64>>,
-    /// The enemy damage the boots were chosen against (ADR-074); None: over every game, as
-    /// fewer than three enemies are known or the data has no boots for that kind of team.
-    pub boots_against: Option<Against>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub boots_then: Vec<i64>,
+    pub components: Option<PurchaseChoice>,
+    /// The upgraded boots (ADR-073).
+    pub boots: Option<BootsChoice>,
     pub items: Vec<SlotChoice>,
     /// The slot of the late items: the item completed there and every later one, as one
     /// decision (ADR-067). None for data from before it, where every slot is its own.
@@ -237,10 +246,11 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
             .collect(),
         rune_rows: rune_rows(&build.rune_choices, chosen(&runes_choice)),
     };
-    let buy = |options: &[PurchaseOption], c: &Option<Choice<Vec<i64>>>| {
-        chosen(c)
-            .map(|v| purchase_buy(options, v))
-            .unwrap_or_default()
+    let purchase = |options: &[PurchaseOption], choice: Option<Choice<Vec<i64>>>| {
+        choice.map(|c| PurchaseChoice {
+            buy: purchase_buy(options, &c.value),
+            choice: c,
+        })
     };
     let mut plan = Plan {
         champion: build.champion.to_string(),
@@ -251,13 +261,13 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
         region: build.region.to_string(),
         runes: runes_choice,
         spells: spells_choice,
-        start_buy: buy(&build.starts, &start_choice),
-        start: start_choice,
-        components_buy: buy(&build.first_components, &components_choice),
-        components: components_choice,
-        boots: boots_choice,
-        boots_then: Vec::new(),
-        boots_against,
+        start: purchase(&build.starts, start_choice),
+        components: purchase(&build.first_components, components_choice),
+        boots: boots_choice.map(|choice| BootsChoice {
+            choice,
+            then: Vec::new(),
+            against: boots_against,
+        }),
         items,
         late_slot: build.late_slot.map(|s| s.get()),
         alternatives,
@@ -431,14 +441,10 @@ pub fn with_alternatives(plan: &mut Plan) {
         s.then = block_others(&s.order, &taken, s.block);
     }
     // Boots are their own block (ADR-073): the other boots, in the same order.
-    plan.boots_then = match &plan.boots {
-        Some(c) => block_others(
-            &block_order(&plan.alternatives.boots),
-            &[c.value],
-            SLOT_ITEMS,
-        ),
-        None => Vec::new(),
-    };
+    let order = block_order(&plan.alternatives.boots);
+    if let Some(boots) = plan.boots.as_mut() {
+        boots.then = block_others(&order, &[boots.choice.value], SLOT_ITEMS);
+    }
 }
 
 /// A slot's options with [`BLOCK_MIN_SHARE`] of its games, in Stronk's order.

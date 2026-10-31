@@ -90,7 +90,7 @@
         type="button"
         class="rune {size}"
         class:on={row.picked === id}
-        class:stronk={row.picked !== id && row.slot.rows.some((o) => o.value === id && o.chosen)}
+        class:stronk={row.picked !== id && row.stronk(id)}
         aria-pressed={row.picked === id}
         aria-label={rune(id)}
         title={rune(id)}
@@ -126,7 +126,7 @@
     <p class="hint how">Click a rune to pick it and see its row beside the tree.</p>
   </div>
 
-  {#if focused}
+  {#if focused?.slot}
     <section class="detail" aria-label={title(focused)}>
       <h4 class="title">{heading(focused)}</h4>
       <OptionTable

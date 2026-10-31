@@ -6,13 +6,14 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use stronk_contracts::build_v1::Build;
+use stronk_contracts::build_v1::{Build, PurchaseOption};
 use stronk_domain::Role;
 use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page, valid_page};
 
 use crate::commands::build_get;
 use crate::commands::build_plan::{
-    Page, Plan, SlotChoice, against_for, plan, purchase_buy, purchase_items, with_alternatives,
+    BootsChoice, Page, Plan, PurchaseChoice, SlotChoice, against_for, plan, purchase_buy,
+    purchase_items, with_alternatives,
 };
 use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};
@@ -111,123 +112,171 @@ fn run(ctx: &Context, params: Params) -> Result<Imported, CommandError> {
     })
 }
 
-/// The plan with the player's picks in place of Stronk's choices. A spell pair or item that isn't
-/// published, or a rune page the client's trees don't allow, is refused before anything is
-/// written; a pick equal to Stronk's choice keeps its label.
+/// The plan with the player's picks in place of Stronk's choices. A pick that isn't published,
+/// or a rune page the client's trees don't allow, is refused before anything is written; a pick
+/// equal to Stronk's choice keeps its label.
 fn with_picks(
     mut plan: Plan,
     build: &Build,
     params: &Params,
     client: &dyn LeagueClient,
 ) -> Result<Plan, CommandError> {
-    let invalid = |what: String| CommandError::new(ErrorCode::InvalidParams, what);
-    let id = |v: u64| i64::try_from(v).unwrap_or(-1);
     if let Some(page) = &params.runes {
-        let published = build.runes.iter().any(|o| {
-            id(o.page.primary_style) == page.primary_style
-                && id(o.page.sub_style) == page.sub_style
-                && o.page
-                    .perks
-                    .iter()
-                    .map(|p| id(*p))
-                    .eq(page.perks.iter().copied())
-        });
-        if !published {
-            // A page the player built rune by rune: checked against the client's own layout.
-            let names = client.game_names()?;
-            valid_page(
-                page.primary_style,
-                page.sub_style,
-                &page.perks,
-                &names.rune_trees,
-                &names.shard_rows,
-            )
-            .map_err(|why| invalid(format!("runes: {why}")))?;
-        }
-        if plan.runes.as_ref().map(|c| &c.value) != Some(page) {
-            plan.runes = Some(picked(page.clone()));
-        }
+        pick_runes(&mut plan, build, page, client)?;
     }
-    if let Some((a, b)) = params.spells {
-        let same = |(c, d): (i64, i64)| (c, d) == (a, b) || (d, c) == (a, b);
-        let published = build.spells.iter().any(|o| {
-            let [d, f] = o.spells.map(|s| id(s.get()));
-            same((d, f))
-        });
-        if !published {
-            return Err(invalid(format!(
-                "spells: {a} and {b} are not a published pair"
-            )));
-        }
-        if !plan.spells.as_ref().is_some_and(|c| same(c.value)) {
-            plan.spells = Some(picked((a, b)));
-        }
+    if let Some(pair) = params.spells {
+        pick_spells(&mut plan, build, pair)?;
     }
-    for (i, pick) in params.items.iter().enumerate() {
-        if params.items.iter().take(i).any(|p| p.slot == pick.slot) {
-            return Err(invalid(format!("items: slot {} picked twice", pick.slot)));
+    pick_items(&mut plan, build, &params.items)?;
+    if let Some(items) = &params.start {
+        pick_purchase(&mut plan.start, &build.starts, items, "start")?;
+    }
+    if let Some(items) = &params.components {
+        pick_purchase(
+            &mut plan.components,
+            &build.first_components,
+            items,
+            "components",
+        )?;
+    }
+    if let Some(boots) = params.boots {
+        pick_boots(&mut plan, build, boots)?;
+    }
+    with_alternatives(&mut plan);
+    Ok(plan)
+}
+
+fn invalid(what: String) -> CommandError {
+    CommandError::new(ErrorCode::InvalidParams, what)
+}
+
+/// Ids are small positive integers; anything beyond i64 can't match a real id.
+fn id(v: u64) -> i64 {
+    i64::try_from(v).unwrap_or(-1)
+}
+
+/// A published page, or one the player built rune by rune that the client's trees allow.
+fn pick_runes(
+    plan: &mut Plan,
+    build: &Build,
+    page: &Page,
+    client: &dyn LeagueClient,
+) -> Result<(), CommandError> {
+    let published = build.runes.iter().any(|o| {
+        id(o.page.primary_style) == page.primary_style
+            && id(o.page.sub_style) == page.sub_style
+            && o.page
+                .perks
+                .iter()
+                .map(|p| id(*p))
+                .eq(page.perks.iter().copied())
+    });
+    if !published {
+        // A page the player built rune by rune: checked against the client's own layout.
+        let names = client.game_names()?;
+        valid_page(
+            page.primary_style,
+            page.sub_style,
+            &page.perks,
+            &names.rune_trees,
+            &names.shard_rows,
+        )
+        .map_err(|why| invalid(format!("runes: {why}")))?;
+    }
+    if plan.runes.as_ref().map(|c| &c.value) != Some(page) {
+        plan.runes = Some(picked(page.clone()));
+    }
+    Ok(())
+}
+
+/// A published spell pair, in either order.
+fn pick_spells(plan: &mut Plan, build: &Build, (a, b): (i64, i64)) -> Result<(), CommandError> {
+    let same = |(c, d): (i64, i64)| (c, d) == (a, b) || (d, c) == (a, b);
+    let published = build.spells.iter().any(|o| {
+        let [d, f] = o.spells.map(|s| id(s.get()));
+        same((d, f))
+    });
+    if !published {
+        return Err(invalid(format!(
+            "spells: {a} and {b} are not a published pair"
+        )));
+    }
+    if !plan.spells.as_ref().is_some_and(|c| same(c.value)) {
+        plan.spells = Some(picked((a, b)));
+    }
+    Ok(())
+}
+
+/// Published items, one per slot.
+fn pick_items(plan: &mut Plan, build: &Build, picks: &[ItemPick]) -> Result<(), CommandError> {
+    for (i, pick) in picks.iter().enumerate() {
+        let (slot, item) = (pick.slot, pick.item);
+        if picks.iter().take(i).any(|p| p.slot == slot) {
+            return Err(invalid(format!("items: slot {slot} picked twice")));
         }
         if !build
             .items
             .iter()
-            .any(|o| o.slot.get() == pick.slot && id(o.item.get()) == pick.item)
+            .any(|o| o.slot.get() == slot && id(o.item.get()) == item)
         {
-            let (slot, item) = (pick.slot, pick.item);
             return Err(invalid(format!(
                 "items: {item} is not published for slot {slot}"
             )));
         }
-        match plan.items.iter_mut().find(|s| s.slot == pick.slot) {
-            Some(s) if s.choice.value == pick.item => {}
-            Some(s) => s.choice = picked(pick.item),
+        match plan.items.iter_mut().find(|s| s.slot == slot) {
+            Some(s) if s.choice.value == item => {}
+            Some(s) => s.choice = picked(item),
             None => plan.items.push(SlotChoice {
-                slot: pick.slot,
-                choice: picked(pick.item),
+                slot,
+                choice: picked(item),
                 then: Vec::new(),
                 order: Vec::new(),
                 block: 0,
             }),
         }
     }
-    for (what, pick, options, choice, buy) in [
-        (
-            "start",
-            &params.start,
-            &build.starts,
-            &mut plan.start,
-            &mut plan.start_buy,
-        ),
-        (
-            "components",
-            &params.components,
-            &build.first_components,
-            &mut plan.components,
-            &mut plan.components_buy,
-        ),
-    ] {
-        let Some(items) = pick else { continue };
-        let mut items = items.clone();
-        items.sort_unstable();
-        items.dedup();
-        if !options.iter().any(|o| purchase_items(&o.items) == items) {
-            return Err(invalid(format!("{what}: {items:?} are not published")));
-        }
-        if choice.as_ref().map(|c| &c.value) != Some(&items) {
-            *buy = purchase_buy(options, &items);
-            *choice = Some(picked(items));
-        }
-    }
-    if let Some(boots) = params.boots {
-        if !build.boots.iter().any(|o| id(o.item.get()) == boots) {
-            return Err(invalid(format!("boots: {boots} are not published")));
-        }
-        if plan.boots.as_ref().map(|c| c.value) != Some(boots) {
-            plan.boots = Some(picked(boots));
-        }
-    }
     plan.items.sort_by_key(|s| s.slot);
-    with_alternatives(&mut plan);
-    Ok(plan)
+    Ok(())
+}
+
+/// A published start or first components (ADR-071, ADR-072), its items in any order, with what
+/// is most often bought with them.
+fn pick_purchase(
+    choice: &mut Option<PurchaseChoice>,
+    options: &[PurchaseOption],
+    items: &[i64],
+    what: &str,
+) -> Result<(), CommandError> {
+    let mut items = items.to_vec();
+    items.sort_unstable();
+    items.dedup();
+    if !options.iter().any(|o| purchase_items(&o.items) == items) {
+        return Err(invalid(format!("{what}: {items:?} are not published")));
+    }
+    if choice.as_ref().map(|c| &c.choice.value) != Some(&items) {
+        let buy = purchase_buy(options, &items);
+        *choice = Some(PurchaseChoice {
+            choice: picked(items),
+            buy,
+        });
+    }
+    Ok(())
+}
+
+/// Published boots (ADR-073), whichever enemy damage they were estimated against.
+fn pick_boots(plan: &mut Plan, build: &Build, boots: i64) -> Result<(), CommandError> {
+    if !build.boots.iter().any(|o| id(o.item.get()) == boots) {
+        return Err(invalid(format!("boots: {boots} are not published")));
+    }
+    if plan.boots.as_ref().map(|b| b.choice.value) != Some(boots) {
+        let against = plan.boots.as_ref().and_then(|b| b.against);
+        plan.boots = Some(BootsChoice {
+            choice: picked(boots),
+            then: Vec::new(),
+            against,
+        });
+    }
+    Ok(())
 }
 
 fn picked<T>(value: T) -> Choice<T> {
@@ -348,11 +397,11 @@ fn item_set_title(ctx: &Context, plan: &Plan, champion_id: i64) -> String {
 /// when they're usually bought, ADR-073), named with the slot and why the item was chosen, its choice first
 /// and then the slot's other items (ADR-069); the late slot's block is "Items 4+" (ADR-067).
 fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
-    let purchase = |name: &str, choice: &Option<Choice<Vec<i64>>>, buy: &[i64]| {
-        choice.as_ref().map(|c| {
+    let purchase = |name: &str, choice: &Option<PurchaseChoice>| {
+        choice.as_ref().map(|p| {
             // Repeats as one entry with its count: two Health Potions read "2".
             let mut items: Vec<(i64, u32)> = Vec::new();
-            for id in buy {
+            for id in &p.buy {
                 match items.iter_mut().find(|(i, _)| i == id) {
                     Some((_, n)) => *n += 1,
                     None => items.push((*id, 1)),
@@ -362,11 +411,11 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
                 .into_iter()
                 .map(|(id, count)| json!({"id": id.to_string(), "count": count}))
                 .collect();
-            json!({"type": format!("{name}: {}", why(c.label)), "items": items})
+            json!({"type": format!("{name}: {}", why(p.choice.label)), "items": items})
         })
     };
-    let start = purchase("Start", &plan.start, &plan.start_buy);
-    let components = purchase("First components", &plan.components, &plan.components_buy);
+    let start = purchase("Start", &plan.start);
+    let components = purchase("First components", &plan.components);
     let slots = plan.items.iter().map(|s| {
         let name = if plan.late_slot == Some(s.slot) {
             format!("Items {}+", s.slot)
@@ -379,12 +428,12 @@ fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
             .collect();
         json!({"type": format!("{name}: {}", why(s.choice.label)), "items": items})
     });
-    let boots = plan.boots.as_ref().map(|c| {
-        let items: Vec<Value> = std::iter::once(c.value)
-            .chain(plan.boots_then.iter().copied())
+    let boots = plan.boots.as_ref().map(|b| {
+        let items: Vec<Value> = std::iter::once(b.choice.value)
+            .chain(b.then.iter().copied())
             .map(|id| json!({"id": id.to_string(), "count": 1}))
             .collect();
-        json!({"type": format!("Boots: {}", why(c.label)), "items": items})
+        json!({"type": format!("Boots: {}", why(b.choice.label)), "items": items})
     });
     let mut slots: Vec<Value> = slots.collect();
     if let Some(boots) = boots {

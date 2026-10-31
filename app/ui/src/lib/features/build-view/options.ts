@@ -4,7 +4,7 @@
 // the core's short list and the player's pick, and the rest on request (ADR-051).
 
 import type { Choice, Page, Plan, Ranked, Row } from "../../backend/backend.ts";
-import { noPicks, type Picks, samePage, samePair } from "../../state/picks.ts";
+import { asItems, noPicks, type Picks, type Section, samePage, samePair } from "../../state/picks.ts";
 
 export interface Shown<T> extends Row<T> {
   key: string;
@@ -42,7 +42,12 @@ function slot<T>(ranked: Ranked<T>, key: (value: T) => string, picked: ((value: 
 
 /** The plan's alternatives with the player's picks marked. */
 export function options(plan: Plan, picks: Picks = noPicks()): Options {
-  const { runes, spells, start, components, boots, items } = plan.alternatives;
+  const { runes, spells, items } = plan.alternatives;
+  /** A section's options, the player's items picked (ADR-071 to ADR-073). */
+  const section = <T extends number | number[]>(key: Section, ranked: Ranked<T>): Slot<T> => {
+    const items = picks.sections[key];
+    return slot(ranked, (v) => asItems(v).join(","), items ? (v) => samePair(asItems(v), items) : null);
+  };
   return {
     runes: slot(
       runes,
@@ -54,13 +59,9 @@ export function options(plan: Plan, picks: Picks = noPicks()): Options {
       (pair) => [...pair].sort().join(","),
       picks.spells ? (pair) => samePair(pair, picks.spells as [number, number]) : null,
     ),
-    start: slot(start, (items) => items.join(","), picks.start ? (items) => samePair(items, picks.start as number[]) : null),
-    boots: slot(boots, String, picks.boots === undefined ? null : (item) => item === picks.boots),
-    components: slot(
-      components,
-      (items) => items.join(","),
-      picks.components ? (items) => samePair(items, picks.components as number[]) : null,
-    ),
+    start: section("start", plan.alternatives.start),
+    components: section("components", plan.alternatives.components),
+    boots: section("boots", plan.alternatives.boots),
     items: items.map((s) => {
       const pick = picks.items[s.slot];
       return { slot: s.slot, ...slot(s, String, pick === undefined ? null : (item) => item === pick) };
@@ -136,7 +137,7 @@ export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "
  * Stronk's best bet against it, with the option it beats (ADR-060, ADR-065). A rune row's change
  * (`"rune"`) has the row's runes as its value. */
 export interface Change<T> {
-  part: "runes" | "rune" | "spells" | "start" | "components" | "boots" | number;
+  part: "runes" | "rune" | "spells" | Section | number;
   row: Shown<T>;
   base: Shown<T> | undefined;
 }

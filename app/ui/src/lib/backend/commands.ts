@@ -96,12 +96,16 @@ export type Versus = "most_played" | "alternatives";
  */
 export type RowKind = "primary" | "secondary" | "shard";
 /**
- * Why an option was chosen; shown next to it in the UI.
+ * The boots' choice (ADR-073), the other boots their block lists after it, and the enemy damage
+ * they were chosen against (ADR-074): None, over every game, as fewer than three enemies are
+ * known or the data has no boots for that kind of team.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
- * via the `definition` "int64Choice".
+ * via the `definition` "BootsChoice".
  */
-export type Int64Choice = {
+export type BootsChoice = {
+  against: Against | null;
+  then?: number[];
   value: number;
 } & (
   | {
@@ -150,12 +154,14 @@ export type Int64Choice = {
  */
 export type Against = "physical" | "mixed" | "magic";
 /**
- * Why an option was chosen; shown next to it in the UI.
+ * A start's or first components' choice (ADR-071, ADR-072), and what the import writes for it:
+ * what is most often bought with those items, supplies included, repeated as bought.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
- * via the `definition` "Array_of_int64Choice".
+ * via the `definition` "PurchaseChoice".
  */
-export type ArrayOfInt64Choice = {
+export type PurchaseChoice = {
+  buy: number[];
   value: number[];
 } & (
   | {
@@ -531,21 +537,14 @@ export interface PlanParams {
 export interface Plan {
   alternatives: Alternatives;
   /**
-   * The upgraded boots (ADR-073), and the other boots their block lists after them.
+   * The upgraded boots (ADR-073).
    */
-  boots: Int64Choice | null;
-  /**
-   * The enemy damage the boots were chosen against (ADR-074); None: over every game, as
-   * fewer than three enemies are known or the data has no boots for that kind of team.
-   */
-  boots_against: Against | null;
-  boots_then?: number[];
+  boots: BootsChoice | null;
   champion: string;
   /**
    * The first components (ADR-072), as the start.
    */
-  components: ArrayOfInt64Choice | null;
-  components_buy?: number[];
+  components: PurchaseChoice | null;
   elo: string;
   /**
    * Games behind the build file, and its elo bracket and region.
@@ -566,15 +565,9 @@ export interface Plan {
    */
   spells: TupleOfInt64AndInt64Choice | null;
   /**
-   * The start (ADR-071): its items without supplies, smallest id first; the import writes
-   * what is most often bought with it.
+   * The start (ADR-071): its items without supplies, smallest id first.
    */
-  start: ArrayOfInt64Choice | null;
-  /**
-   * What the import writes for that start: what is most often bought with it, supplies
-   * included, repeated as bought.
-   */
-  start_buy?: number[];
+  start: PurchaseChoice | null;
 }
 /**
  * Every option of each slot, the most played and the chosen one marked as listed.

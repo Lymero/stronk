@@ -415,11 +415,11 @@ describe("App with MockBackend", () => {
     const first = await lockIn(saved);
     first.app.pick({ slot: 1, item: 6676 });
     first.app.pick({ spells: [14, 11] });
-    expect(saved.saved).toEqual({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: { 1: 6676 }, spells: [14, 11] } } });
+    expect(saved.saved).toEqual({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: { 1: 6676 }, spells: [14, 11], sections: {} } } });
 
     // A restart: the same picks, and the import sends them.
     const second = await lockIn(saved);
-    expect(second.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 1: 6676 }, spells: [14, 11] } });
+    expect(second.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 1: 6676 }, spells: [14, 11], sections: {} } });
     await second.app.importBuild();
     expect(second.backend.calls.find((c) => c.id === "build.import")?.params).toEqual({
       spells: [14, 11],
@@ -429,10 +429,10 @@ describe("App with MockBackend", () => {
     expect(saved.saved).toEqual({});
 
     // Picks from another patch, or no longer among the options, are dropped.
-    const old = await lockIn(memoryPicks({ "LeeSin/JUNGLE": { patch: "16.19", picks: { items: { 1: 6676 } } } }));
+    const old = await lockIn(memoryPicks({ "LeeSin/JUNGLE": { patch: "16.19", picks: { items: { 1: 6676 }, sections: {} } } }));
     expect(old.app.state.picks).toBeNull();
-    const gone = await lockIn(memoryPicks({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: { 1: 9999, 2: 6676 } } } }));
-    expect(gone.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 2: 6676 } } });
+    const gone = await lockIn(memoryPicks({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: { 1: 9999, 2: 6676 }, sections: {} } } }));
+    expect(gone.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 2: 6676 }, sections: {} } });
   });
 
   it("says when nothing beats the most played build", async () => {

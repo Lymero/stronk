@@ -33,7 +33,6 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
   start: null,
   components: null,
   boots: null,
-  boots_against: null,
   late_slot: null,
   alternatives: {
     runes: { rows: [row({ primary_style: 8000, sub_style: 8300, perks: [8010, 2, 3] }, { chosen: true })], more: 0 },
@@ -66,7 +65,7 @@ describe("options", () => {
   });
 
   it("lists a pick from past the short list, and counts one fewer left out", () => {
-    const o = options(plan(), { items: { 4: 70 } });
+    const o = options(plan(), { items: { 4: 70 }, sections: {} });
     expect(o.items[0]?.rows.map((r) => [r.value, r.selected, r.shown])).toEqual([
       [10, false, true],
       [20, false, true],
@@ -78,7 +77,7 @@ describe("options", () => {
   });
 
   it("selects the player's pick instead, Stronk's choice still marked", () => {
-    const o = options(plan(), { items: { 4: 50 }, spells: [4, 11] });
+    const o = options(plan(), { items: { 4: 50 }, spells: [4, 11], sections: {} });
     expect(o.items[0]?.rows.map((r) => [r.value, r.chosen, r.selected])).toEqual([
       [10, true, false],
       [20, false, false],

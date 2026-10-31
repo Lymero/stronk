@@ -17,6 +17,7 @@ import type {
   Restored,
 } from "../backend/backend.ts";
 import {
+  asItems,
   browserPicks,
   isEmpty,
   noPicks,
@@ -115,9 +116,9 @@ export function createApp(
     const params: ImportParams = {
       ...(picks.runes ? { runes: picks.runes } : {}),
       ...(picks.spells ? { spells: picks.spells } : {}),
-      ...(picks.start ? { start: picks.start } : {}),
-      ...(picks.components ? { components: picks.components } : {}),
-      ...(picks.boots !== undefined ? { boots: picks.boots } : {}),
+      ...(picks.sections.start ? { start: picks.sections.start } : {}),
+      ...(picks.sections.components ? { components: picks.sections.components } : {}),
+      ...(picks.sections.boots ? { boots: picks.sections.boots[0] } : {}),
       ...(Object.keys(picks.items).length
         ? { items: Object.entries(picks.items).map(([slot, item]) => ({ slot: Number(slot), item })) }
         : {}),
@@ -272,20 +273,17 @@ export function createApp(
   function pick(choice: Pick): void {
     const plan = state.plan;
     if (!plan) return;
-    const picks: Picks = { ...currentPicks(), items: { ...currentPicks().items } };
+    const picks: Picks = { ...currentPicks(), items: { ...currentPicks().items }, sections: { ...currentPicks().sections } };
     if ("runes" in choice) {
       const stronk = plan.value.runes?.value;
       picks.runes = stronk && samePage(stronk, choice.runes) ? undefined : choice.runes;
     } else if ("spells" in choice) {
       const stronk = plan.value.spells?.value;
       picks.spells = stronk && samePair(stronk, choice.spells) ? undefined : choice.spells;
-    } else if ("boots" in choice) {
-      picks.boots = plan.value.boots?.value === choice.boots ? undefined : choice.boots;
-    } else if ("start" in choice || "components" in choice) {
-      const key = "start" in choice ? "start" : "components";
-      const items = "start" in choice ? choice.start : choice.components;
-      const stronk = plan.value[key]?.value;
-      picks[key] = stronk && samePair(stronk, items) ? undefined : items;
+    } else if ("section" in choice) {
+      const stronk = plan.value[choice.section]?.value;
+      if (stronk !== undefined && samePair(asItems(stronk), choice.items)) delete picks.sections[choice.section];
+      else picks.sections[choice.section] = choice.items;
     } else {
       const stronk = plan.value.items.find((i) => i.slot === choice.slot)?.value;
       if (stronk === choice.item) delete picks.items[choice.slot];

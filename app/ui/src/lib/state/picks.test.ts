@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { scenarios } from "../backend/mock.ts";
-import { published, samePage } from "./picks.ts";
+import { browserPicks, published, samePage } from "./picks.ts";
 
 describe("samePage", () => {
   const page = { primary_style: 8000, sub_style: 8300, perks: [8010, 9111, 9104, 8014, 8347, 8304, 5005, 5008, 5001] };
@@ -23,8 +23,20 @@ describe("samePage", () => {
 describe("published", () => {
   const plan = scenarios["ranked-jungle"].plans["LeeSin/JUNGLE"];
 
-  it("keeps a start the plan still lists, in any order, and drops one it doesn't", () => {
-    expect(published(plan, { items: {}, start: [1102] }).start).toEqual([1102]);
-    expect(published(plan, { items: {}, start: [1055] }).start).toBeUndefined();
+  it("keeps a section's pick the plan still lists, and drops one it doesn't", () => {
+    const picks = { items: {}, sections: { start: [1102], boots: [3111], components: [1055] } };
+    expect(published(plan, picks).sections).toEqual({ start: [1102], boots: [3111] });
+  });
+});
+
+describe("browserPicks", () => {
+  it("reads picks saved before sections were grouped", () => {
+    const old = { items: { 1: 6692 }, start: [1102], components: [1036, 1037], boots: 3111 };
+    localStorage.setItem("stronk.picks", JSON.stringify({ "LeeSin/JUNGLE": { patch: "16.20", picks: old } }));
+    expect(browserPicks.load()["LeeSin/JUNGLE"]?.picks).toEqual({
+      items: { 1: 6692 },
+      sections: { start: [1102], components: [1036, 1037], boots: [3111] },
+    });
+    localStorage.removeItem("stronk.picks");
   });
 });

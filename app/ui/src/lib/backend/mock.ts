@@ -181,10 +181,10 @@ type Perks = Page["perks"];
 const conqueror: Perks = [8010, 9111, 9104, 8014, 8304, 8347, 5005, 5008, 5001];
 const electrocute: Page = { primary_style: 8100, sub_style: 8000, perks: [8112, 8143, 8138, 8135, 9111, 9104, 5005, 5008, 5001] };
 
-/** One ranked option, as the core's `build.plan` gives it, with Stronk's judgement as the core
- * makes it (ADR-070): a head-to-head gain shrunk by its uncertainty (τ = 0.02), else 0. */
+/** One ranked option, as the core's `build.plan` gives it. Stronk's judgement (`judged`) only
+ * orders the core's blocks, which the plans below spell out (`order`): 0 here. */
 function row<T>(value: T, played: number, total: number, rest: Partial<Row<T>> = {}): Row<T> {
-  const r: Row<T> = {
+  return {
     value,
     played,
     share: played / total,
@@ -198,9 +198,6 @@ function row<T>(value: T, played: number, total: number, rest: Partial<Row<T>> =
     judged: 0,
     ...rest,
   };
-  const measured = r.versus === "most_played" && r.wpa !== null && r.ci && !r.confidence.startsWith("too_few");
-  const se = r.ci ? (r.ci[1] - r.ci[0]) / (2 * 1.96) : 0;
-  return { ...r, judged: rest.judged ?? (measured ? ((r.wpa ?? 0) * 0.0004) / (0.0004 + se * se) : 0) };
 }
 
 /** An option past the short list: played less, shown when the player asks for every option. */
@@ -422,13 +419,9 @@ const leeSin: Plan = {
     label: "popular",
   },
   spells: { value: [11, 4], label: "popular" },
-  start: { value: [1101], label: "popular" },
-  start_buy: [1101, 2003],
-  components: { value: [1036], label: "popular" },
-  components_buy: [1036, 2003],
-  boots: { value: 3047, label: "popular" },
-  boots_then: [3111],
-  boots_against: null,
+  start: { value: [1101], label: "popular", buy: [1101, 2003] },
+  components: { value: [1036], label: "popular", buy: [1036, 2003] },
+  boots: { value: 3047, label: "popular", then: [3111], against: null },
   items: [
     { slot: 1, value: 6692, label: "popular", block: 4 },
     { slot: 2, value: 6610, label: "clearly_better", wpa: 0.021, ci: [0.008, 0.034], games: 640, block: 4 },
@@ -573,7 +566,7 @@ export class MockBackend implements Backend {
         if (!plan) return err("not_found", `no build for ${champion} ${role}`) as Out;
         // Three enemies or more: the core reads their damage; here, always a magic team.
         const against = (enemies?.length ?? 0) >= 3 && "boots" in plan && plan.boots;
-        return result(against ? { ...plan, boots: { value: 3111, label: "popular" }, boots_against: "magic" } : plan) as Out;
+        return result(against ? { ...plan, boots: { value: 3111, label: "popular", then: [3047], against: "magic" } } : plan) as Out;
       }
       case "build.import": {
         if (isError(current) || !current.champion || !current.role) {

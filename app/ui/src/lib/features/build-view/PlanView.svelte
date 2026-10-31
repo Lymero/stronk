@@ -9,7 +9,7 @@
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
-  import { type Pick, type Picks, PURCHASES, type Purchase } from "../../state/picks.ts";
+  import { asItems, type Pick, type Picks, SECTIONS, type Section } from "../../state/picks.ts";
   import Loadout, { type LoadoutSlot } from "./Loadout.svelte";
   import OptionTable from "./OptionTable.svelte";
   import RunePage from "./RunePage.svelte";
@@ -94,24 +94,34 @@
     return (late.order ?? []).filter((v) => !taken.has(v)).slice(0, late.block - 1);
   });
 
-  const changedKey = (part: "runes" | "rune" | "spells" | Purchase | "boots" | number) =>
+  const changedKey = (part: "runes" | "rune" | "spells" | Section | number) =>
     typeof part === "number" ? `item-${part}` : part === "rune" ? "runes" : part;
   const changedKeys = $derived(new Set(stronkChanges.map((c) => changedKey(c.part))));
   const spellPair = $derived(picks.spells ?? plan.spells?.value ?? null);
-  /** The boots the import writes: the player's, else Stronk's (ADR-073). */
-  const bootsItem = $derived(picks.boots ?? plan.boots?.value ?? null);
-  /** The purchases made as a set of items, each named and explained. */
-  const PURCHASE: Record<Purchase, { name: string; title: string; about: string }> = {
+  /** The sections picked as items (ADR-071 to ADR-073), each named in the sheet and the panel,
+   * and explained beside the panel's title. */
+  const SECTION = $derived<Record<Section, { name: string; title: string; about: string }>>({
     start: { name: "Start", title: "Start", about: "Before leaving base, potions and wards aside" },
     // "First back" in the sheet, where "First components" doesn't fit beside a badge.
     components: { name: "First back", title: "First components", about: "The first planned trip back (not after a death), potions, wards and boots aside" },
+    // Chosen against the enemy team's damage once three enemies are picked (ADR-074).
+    boots: {
+      name: "Boots",
+      title: "Boots",
+      about: plan.boots?.against
+        ? `The first upgrade, against a ${plan.boots.against} damage team`
+        : "The first upgrade, over every game until three enemies are picked",
+    },
+  });
+  const isSection = (key: string): key is Section => (SECTIONS as readonly string[]).includes(key);
+  /** A section's option, its items by name and icon. */
+  const set = (value: number | number[]) => asItems(value).map(item).join(" + ");
+  const setIcons = (value: number | number[]) => asItems(value).map((id) => shown("items", id));
+  /** What the import writes for a section: the player's pick, else Stronk's. */
+  const bought = (key: Section): number[] | null => {
+    const stronk = plan[key]?.value;
+    return picks.sections[key] ?? (stronk === undefined ? null : asItems(stronk));
   };
-  const isPurchase = (key: string): key is Purchase => (PURCHASES as readonly string[]).includes(key);
-  const set = (items: number[]) => items.map(item).join(" + ");
-  const setIcons = (items: number[]) => items.map((id) => shown("items", id));
-  /** What the import writes for a purchase: the player's pick, else Stronk's. */
-  const bought = (key: Purchase) => picks[key] ?? plan[key]?.value ?? null;
-  const pickPurchase = (key: Purchase, items: number[]): Pick => (key === "start" ? { start: items } : { components: items });
 
   /** Stronk's change in a slot, as its badge reads: proven ("▲ +2.1") or its best bet ("Best bet
    * +2.7"); the largest when a rune page changes in several rows. */
@@ -140,16 +150,18 @@
       out.push(row("runes", "Runes", picks.runes !== undefined, name(names, "runes", keystone), [shown("runes", keystone)], trees));
     }
     if (spellPair) out.push(row("spells", "Spells", picks.spells !== undefined, spells(spellPair), spellIcons(spellPair)));
-    for (const key of PURCHASES) {
+    const section = (key: Section) => {
       const items = bought(key);
-      if (items) out.push(row(key, PURCHASE[key].name, picks[key] !== undefined, set(items), setIcons(items)));
-    }
+      if (items) out.push(row(key, SECTION[key].name, picks.sections[key] !== undefined, set(items), setIcons(items)));
+    };
+    section("start");
+    section("components");
     for (const c of plan.items) {
       const id = slotItem(c.slot) ?? c.value;
       const then = c.slot === plan.late_slot && lateThen.length ? `then ${lateThen.map(item).join(", ")}` : undefined;
       out.push(row(`item-${c.slot}`, slotName(c.slot), picks.items[c.slot] !== undefined, item(id), itemIcons(id), then));
       // Boots after the first item, when they're usually bought (ADR-073).
-      if (c === plan.items[0] && bootsItem !== null) out.push(row("boots", "Boots", picks.boots !== undefined, item(bootsItem), itemIcons(bootsItem)));
+      if (c === plan.items[0]) section("boots");
     }
     return out;
   });
@@ -186,16 +198,10 @@
   const panel = $derived.by(() => {
     if (focus === "runes") return { title: "Runes", note: laidOut ? null : note(options.runes, page), extra: "" };
     if (focus === "spells") return { title: "Summoner spells", note: note(options.spells, spells), extra: "" };
-    if (focus === "boots")
-      return {
-        title: "Boots",
-        note: note(options.boots, item),
-        // Chosen against the enemy team's damage once three enemies are picked (ADR-074).
-        extra: plan.boots_against
-          ? `The first upgrade, against a ${plan.boots_against} damage team`
-          : "The first upgrade, over every game until three enemies are picked",
-      };
-    if (isPurchase(focus)) return { title: PURCHASE[focus].title, note: note(options[focus], set), extra: PURCHASE[focus].about };
+    if (isSection(focus)) {
+      const slot = options[focus] as Slot<number | number[]>;
+      return { title: SECTION[focus].title, note: note(slot, set), extra: SECTION[focus].about };
+    }
     const slotNo = focusedItem ?? 0;
     const also = alsoIn(slotNo, slotItem(slotNo) ?? 0);
     return {
@@ -254,12 +260,15 @@
       {:else}
         <OptionTable slot={options.runes} label={page} icons={pageIcons} onpick={(p) => onpick({ runes: p })} />
       {/if}
-    {:else if focus === "boots"}
-      <OptionTable slot={options.boots} label={item} icons={itemIcons} onpick={(id) => onpick({ boots: id })} />
-    {:else if isPurchase(focus)}
+    {:else if isSection(focus)}
       {@const key = focus}
       {#key key}
-        <OptionTable slot={options[key]} label={set} icons={setIcons} onpick={(items) => onpick(pickPurchase(key, items))} />
+        <OptionTable
+          slot={options[key] as Slot<number | number[]>}
+          label={set}
+          icons={setIcons}
+          onpick={(value) => onpick({ section: key, items: asItems(value) })}
+        />
       {/key}
     {:else if focus === "spells"}
       <OptionTable slot={options.spells} label={spells} icons={spellIcons} onpick={(pair) => onpick({ spells: pair })} />

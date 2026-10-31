@@ -594,3 +594,12 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - The core: `BuildSource::champions` reads and verifies it (directory and HTTP, cached like builds); champion select carries the enemy picks (`ChampSelect.enemies`, from `theirTeam`); `stronk_domain::damage::against` reads the team once at least 3 enemies are rated (`ENEMIES_KNOWN`; with fewer, one pick decides too much). `build.plan` takes `enemies` and chooses boots against that profile when the data has boots for it, else over every game (`boots_against` says which); `build.import` reads the enemies from the session the same way.
   - The app asks for the plan again when the enemy picks change (picks are kept), and the Boots panel says "The first upgrade, against a magic damage team" or "over every game until three enemies are picked".
 - **Consequences:** boots follow the enemy team as players expect. Each profile has about a third of the games, so fewer boots comparisons get numbers. The same split can later serve items 4+, once the data shows its trend clearly. A lane opponent isn't used: per champion pair the data is far too thin.
+
+### ADR-075 · The plan and the picks grouped by section
+
+- **Context:** the start, first components and boots (ADR-071 to ADR-074) were added one by one, each with its own flat plan fields (`start_buy`, `components_buy`, `boots_then`, `boots_against`) and its own field and branches in the player's picks, in three files of the app.
+- **Decision:**
+  - `build.plan`: `start` and `components` are a `PurchaseChoice` (the choice, flattened, and its `buy`); `boots` a `BootsChoice` (the choice, flattened, its block's `then`, and the enemy damage it was chosen `against`). The choice's `value` and `label` stay where the app read them.
+  - The player's picks: `sections` holds each section's items (`start`, `components`, a set each; `boots`, one item), next to the runes, spells and item slots; one pick shape (`{section, items}`) and one branch handle them in the options, the sheet, the panel, saving and the import. Picks saved before, with `start`, `components` and `boots` beside the items, are read into `sections`.
+  - `build.import` checks picks one section at a time (`pick_runes`, `pick_spells`, `pick_items`, `pick_purchase`, `pick_boots`).
+- **Consequences:** a new section is one entry in `SECTIONS` and its plan field. On the real 16.20 data all 2,181 plans (727 boards, three enemy teams) carry the same content as before.

@@ -301,18 +301,23 @@ fn plan_takes_the_most_played_start_and_ranks_the_others() {
         json!({"champion": "Viego", "role": "JUNGLE"}),
     )
     .unwrap();
-    assert_eq!(out["start"], json!({"value": [1102], "label": "popular"}));
-    assert_eq!(out["start_buy"], json!([1102, 2003]));
+    // The start, and what the import writes for it: what is bought with it, its potion too.
+    assert_eq!(
+        out["start"],
+        json!({"value": [1102], "label": "popular", "buy": [1102, 2003]})
+    );
     assert_eq!(
         out["components"],
-        json!({"value": [1036], "label": "popular"})
+        json!({"value": [1036], "label": "popular", "buy": [1036, 2003]})
     );
     assert_eq!(
         out["alternatives"]["components"]["rows"][1]["value"],
         json!([1036, 1037])
     );
-    assert_eq!(out["boots"], json!({"value": 3047, "label": "popular"}));
-    assert_eq!(out["boots_then"], json!([3111]));
+    assert_eq!(
+        out["boots"],
+        json!({"value": 3047, "label": "popular", "then": [3111], "against": null})
+    );
     let rows = &out["alternatives"]["start"]["rows"];
     assert_eq!(rows[0]["confidence"], "most_played");
     // Compared head to head with the most played start, no clear difference.
@@ -334,15 +339,15 @@ fn plan_chooses_boots_against_the_enemy_teams_damage() {
     };
     // Two Ahris and a Lee Sin: a magic team, and the data has boots against magic teams.
     let magic = plan(json!([103, 103, 64]));
-    assert_eq!(magic["boots_against"], "magic");
+    assert_eq!(magic["boots"]["against"], "magic");
     assert_eq!(magic["boots"]["value"], 3111);
     assert_eq!(magic["alternatives"]["boots"]["rows"][1]["value"], 3047);
     // A physical team, with no boots against physical teams: every game.
     let physical = plan(json!([64, 64, 234]));
-    assert_eq!(physical["boots_against"], Value::Null);
+    assert_eq!(physical["boots"]["against"], Value::Null);
     assert_eq!(physical["boots"]["value"], 3047);
     // Two enemies only: too few to read.
-    assert_eq!(plan(json!([103, 103]))["boots_against"], Value::Null);
+    assert_eq!(plan(json!([103, 103]))["boots"]["against"], Value::Null);
 }
 
 #[test]

@@ -8,30 +8,28 @@ import type { Page, Plan } from "../backend/backend.ts";
 export interface Picks {
   runes?: Page | undefined;
   spells?: [number, number] | undefined;
-  /** A start's items, smallest id first (ADR-071). */
-  start?: number[] | undefined;
-  /** First components, smallest id first (ADR-072). */
-  components?: number[] | undefined;
-  /** Upgraded boots (ADR-073). */
-  boots?: number | undefined;
   /** Item id by slot. */
   items: Record<number, number>;
+  /** Each section's items (`SECTIONS`), smallest id first. */
+  sections: Partial<Record<Section, number[]>>;
 }
 
 /** A pick for one slot; picking Stronk's choice again drops it. */
 export type Pick =
   | { runes: Page }
   | { spells: [number, number] }
-  | { start: number[] }
-  | { components: number[] }
-  | { boots: number }
+  | { section: Section; items: number[] }
   | { slot: number; item: number };
 
-export const noPicks = (): Picks => ({ items: {} });
+export const noPicks = (): Picks => ({ items: {}, sections: {} });
 
-/** The purchases picked as a set of items: the start (ADR-071), the first components (ADR-072). */
-export const PURCHASES = ["start", "components"] as const;
-export type Purchase = (typeof PURCHASES)[number];
+/** The sections picked as items: the start and the first components, a set each (ADR-071,
+ * ADR-072), and the boots, one item (ADR-073). */
+export const SECTIONS = ["start", "components", "boots"] as const;
+export type Section = (typeof SECTIONS)[number];
+
+/** A section's option as its items: boots are one item, the others a set. */
+export const asItems = (value: number | number[]): number[] => (Array.isArray(value) ? value : [value]);
 
 export const samePage = (a: Page, b: Page): boolean => {
   // The two secondary runes are one choice, whichever order the data or the player gives them in.
@@ -39,7 +37,7 @@ export const samePage = (a: Page, b: Page): boolean => {
   return a.primary_style === b.primary_style && a.sub_style === b.sub_style && key(a) === key(b);
 };
 
-/** The same two spells, whichever key each is on; the same items of a start, in any order. */
+/** The same two spells, whichever key each is on; the same items of a section, in any order. */
 export const samePair = (a: readonly number[], b: readonly number[]): boolean =>
   [...a].sort().join() === [...b].sort().join();
 
@@ -49,17 +47,14 @@ export const samePair = (a: readonly number[], b: readonly number[]): boolean =>
  * showing one it would refuse. */
 export function published(plan: Plan, picks: Picks): Picks {
   const { spells, items } = plan.alternatives;
-  const kept: Picks = { items: {} };
+  const kept: Picks = { items: {}, sections: {} };
   if (picks.runes && picks.runes.perks.length === 9) kept.runes = picks.runes;
   if (picks.spells && spells.rows.some((r) => samePair(r.value, picks.spells as [number, number]))) {
     kept.spells = picks.spells;
   }
-  if (picks.boots !== undefined && plan.alternatives.boots.rows.some((r) => r.value === picks.boots)) {
-    kept.boots = picks.boots;
-  }
-  for (const key of PURCHASES) {
-    const items = picks[key];
-    if (items && plan.alternatives[key].rows.some((r) => samePair(r.value, items))) kept[key] = items;
+  for (const key of SECTIONS) {
+    const items = picks.sections[key];
+    if (items && plan.alternatives[key].rows.some((r) => samePair(asItems(r.value), items))) kept.sections[key] = items;
   }
   for (const [slot, item] of Object.entries(picks.items)) {
     if (items.some((s) => s.slot === Number(slot) && s.rows.some((r) => r.value === item))) {
@@ -72,9 +67,7 @@ export function published(plan: Plan, picks: Picks): Picks {
 export const isEmpty = (picks: Picks): boolean =>
   picks.runes === undefined &&
   picks.spells === undefined &&
-  picks.start === undefined &&
-  picks.components === undefined &&
-  picks.boots === undefined &&
+  Object.keys(picks.sections).length === 0 &&
   Object.keys(picks.items).length === 0;
 
 /** Picks by champion and role (`LeeSin/JUNGLE`), each for the patch it was made on. */
@@ -102,7 +95,7 @@ const isPage = (v: unknown): v is Page =>
 /** Picks read back from storage, or `null` when they aren't picks: storage is outside input. */
 function parsePicks(v: unknown): Picks | null {
   if (!v || typeof v !== "object" || !("items" in v) || !v.items || typeof v.items !== "object") return null;
-  const picks: Picks = { items: {} };
+  const picks: Picks = { items: {}, sections: {} };
   for (const [slot, item] of Object.entries(v.items)) {
     if (!Number.isInteger(Number(slot)) || !Number.isInteger(item)) return null;
     picks.items[Number(slot)] = item as number;
@@ -116,16 +109,15 @@ function parsePicks(v: unknown): Picks | null {
     if (!Array.isArray(s) || s.length !== 2 || !s.every(Number.isInteger)) return null;
     picks.spells = [s[0], s[1]];
   }
-  if ("boots" in v && v.boots !== undefined) {
-    if (!Number.isInteger(v.boots)) return null;
-    picks.boots = v.boots as number;
-  }
-  for (const key of PURCHASES) {
-    if (!(key in v)) continue;
-    const s = (v as Record<string, unknown>)[key];
+  // Sections, and picks saved before they were grouped: `start`, `components` and `boots` beside
+  // the items.
+  const sections = "sections" in v && v.sections && typeof v.sections === "object" ? v.sections : v;
+  for (const key of SECTIONS) {
+    const s = (sections as Record<string, unknown>)[key];
     if (s === undefined) continue;
-    if (!Array.isArray(s) || s.length === 0 || !s.every(Number.isInteger)) return null;
-    picks[key] = s as number[];
+    const items = Number.isInteger(s) ? [s as number] : s;
+    if (!Array.isArray(items) || items.length === 0 || !items.every(Number.isInteger)) return null;
+    picks.sections[key] = items as number[];
   }
   return picks;
 }
