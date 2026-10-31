@@ -77,7 +77,7 @@ Commands reach the outside only through three ports, so the core runs against th
 
 > **Open question for the web viewer.** The view renders `build.plan`, whose ranking lives in the Rust core (ADR-049). A browser has no core. Options:
 >
-> - **Compile `domain` and the plan code to WebAssembly** (recommended): one rule, and `domain` has no I/O.
+> - **Compile `domain` and the plan code to WebAssembly** (recommended): one rule, and `domain` has no I/O. The plan's rules (selection, rune rows, item set blocks) live in `domain`; `build.plan` itself only turns a build file into domain candidates and assembles the result.
 > - `publish` writes ranked plans: simpler, but the rule is duplicated in Python.
 > - Rewrite ranking in TypeScript: undoes ADR-049.
 >

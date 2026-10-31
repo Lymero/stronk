@@ -62,14 +62,14 @@ stronk/
 │   ├── src/stronk_pipeline/
 │   │   ├── domain/              # game state, features, WPA math (pure)
 │   │   ├── application/         # stages as commands: crawl, extract, winprob, wpa, publish
-│   │   ├── ports.py             # MatchSource, MatchStore, DecisionStore, FrameStore, Estimator; later Publisher, Signer
-│   │   ├── adapters/            # riot/ (client, rate limits, payloads), recording, match_store, parquet_store; later local_publisher, r2_publisher
+│   │   ├── ports.py             # MatchSource, MatchStore, FrameStore, DecisionStore, WinProb*, Estimator, EstimateStore, Signer, Publisher
+│   │   ├── adapters/            # riot/ (client, rate limits, payloads), recording, match_store, parquet_store, local_publisher, minisign; later r2_publisher
 │   │   ├── config.py            # typed settings (pydantic-settings)
 │   │   └── cli.py               # Typer entry point
 │   └── tests/
 ├── app/
 │   ├── core/                    # Cargo workspace
-│   │   ├── crates/domain/       # build selection, rune/item mapping (pure)
+│   │   ├── crates/domain/       # build selection, rune pages, item set blocks, spells (pure)
 │   │   ├── crates/service/      # command registry and use cases
 │   │   ├── crates/lcu/          # LeagueClient adapter
 │   │   ├── crates/data/         # BuildSource adapters: directory, HTTP; cache; signature check
@@ -77,7 +77,7 @@ stronk/
 │   │   └── src-tauri/           # Tauri shell
 │   └── ui/                      # Svelte 5 + TypeScript
 │       └── src/lib/
-│           ├── backend/         # Backend port: TauriBackend, HttpBackend, MockBackend
+│           ├── backend/         # Backend port: TauriBackend, MockBackend, CoreBackend (tests); later HttpBackend
 │           ├── state/           # single serializable app state
 │           ├── features/        # champ-select, build-view, settings
 │           └── ui/              # design system: components and tokens
@@ -99,7 +99,7 @@ stronk/
 
 ### Stages
 
-Each stage is a command with explicit inputs and outputs, reading and writing Parquet through the `Store` port, rerunnable on its own.
+Each stage is a command with explicit inputs and outputs, reading and writing through store ports (games as compressed JSON, frames and decisions as Parquet, models and estimates as JSON), rerunnable on its own.
 
 | Stage | Input | Output |
 |---|---|---|
@@ -107,7 +107,7 @@ Each stage is a command with explicit inputs and outputs, reading and writing Pa
 | `extract` | raw data | `frames` (per minute, per team and player, with situation features), `decisions` (decision points with game state, options and the chosen one) |
 | `winprob` | frames | win probability model (best of logistic and LightGBM on validation matches), calibration report on test matches |
 | `wpa` | decisions + model | propensity model, estimates per champion, role, slot and option, with interval, sample size and flags |
-| `publish` | estimates + crawls | signed JSON per patch, region, elo, champion and role, through the `Publisher` port: keystone estimates carry the page most played with them; spells and skill order stay empty until they are estimated |
+| `publish` | estimates + crawls | through the `Publisher` port, signed JSON: one build per patch, region, elo bracket, champion and role (`build.v1`), the patch's champion damage ratings (`champions.v1`), its manifest, and the index of patches (`index.v1`). Keystone estimates carry the page most played with them; spells are published by popularity, skill order stays empty until estimated |
 
 ### Publishing
 
@@ -120,15 +120,15 @@ Moving to the CDN means switching the publisher and the app's data URL; no other
 
 ### Runs and reproducibility
 
-- Each run writes to `runs/<run-id>/` with a `manifest.json`: input hashes, code version, parameters.
-- Each stage writes `report.json` (metrics, sample sizes, warnings) and a small HTML report.
-- `metrics.json` holds the tracked quality metrics, checked against `metrics/floors.toml`.
-- `--fixture` runs the whole pipeline on the committed sample in under a minute.
+- Each stage writes into the directory it is given (under `runs/`, gitignored). `extract`, `winprob` and `backtest` write a `report.json` with the stage, its inputs, parameters, patches and results.
+- `tools/checks/pipeline_metrics.py` turns a report into the tracked quality metrics, checked against `metrics/floors.toml`.
+- Inputs are pinned rather than hashed per run: corpora by sha256 in `corpus.lock`, each patch's Data Dragon version in the crawl's `static/`.
+- `just pipeline` runs every stage on the committed fixture in under a minute.
 
 ### Crawler
 
 - Async HTTP (httpx) behind the `MatchSource` port.
-- Seeds players from league endpoints (Challenger to Diamond), walks match histories, fetches match and timeline. The timeline is fetched only for games that pass the header checks (queue, map, remake, patch).
+- Seeds players from one bracket's league endpoints, Master+ (Challenger, Grandmaster, Master) or Diamond (I to IV, paged), one bracket per crawl directory (ADR-076); walks match histories, fetches match and timeline. The timeline is fetched only for games that pass the header checks (queue, map, remake, patch).
 - Rate limiter driven by Riot's rate-limit headers; Retry-After on 429, exponential backoff on 5xx and transport errors.
 - Riot payloads become validated models at the boundary; nothing raw passes inward.
 - Games are stored compact and pseudonymous, one file per game, and raw JSON is discarded (ADR-027). Reruns resume.
@@ -139,7 +139,9 @@ Moving to the CDN means switching the publisher and the app's data URL; no other
 runs/crawl/<platform>/
 ├── matches/<match_id>.json.gz   # domain Match: participants, frames, item/kill/objective events
 ├── static/<patch>.json.gz       # Data Dragon champions and items
+├── quarantine/                  # games that failed validation, kept to re-read (`--retry-quarantine`)
 ├── skipped.jsonl                # rejected games and why: never refetched
+├── bracket.txt                  # master_plus or diamond; none means master_plus (ADR-076)
 └── .salt                        # pseudonym key: never packed, published or committed
 ```
 
@@ -153,7 +155,7 @@ Defined in [wpa-method.md](wpa-method.md). Each estimator version (v1 adjusted, 
 
 | Crate | Role |
 |---|---|
-| `domain` | Pure logic: choose a build for champion, role and matchup; map it to rune pages, item sets and spells |
+| `domain` | Pure logic: the selection rule (`select`), rune pages and their rows (`runes`), item set blocks and purchases (`item_set`), spells on the player's keys (`spells`), what Stronk owns in the client (`owned`), the enemy team's damage (`damage`) |
 | `service` | Command registry and use cases, over traits `LeagueClient`, `BuildSource`, `Settings`, `Clock` |
 | `lcu` | Lockfile discovery, HTTPS trusting Riot's client CA through an explicit verifier, a pinned certificate as fallback (ADR-042), websocket events decoded into typed models |
 | `data` | `DirectorySource` and `HttpSource` (ETag), local cache, offline fallback, signature verification |
@@ -210,21 +212,16 @@ Data for the likely champions is loaded when champion select starts and on hover
 - Every file carries `schemaVersion`. New fields are optional; a breaking change bumps the major version and both versions are published until old apps age out.
 - **Signed.** `publish` writes a `manifest.json` per patch listing every file with its sha256, signed with ed25519 (minisign format). The app ships the public key, verifies the manifest, then each file's hash. Invalid data is rejected and the last valid cache is used.
 
-Shape of one file (`/{patch}/{region}/{elo}/{champion}/{role}.json`):
+Published files, each with its schema in `contracts/schemas/` and a valid example in `contracts/examples/` (checked by the contract tests, so the example is the reference shape):
 
-```json
-{
-  "schemaVersion": 1,
-  "patch": "26.20",
-  "champion": "Viego",
-  "role": "JUNGLE",
-  "games": 18432,
-  "runes":  [{ "page": {}, "wpa": 0.012, "ci": [0.004, 0.020], "n": 9120, "flags": [] }],
-  "items":  [{ "slot": 1, "item": 6672, "wpa": 0.008, "ci": [0.001, 0.015], "n": 5400, "flags": ["low_comparison_group"] }],
-  "spells": [],
-  "skillOrder": []
-}
-```
+| File | Schema | Holds |
+|---|---|---|
+| `/index.json` | `index.v1` | The published patches, for clients over HTTP; unsigned, as every patch it names has its own signed manifest (ADR-046) |
+| `/{patch}/manifest.json` (+ `.minisig`) | `manifest.v1` | Every file of the patch with its sha256, signed |
+| `/{patch}/champions.json` | `champions.v1` | Each champion's damage ratings and the enemy-profile cuts (ADR-074) |
+| `/{patch}/{region}/{elo}/{champion}/{role}.json` | `build.v1` | One build: games; rune pages and each rune row (`runeChoices`); spells; starts, first components, boots by enemy damage; items per slot and the late slot; each option with its estimate, interval, games, flags and head-to-head comparison |
+
+`region` is `all` or a platform; `elo` is `master_plus` or `diamond` (ADR-076).
 
 ## 7. Budgets and floors
 
@@ -268,6 +265,14 @@ A floor can be raised, never lowered without an entry in `docs/decisions.md`. CI
 | Component | Vitest + Testing Library | UI against `MockBackend` |
 | End to end | Playwright + `lcu-mock` (`just e2e`) | the UI in Chromium against `MockBackend` scenarios, and against the real core through `CoreBackend` and `tools/lcu_mock/core_bridge.py`: a replayed lobby leads to the correct import, auto-import writes once, restore puts the sets back; screenshots in `runs/e2e/screenshots/` (ADR-048) |
 | Performance | `just bench` | budgets in `perf/budgets.toml` |
+
+Tests sit where each language expects them:
+
+| Language | Unit tests | Integration and end to end |
+|---|---|---|
+| Python | `pipeline/tests/`, mirroring the package (`domain/`, `application/`, `adapters/`), `test_<module>.py` | `pipeline/tests/` (offline pipeline, fixture replay, corpus) |
+| Rust | a `#[cfg(test)] mod tests` at the bottom of the module, so private functions are tested where they live | each crate's `tests/`, through its public API (`service/tests/commands.rs`, `data/tests/http.rs`…) |
+| TypeScript | `<module>.test.ts` next to the module (Vitest) | `app/ui/e2e/` (Playwright) |
 
 ### Test corpus
 

@@ -82,7 +82,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 
 - Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`).
 - One use case per file in `application/` (Python) and `service/` (Rust).
-- Tests live in each component's `tests/` folder, named after the module they cover.
+- Tests sit where each language expects them: `pipeline/tests/` for Python, an inline `#[cfg(test)] mod tests` for Rust units and the crate's `tests/` for its public API, `<module>.test.ts` beside TypeScript modules ([architecture.md](docs/architecture.md), section 8).
 
 ## Definition of done
 
