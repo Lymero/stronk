@@ -8,7 +8,9 @@
 - The first components (slot `COMPONENTS_SLOT`, ADR-072): what is bought on the first trip back
   to base, the purchases within `TRIP_MS` of the first one after the start, without supplies,
   boots or completed items, as one option the same way: Dark Seal and Amplifying Tome, a Long
-  Sword... Anchored at that first purchase. Boots are their own decision.
+  Sword... Anchored at that first purchase. Only planned backs count: a first back after the
+  player died is left out and counted (`first_back_after_death`), as a death decides what can be
+  bought then. Boots are their own decision.
 - Boots (slot `BOOTS_SLOT`, ADR-073): the first upgraded boots bought (Berserker's Greaves,
   Sorcerer's Shoes...), anchored at the plain Boots bought before them, as items are at their
   first component (at the upgrade itself without them). Boots never upgraded add nothing.
@@ -32,7 +34,7 @@ how many late decisions are lost.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from stronk_pipeline.domain.match import ItemEvent, Match
@@ -105,9 +107,13 @@ def decision_points(match: Match, static: StaticData, dropped: Counter[str]) -> 
         )
     for participant in match.participants:
         purchases = kept_purchases(match.items, participant.participant_id)
+        deaths = deaths_of(match, participant.participant_id)
+        components = first_components(purchases, static, deaths)
+        if components.after_death:
+            dropped["first_back_after_death"] += 1
         for slot, bought in (
             (START_SLOT, starting_items(purchases, static)),
-            (COMPONENTS_SLOT, first_components(purchases, static)),
+            (COMPONENTS_SLOT, components),
         ):
             if bought.option:
                 points.append(
@@ -131,6 +137,8 @@ class Purchase:
     """Everything bought, supplies included, sorted, repeats kept: what the import writes."""
     at: int
     """The first purchase that counts, in ms (0 without one)."""
+    after_death: bool = False
+    """First components only: the trip followed a death, so it isn't measured."""
 
 
 def _purchase(bought: list[ItemEvent], counts: Callable[[int], bool]) -> Purchase:
@@ -147,10 +155,18 @@ def starting_items(purchases: list[ItemEvent], static: StaticData) -> Purchase:
     return _purchase(early, lambda i: not static.is_supply(i))
 
 
-def first_components(purchases: list[ItemEvent], static: StaticData) -> Purchase:
+def deaths_of(match: Match, participant_id: int) -> list[int]:
+    """When the player died, in ms."""
+    return [k.timestamp for k in match.kills if k.victim_id == participant_id]
+
+
+def first_components(
+    purchases: list[ItemEvent], static: StaticData, deaths: Sequence[int]
+) -> Purchase:
     """The first trip back's purchases (ADR-072): from the first purchase after the start that
     counts (not a supply, boots or a completed item) to `TRIP_MS` after it. What is bought with
-    it, supplies and boots included, is what the import writes."""
+    it, supplies and boots included, is what the import writes. A trip after one of `deaths`
+    isn't a planned back: nothing, marked `after_death`."""
 
     def counts(i: int) -> bool:
         return not (static.is_supply(i) or static.is_boots(i) or i in static.completed_items)
@@ -159,6 +175,8 @@ def first_components(purchases: list[ItemEvent], static: StaticData) -> Purchase
     first = next((p for p in later if counts(p.item_id)), None)
     if first is None:
         return Purchase("", (), 0)
+    if any(d <= first.timestamp for d in deaths):
+        return Purchase("", (), 0, after_death=True)
     return _purchase(
         [p for p in later if first.timestamp <= p.timestamp < first.timestamp + TRIP_MS], counts
     )

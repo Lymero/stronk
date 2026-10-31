@@ -1,7 +1,7 @@
 from collections import Counter
 from dataclasses import replace
 
-from riot_builders import Json, buy, domain_match, domain_static, undo
+from riot_builders import Json, buy, domain_match, domain_static, kill, undo
 
 from stronk_pipeline.domain.extract.decision_points import (
     BOOTS_SLOT,
@@ -203,7 +203,7 @@ def test_the_first_trip_back_buys_its_components_as_one_choice() -> None:
     events += [buy(8 * MIN, 1, 1038)]
     assert components_of(events) == [DecisionPoint(1, COMPONENTS_SLOT, 4 * MIN, "1036,1037")]
     purchases = kept_purchases(domain_match(events=events).items, 1)
-    assert first_components(purchases, STATIC).bought == (1001, 1036, 1037, 2003)
+    assert first_components(purchases, STATIC, []).bought == (1001, 1036, 1037, 2003)
 
 
 def test_a_trip_starts_at_its_first_component_and_skips_completed_items() -> None:
@@ -225,3 +225,14 @@ def test_boots_are_the_first_upgrade_anchored_at_the_plain_boots() -> None:
     # Bought upgraded at once: anchored there. Never upgraded: no decision.
     assert boots_of([buy(9 * MIN, 1, 3006)]) == [DecisionPoint(1, BOOTS_SLOT, 9 * MIN, "3006")]
     assert boots_of([buy(5 * MIN, 1, 1001)]) == []
+
+
+def test_a_first_back_after_a_death_isnt_measured_but_counted() -> None:
+    # Player 1 dies at 3:00 (to player 6), then buys a Long Sword on respawn: not a planned back.
+    events = [buy(5_000, 1, 1055), kill(3 * MIN, 6, 1), buy(3 * MIN + 20_000, 1, 1036)]
+    points = decision_points(domain_match(events=events), STATIC, dropped := Counter())
+    assert [p for p in points if p.participant_id == 1 and p.slot == COMPONENTS_SLOT] == []
+    assert dropped["first_back_after_death"] == 1
+    # A death after the first back changes nothing.
+    events = [buy(4 * MIN, 1, 1036), kill(6 * MIN, 6, 1)]
+    assert components_of(events) == [DecisionPoint(1, COMPONENTS_SLOT, 4 * MIN, "1036")]

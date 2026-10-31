@@ -327,7 +327,7 @@ describe("App with MockBackend", () => {
     await next();
     await fireEvent.click(tab("First back"));
     const first = within(screen.getByRole("tabpanel", { name: "First components" }));
-    expect(screen.getByRole("tabpanel", { name: "First components" })).toHaveTextContent("The first trip back, potions, wards and boots aside");
+    expect(screen.getByRole("tabpanel", { name: "First components" })).toHaveTextContent("The first planned trip back (not after a death), potions, wards and boots aside");
     expect(option(first, "Long Sword")).toHaveTextContent("baseline");
     expect(option(first, "Pickaxe").querySelector(".num")).toHaveTextContent("+0.3");
     expect(option(first, "Long Sword + Pickaxe").querySelectorAll(".icon")).toHaveLength(2);

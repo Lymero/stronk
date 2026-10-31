@@ -208,3 +208,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the sheet's item names shorten beside a badge when a row has two icons ("Long Swor…"); the panel shows them in full.
 - 2026-10-31: `just site-shot`'s failures on some runs came from the names route still holding a request when a page closed; each test now drops its routes after its picture (`unrouteAll`, ignoring errors). Site screenshots show the start, first back and boots.
   Open: none.
+- 2026-10-31: the first components count planned backs only: a first back after a death of the player is left out and counted (`first_back_after_death`); the bias check (kills accounted for, deaths not) is recorded in ADR-072.
+  Open: the order on planned backs carries over to backs after a death only loosely (8 of 10 clear pairs); revisit with more patches.

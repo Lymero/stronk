@@ -123,7 +123,7 @@
   const PURCHASE: Record<Purchase, { name: string; title: string; about: string }> = {
     start: { name: "Start", title: "Start", about: "Before leaving base, potions and wards aside" },
     // "First back" in the sheet, where "First components" doesn't fit beside a badge.
-    components: { name: "First back", title: "First components", about: "The first trip back, potions, wards and boots aside" },
+    components: { name: "First back", title: "First components", about: "The first planned trip back (not after a death), potions, wards and boots aside" },
   };
   const isPurchase = (key: string): key is Purchase => (PURCHASES as readonly string[]).includes(key);
   const set = (items: number[]) => items.map(item).join(" + ");

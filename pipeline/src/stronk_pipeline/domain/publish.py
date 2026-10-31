@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from stronk_pipeline.domain.extract.decision_points import (
     COMPONENTS_SLOT,
     START_SLOT,
+    deaths_of,
     first_components,
     kept_purchases,
     starting_items,
@@ -75,7 +76,10 @@ def played(matches: Sequence[Match], statics: Mapping[str, StaticData]) -> Playe
             purchases = kept_purchases(match.items, p.participant_id)
             for slot, made in (
                 (START_SLOT, starting_items(purchases, static)),
-                (COMPONENTS_SLOT, first_components(purchases, static)),
+                (
+                    COMPONENTS_SLOT,
+                    first_components(purchases, static, deaths_of(match, p.participant_id)),
+                ),
             ):
                 if made.option:
                     bought.setdefault((*pick, slot, made.option), Counter())[made.bought] += 1
