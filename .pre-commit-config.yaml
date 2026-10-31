@@ -25,6 +25,12 @@ repos:
         name: no Riot API keys
         language: pygrep
         entry: 'RGAPI-[0-9a-fA-F]{8}-'
+      # A data signing key's secret half (pipeline/.../adapters/minisign.py writes it), wherever
+      # it was written: the generic private key check doesn't know this format.
+      - id: signing-key
+        name: no signing keys
+        language: pygrep
+        entry: '^stronk signing key v1$|^seed=[A-Za-z0-9+/]{40,}={0,2}$'
       - id: ruff-format
         name: ruff format
         language: system

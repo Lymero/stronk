@@ -214,3 +214,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: items 4+ against the enemy's damage when the data shows it; a recurring per-section holdout check.
 - 2026-10-31: roadmap action point (M5): revalidate with more data, repeating the holdout, boots-by-profile, items-by-damage and first-back checks against their 16.20 baselines.
   Open: the analysis scripts behind those checks were one-off; turn them into a recurring check when revalidating.
+- 2026-10-31: a throwaway signing key pair (`u`, `u.pub`), written into the repository root by the command fuzz test (`signing.keygen` with a random `out`), was committed in 8a604f8; removed. The fuzz test now runs in a scratch folder, and a `signing-key` commit hook refuses secret key lines whatever the file's name (security.md).
+  Open: the key stays in the history of 8a604f8; it never signed anything and no app trusts it, so the history wasn't rewritten.

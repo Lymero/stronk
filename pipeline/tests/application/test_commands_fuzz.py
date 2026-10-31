@@ -1,7 +1,11 @@
 """Every registered command, returns a result or an error, never raises."""
 
 import json
+import os
+from collections.abc import Iterator
+from pathlib import Path
 
+import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
@@ -30,6 +34,16 @@ field_names = st.sampled_from(
 params = st.dictionaries(field_names, json_values, max_size=5).map(json.dumps) | st.text(
     max_size=50
 )
+
+
+@pytest.fixture(autouse=True, scope="module")
+def scratch_folder(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Commands write where their params say, relative to the working directory: run them in a
+    scratch folder, never the repository (a random `{"out": "u"}` once left a signing key there)."""
+    before = Path.cwd()
+    os.chdir(tmp_path_factory.mktemp("fuzz"))
+    yield
+    os.chdir(before)
 
 
 @settings(max_examples=300, deadline=None, suppress_health_check=[HealthCheck.too_slow])
