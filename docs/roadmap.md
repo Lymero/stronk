@@ -68,6 +68,13 @@ Build a thin version end to end first, then improve each part. Structure is set 
 - [ ] `wpa` v2: doubly robust estimator, compared with v1 side by side
 - [ ] E-values and the `fragile` flag
 - [ ] Within-player check report
+- [ ] **Revalidate with more data** (several patches pooled, or a bigger crawl), repeating the 2026-10-31 checks against their baselines:
+  - Holdout on the next patch, by section: share of best bets that keep their direction, and their gain against the predicted one (baseline 16.20 to 16.21: 59% of 81, +0.9 wins per 100 against +1.2 predicted; boots 6 of 12; items 4+ only 3 bets).
+  - Boots by enemy team (ADR-074): do the per-profile best bets hold better than the every-game ones did (6 of 12)? Revisit the cuts (0.43, 0.50) and the three-enemy rule.
+  - Items 4+ against the enemy's damage: the armor minus magic resist swing was −2.9 (95% −7.1 to +1.3); split the late slot by profile like boots if it becomes clear.
+  - Items 1 to 3 against the enemy's damage: no swing so far (+1.4, 95% −1.7 to +4.6; tanks −0.2, −4.3 to +3.9).
+  - First components (ADR-072): the death-forced bias (planned backs only) and whether the planned-back order carries over to backs after a death (8 of 10 clear pairs).
+  - Lane matchups (a champion against its lane opponent), once there is data for champion pairs.
 
 ## Later
 

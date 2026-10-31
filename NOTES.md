@@ -212,3 +212,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the order on planned backs carries over to backs after a death only loosely (8 of 10 clear pairs); revisit with more patches.
 - 2026-10-31: validation (16.20 vs 16.21): best bets held on average (+0.9 wins per 100, predicted +1.2) but boots didn't; boots now follow the enemy team's damage once three enemies are picked: per-profile estimates, a signed champions.json with the ratings and cuts, enemies from champion select (ADR-074).
   Open: items 4+ against the enemy's damage when the data shows it; a recurring per-section holdout check.
+- 2026-10-31: roadmap action point (M5): revalidate with more data, repeating the holdout, boots-by-profile, items-by-damage and first-back checks against their 16.20 baselines.
+  Open: the analysis scripts behind those checks were one-off; turn them into a recurring check when revalidating.
