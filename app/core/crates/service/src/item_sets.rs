@@ -1,10 +1,10 @@
-//! The client's item set document, handled as raw JSON (ADR-043): only its outline is parsed,
-//! so everything that isn't Stronk's is written back byte for byte. Shared by `build.import`
-//! and `item_sets.restore`.
+//! The client's item sets: the document, handled as raw JSON (ADR-043), where only its outline
+//! is parsed so everything that isn't Stronk's is written back byte for byte (shared by
+//! `build.import` and `item_sets.restore`); and Stronk's own set in the client's format.
 
 use serde::Deserialize;
-use serde_json::Value;
 use serde_json::value::RawValue;
+use serde_json::{Value, json};
 use stronk_domain::owned::is_ours;
 
 use crate::{CommandError, ErrorCode};
@@ -83,6 +83,59 @@ impl Document {
     }
 }
 
+/// One of Stronk's item sets: what to write, without the client's format.
+pub struct ItemSet {
+    pub title: String,
+    /// Stable per champion and role, so a new import replaces the set in place.
+    pub uid: String,
+    pub champion_id: i64,
+    pub blocks: Vec<Block>,
+}
+
+/// One block of an item set: its name, and its items in order, repeated as bought.
+pub struct Block {
+    pub name: String,
+    pub items: Vec<i64>,
+}
+
+impl ItemSet {
+    /// The set as the client stores it: on every map and mode, listed first in the shop
+    /// (`priority`); a block's repeated item is one entry with its count (two Health Potions
+    /// read "2").
+    pub fn to_json(&self) -> Value {
+        let blocks: Vec<Value> = self
+            .blocks
+            .iter()
+            .map(|b| {
+                let mut counted: Vec<(i64, u32)> = Vec::new();
+                for id in &b.items {
+                    match counted.iter_mut().find(|(i, _)| i == id) {
+                        Some((_, n)) => *n += 1,
+                        None => counted.push((*id, 1)),
+                    }
+                }
+                let items: Vec<Value> = counted
+                    .into_iter()
+                    .map(|(id, count)| json!({"id": id.to_string(), "count": count}))
+                    .collect();
+                json!({"type": b.name, "items": items})
+            })
+            .collect();
+        json!({
+            "title": self.title,
+            "type": "custom",
+            "map": "any",
+            "mode": "any",
+            "priority": true,
+            "sortrank": 0,
+            "associatedChampions": [self.champion_id],
+            "associatedMaps": [],
+            "blocks": blocks,
+            "uid": self.uid,
+        })
+    }
+}
+
 /// A JSON object's members in their order, each value as its raw text.
 struct Members(Vec<(String, Box<RawValue>)>);
 
@@ -134,6 +187,27 @@ mod tests {
             format!(
                 r#"{{"timestamp":5,"itemSets":[{{"title":"Stronk: Ahri MIDDLE"}},{theirs}],"accountId":1}}"#
             )
+        );
+    }
+
+    #[test]
+    fn a_set_counts_repeats_and_comes_first_in_the_shop() {
+        let set = ItemSet {
+            title: "Stronk: Lee Sin Jungle".into(),
+            uid: "stronk-leesin-jungle".into(),
+            champion_id: 64,
+            blocks: vec![Block {
+                name: "Start: Popular".into(),
+                items: vec![1103, 2003, 2003],
+            }],
+        }
+        .to_json();
+        assert_eq!(set["priority"], true);
+        assert_eq!(set["associatedChampions"], json!([64]));
+        assert_eq!(
+            set["blocks"],
+            json!([{"type": "Start: Popular", "items": [
+                {"id": "1103", "count": 1}, {"id": "2003", "count": 2}]}])
         );
     }
 

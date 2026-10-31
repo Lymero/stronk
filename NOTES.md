@@ -224,3 +224,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: crawling at scale; a Diamond pipeline run and an elo choice in the app.
 - 2026-10-31: the plan's pure rules moved from `build.plan` into `domain` (`runes`, `item_set`, `spells`, `owned` beside `select`, ADR-077); tests placed by each language's convention, written down; architecture.md corrected (published files, brackets, stage outputs). The 2,181 real plans are identical.
   Open: `item_set_json` (the client's item set format) could move next to `item_sets.rs`; the crawl continues (Diamond then Master+, about 05:30 to 07:00 on 11-01).
+- 2026-11-01: the client's item set format moved to `item_sets.rs` (`ItemSet`, `Block`, `to_json`: priority, repeats counted); `build.import` only decides the blocks, their names and items (ADR-077).
+  Open: none from the architecture review; the crawl continues.

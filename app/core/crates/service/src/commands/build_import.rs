@@ -5,7 +5,6 @@
 //! page the client's own trees allow (ADR-059).
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 use stronk_contracts::build_v1::{Build, PurchaseOption};
 use stronk_domain::Role;
 use stronk_domain::item_set::purchase_items;
@@ -19,7 +18,7 @@ use crate::commands::build_plan::{
     BootsChoice, Plan, PurchaseChoice, SlotChoice, against_for, plan, purchase_buy,
     with_alternatives,
 };
-use crate::item_sets::Document;
+use crate::item_sets::{Block, Document, ItemSet};
 use crate::ports::{LeagueClient, NewRunePage};
 use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
@@ -345,7 +344,7 @@ fn item_set(ctx: &Context, plan: &Plan, champion_id: i64) -> (Outcome, Option<St
         }
     };
     let document = match Document::parse(&current, "the client's item sets") {
-        Ok(parsed) => parsed.with_ours(&item_set_json(plan, &name, champion_id)),
+        Ok(parsed) => parsed.with_ours(&item_set_of(plan, name.clone(), champion_id).to_json()),
         Err(e) => return (skipped(&format!("{}; nothing written", e.message)), None),
     };
     let backup = match ctx.backups.save("item-sets", current.as_bytes()) {
@@ -396,66 +395,53 @@ fn item_set_title(ctx: &Context, plan: &Plan, champion_id: i64) -> String {
     format!("{PREFIX}{champion} {}", plan.role.label())
 }
 
-/// Stronk's set, listed first (`priority`): the start and the first components as bought,
+/// Stronk's set (the client lists it first): the start and the first components as bought,
 /// supplies included (ADR-071, ADR-072), then one block per slot (boots after the first item,
-/// when they're usually bought, ADR-073), named with the slot and why the item was chosen, its choice first
-/// and then the slot's other items (ADR-069); the late slot's block is "Items 4+" (ADR-067).
-fn item_set_json(plan: &Plan, title: &str, champion_id: i64) -> Value {
+/// when they're usually bought, ADR-073), named with the slot and why the item was chosen, its
+/// choice first and then the slot's other items (ADR-069); the late slot's block is "Items 4+"
+/// (ADR-067).
+fn item_set_of(plan: &Plan, title: String, champion_id: i64) -> ItemSet {
+    let named = |name: &str, label: Label, items: Vec<i64>| Block {
+        name: format!("{name}: {}", why(label)),
+        items,
+    };
     let purchase = |name: &str, choice: &Option<PurchaseChoice>| {
-        choice.as_ref().map(|p| {
-            // Repeats as one entry with its count: two Health Potions read "2".
-            let mut items: Vec<(i64, u32)> = Vec::new();
-            for id in &p.buy {
-                match items.iter_mut().find(|(i, _)| i == id) {
-                    Some((_, n)) => *n += 1,
-                    None => items.push((*id, 1)),
-                }
-            }
-            let items: Vec<Value> = items
-                .into_iter()
-                .map(|(id, count)| json!({"id": id.to_string(), "count": count}))
-                .collect();
-            json!({"type": format!("{name}: {}", why(p.choice.label)), "items": items})
-        })
+        choice
+            .as_ref()
+            .map(|p| named(name, p.choice.label, p.buy.clone()))
     };
     let start = purchase("Start", &plan.start);
     let components = purchase("First components", &plan.components);
-    let slots = plan.items.iter().map(|s| {
-        let name = if plan.late_slot == Some(s.slot) {
-            format!("Items {}+", s.slot)
-        } else {
-            format!("Item {}", s.slot)
-        };
-        let items: Vec<Value> = std::iter::once(s.choice.value)
-            .chain(s.then.iter().copied())
-            .map(|id| json!({"id": id.to_string(), "count": 1}))
-            .collect();
-        json!({"type": format!("{name}: {}", why(s.choice.label)), "items": items})
-    });
-    let boots = plan.boots.as_ref().map(|b| {
-        let items: Vec<Value> = std::iter::once(b.choice.value)
-            .chain(b.then.iter().copied())
-            .map(|id| json!({"id": id.to_string(), "count": 1}))
-            .collect();
-        json!({"type": format!("Boots: {}", why(b.choice.label)), "items": items})
-    });
-    let mut slots: Vec<Value> = slots.collect();
-    if let Some(boots) = boots {
-        slots.insert(slots.len().min(1), boots);
+    let mut slots: Vec<Block> = plan
+        .items
+        .iter()
+        .map(|s| {
+            let name = if plan.late_slot == Some(s.slot) {
+                format!("Items {}+", s.slot)
+            } else {
+                format!("Item {}", s.slot)
+            };
+            let items = std::iter::once(s.choice.value).chain(s.then.iter().copied());
+            named(&name, s.choice.label, items.collect())
+        })
+        .collect();
+    if let Some(b) = &plan.boots {
+        let items = std::iter::once(b.choice.value).chain(b.then.iter().copied());
+        slots.insert(
+            slots.len().min(1),
+            named("Boots", b.choice.label, items.collect()),
+        );
     }
-    let blocks: Vec<Value> = start.into_iter().chain(components).chain(slots).collect();
-    json!({
-        "title": title,
-        "type": "custom",
-        "map": "any",
-        "mode": "any",
-        "priority": true,
-        "sortrank": 0,
-        "associatedChampions": [champion_id],
-        "associatedMaps": [],
-        "blocks": blocks,
-        "uid": format!("stronk-{}-{}", plan.champion.to_lowercase(), plan.role.as_str().to_lowercase()),
-    })
+    ItemSet {
+        title,
+        uid: format!(
+            "stronk-{}-{}",
+            plan.champion.to_lowercase(),
+            plan.role.as_str().to_lowercase()
+        ),
+        champion_id,
+        blocks: start.into_iter().chain(components).chain(slots).collect(),
+    }
 }
 
 fn spells(
@@ -484,16 +470,14 @@ mod tests {
     #[test]
     fn the_late_slots_block_names_it_and_lists_its_items() {
         let build = with_items(&[(1, 6698, 90), (4, 3026, 60), (4, 3156, 50)]);
-        let set = item_set_json(
+        let set = item_set_of(
             &plan(&build, Role::Jungle, None),
-            "Stronk: LeeSin JUNGLE",
+            "Stronk: Lee Sin Jungle".into(),
             64,
         );
-        assert_eq!(set["blocks"][0]["type"], "Item 1: Popular");
-        assert_eq!(set["blocks"][1]["type"], "Items 4+: Popular");
-        assert_eq!(
-            set["blocks"][1]["items"],
-            json!([{"id": "3026", "count": 1}, {"id": "3156", "count": 1}])
-        );
+        assert_eq!(set.uid, "stronk-leesin-jungle");
+        assert_eq!(set.blocks[0].name, "Item 1: Popular");
+        assert_eq!(set.blocks[1].name, "Items 4+: Popular");
+        assert_eq!(set.blocks[1].items, [3026, 3156]);
     }
 }
