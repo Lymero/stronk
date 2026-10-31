@@ -10,7 +10,8 @@ use std::sync::Arc;
 use common::{ClientState, FakeBackups, FakeClient, NoClient, THEIR_SET, context, viego};
 use serde_json::{Value, json};
 use stronk_domain::Role;
-use stronk_domain::select::{PageInfo, shrunk};
+use stronk_domain::owned::PageInfo;
+use stronk_domain::select::shrunk;
 use stronk_service::ports::{Backups, ChampSelect, LeagueClient};
 use stronk_service::{Context, ErrorCode, registry};
 

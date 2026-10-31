@@ -9,7 +9,7 @@ use reqwest::blocking::Client;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use stronk_domain::select::PageInfo;
+use stronk_domain::owned::PageInfo;
 use stronk_service::ports::{
     ChampSelect, GameNames, Icon, IconKind, LeagueClient, NewRunePage, PortError,
 };

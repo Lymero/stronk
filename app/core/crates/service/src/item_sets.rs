@@ -5,7 +5,7 @@
 use serde::Deserialize;
 use serde_json::Value;
 use serde_json::value::RawValue;
-use stronk_domain::select::is_ours;
+use stronk_domain::owned::is_ours;
 
 use crate::{CommandError, ErrorCode};
 

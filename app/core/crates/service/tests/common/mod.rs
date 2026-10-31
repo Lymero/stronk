@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use stronk_contracts::build_v1::Build;
 use stronk_contracts::champions_v1::Champions;
-use stronk_domain::select::PageInfo;
+use stronk_domain::owned::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
 use stronk_service::Context;
 use stronk_service::ports::{

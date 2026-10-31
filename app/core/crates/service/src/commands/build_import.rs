@@ -8,12 +8,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use stronk_contracts::build_v1::{Build, PurchaseOption};
 use stronk_domain::Role;
-use stronk_domain::select::{Choice, Label, PREFIX, arrange_spells, plan_rune_page, valid_page};
+use stronk_domain::item_set::purchase_items;
+use stronk_domain::owned::{PREFIX, plan_rune_page};
+use stronk_domain::runes::{Page, valid_page};
+use stronk_domain::select::{Choice, Label};
+use stronk_domain::spells::arrange_spells;
 
 use crate::commands::build_get;
 use crate::commands::build_plan::{
-    BootsChoice, Page, Plan, PurchaseChoice, SlotChoice, against_for, plan, purchase_buy,
-    purchase_items, with_alternatives,
+    BootsChoice, Plan, PurchaseChoice, SlotChoice, against_for, plan, purchase_buy,
+    with_alternatives,
 };
 use crate::item_sets::Document;
 use crate::ports::{LeagueClient, NewRunePage};

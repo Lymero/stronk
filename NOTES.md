@@ -222,3 +222,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: none from the clean-up list.
 - 2026-10-31: elo brackets (ADR-076): crawls are Master+ or Diamond (Diamond paged through I to IV), marked in the crawl directory, and extract, publish and corpora refuse to mix them; published files are named after the crawl's bracket.
   Open: crawling at scale; a Diamond pipeline run and an elo choice in the app.
+- 2026-10-31: the plan's pure rules moved from `build.plan` into `domain` (`runes`, `item_set`, `spells`, `owned` beside `select`, ADR-077); tests placed by each language's convention, written down; architecture.md corrected (published files, brackets, stage outputs). The 2,181 real plans are identical.
+  Open: `item_set_json` (the client's item set format) could move next to `item_sets.rs`; the crawl continues (Diamond then Master+, about 05:30 to 07:00 on 11-01).

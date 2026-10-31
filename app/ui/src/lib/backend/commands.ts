@@ -210,12 +210,12 @@ export type PurchaseChoice = {
  */
 export type SlotChoice = {
   /**
-   * Items in the slot's block, its own first ([`SLOT_ITEMS`], or [`LATE_ITEMS`]).
+   * Items in the slot's block, its own first: four, six for the late slot (ADR-067).
    */
   block: number;
   /**
-   * What the block's list draws from: the slot's options with [`BLOCK_MIN_SHARE`] of its
-   * games, in Stronk's order (ADR-070).
+   * What the block's list draws from: the slot's options with at least 2% of its games, in
+   * Stronk's order (ADR-070).
    */
   order?: number[];
   slot: number;
@@ -492,6 +492,9 @@ export interface ItemPick {
   slot: number;
 }
 /**
+ * A whole rune page: perks are the keystone, three primary runes, two secondary runes, then
+ * three shards.
+ *
  * This interface was referenced by `Commands`'s JSON-Schema
  * via the `definition` "Page".
  */

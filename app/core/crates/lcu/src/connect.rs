@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use stronk_domain::select::PageInfo;
+use stronk_domain::owned::PageInfo;
 use stronk_service::ports::{
     ChampSelect, GameNames, Icon, IconKind, LeagueClient, NewRunePage, PortError,
 };

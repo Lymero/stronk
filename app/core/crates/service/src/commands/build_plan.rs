@@ -9,9 +9,10 @@ use stronk_contracts::build_v1::{
 };
 use stronk_domain::Role;
 use stronk_domain::damage::{self, Against};
-use stronk_domain::select::{
-    self, Candidate, Choice, Label, Ranked, Row, by_judgement, choose, choose_items, rank,
-};
+use stronk_domain::item_set::{block_order, block_others, block_size, purchase_id, purchase_items};
+use stronk_domain::runes::{Page, RowKey, RowKind, in_page, perks_id, with_row_bets};
+use stronk_domain::select::{self, Candidate, Choice, Ranked, choose, choose_items, rank};
+use stronk_domain::spells;
 
 use crate::commands::build_get;
 use crate::registry::Command;
@@ -31,14 +32,6 @@ pub struct Params {
     pub enemies: Vec<i64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Page {
-    pub primary_style: i64,
-    pub sub_style: i64,
-    pub perks: Vec<i64>,
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct SlotChoice {
     pub slot: u64,
@@ -48,20 +41,13 @@ pub struct SlotChoice {
     /// first (ADR-067, ADR-069).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub then: Vec<i64>,
-    /// What the block's list draws from: the slot's options with [`BLOCK_MIN_SHARE`] of its
-    /// games, in Stronk's order (ADR-070).
+    /// What the block's list draws from: the slot's options with at least 2% of its games, in
+    /// Stronk's order (ADR-070).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub order: Vec<i64>,
-    /// Items in the slot's block, its own first ([`SLOT_ITEMS`], or [`LATE_ITEMS`]).
+    /// Items in the slot's block, its own first: four, six for the late slot (ADR-067).
     pub block: usize,
 }
-
-/// Items in a slot's block of the item set: its choice, then the most played others.
-pub const SLOT_ITEMS: usize = 4;
-/// Items in the late slot's block, which stands for three or four items.
-pub const LATE_ITEMS: usize = 6;
-/// An alternative needs this share of its slot's games to be listed in the block.
-pub const BLOCK_MIN_SHARE: f64 = 0.02;
 
 #[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
 pub struct SlotRanked {
@@ -85,14 +71,6 @@ pub struct Alternatives {
     pub items: Vec<SlotRanked>,
     /// Each rune row on its own, for information (ADR-057): imports write whole pages.
     pub rune_rows: Vec<RuneRow>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum RowKind {
-    Primary,
-    Secondary,
-    Shard,
 }
 
 /// The choices of one rune row: a primary tree's row, a secondary tree's pair, or a shard row.
@@ -220,10 +198,9 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
         .collect();
     // The page chosen by its keystone, which the pages' list marks (each page stands for its
     // keystone); then its rows' best bets, which the import writes and the rune rows mark.
+    let rows = rune_row_candidates(&build.rune_choices);
     let keystone_choice = choose(&runes);
-    let runes_choice = keystone_choice
-        .clone()
-        .map(|c| with_row_bets(c, &build.rune_choices));
+    let runes_choice = keystone_choice.clone().map(|c| with_row_bets(c, &rows));
     let spells_choice = choose(&spells);
     let start_choice = choose(&starts);
     let components_choice = choose(&components);
@@ -244,7 +221,7 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
                 }
             })
             .collect(),
-        rune_rows: rune_rows(&build.rune_choices, chosen(&runes_choice)),
+        rune_rows: rune_rows(rows, chosen(&runes_choice)),
     };
     let purchase = |options: &[PurchaseOption], choice: Option<Choice<Vec<i64>>>| {
         choice.map(|c| PurchaseChoice {
@@ -340,7 +317,7 @@ fn spell_candidates(build: &Build) -> Vec<Candidate<(i64, i64)>> {
         .iter()
         .map(|o| {
             let [d, f] = o.spells.map(|s| to_i64(s.get()));
-            let id = d.min(f) * 1_000 + d.max(f);
+            let id = spells::pair_id(d, f);
             let played = o.games.unwrap_or(o.n);
             candidate((d, f), id, played, o.wpa, o.ci.as_ref(), &o.flags, None)
         })
@@ -417,20 +394,16 @@ fn against_of(against: BootsOptionAgainst) -> Against {
     }
 }
 
-/// Each slot's block (ADR-069): its order, the options with at least [`BLOCK_MIN_SHARE`] of its
-/// games in Stronk's order (its choice, then its judgement, ADR-070), and its size, [`SLOT_ITEMS`]
-/// ([`LATE_ITEMS`] for the late slot, ADR-067); `then`, the first of that order no slot takes.
-/// The block starts with the slot's item, the player's pick when they made one: a pick overrules
-/// Stronk, which then comes next. Called again when the player's picks change the items; the app
-/// fills the late block's list from `order` and `block` the same way.
+/// Each slot's block (ADR-069): its order, the options with at least
+/// [`stronk_domain::item_set::BLOCK_MIN_SHARE`] of its games in Stronk's order (its choice, then
+/// its judgement, ADR-070), and its size ([`block_size`], ADR-067); `then`, the first of that
+/// order no slot takes. The block starts with the slot's item, the player's pick when they made
+/// one: a pick overrules Stronk, which then comes next. Called again when the player's picks
+/// change the items; the app fills the late block's list from `order` and `block` the same way.
 pub fn with_alternatives(plan: &mut Plan) {
     let taken: Vec<i64> = plan.items.iter().map(|s| s.choice.value).collect();
     for s in &mut plan.items {
-        s.block = if plan.late_slot == Some(s.slot) {
-            LATE_ITEMS
-        } else {
-            SLOT_ITEMS
-        };
+        s.block = block_size(plan.late_slot == Some(s.slot));
         s.order = plan
             .alternatives
             .items
@@ -443,171 +416,67 @@ pub fn with_alternatives(plan: &mut Plan) {
     // Boots are their own block (ADR-073): the other boots, in the same order.
     let order = block_order(&plan.alternatives.boots);
     if let Some(boots) = plan.boots.as_mut() {
-        boots.then = block_others(&order, &[boots.choice.value], SLOT_ITEMS);
+        boots.then = block_others(&order, &[boots.choice.value], block_size(false));
     }
 }
 
-/// A slot's options with [`BLOCK_MIN_SHARE`] of its games, in Stronk's order.
-fn block_order(ranked: &Ranked<i64>) -> Vec<i64> {
-    let mut rows: Vec<&Row<i64>> = ranked
-        .rows
-        .iter()
-        .filter(|r| r.share >= BLOCK_MIN_SHARE)
-        .collect();
-    by_judgement(&mut rows);
-    rows.iter().map(|r| r.value).collect()
-}
-
-/// A block's items after its first: the first `size - 1` of `order` not `taken`.
-fn block_others(order: &[i64], taken: &[i64], size: usize) -> Vec<i64> {
-    order
-        .iter()
-        .copied()
-        .filter(|v| !taken.contains(v))
-        .take(size - 1)
+/// The published rune choices as candidates, by row in row order (primary rows, then pairs,
+/// then shards).
+fn rune_row_candidates(choices: &[RuneChoice]) -> Vec<(RowKey, Vec<Candidate<Vec<i64>>>)> {
+    let mut keys: Vec<RowKey> = choices.iter().map(row_of).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys.into_iter()
+        .map(|key| {
+            let candidates = choices
+                .iter()
+                .filter(|c| row_of(c) == key)
+                .map(|c| {
+                    let value: Vec<i64> = c.perks.iter().map(|p| to_i64(*p)).collect();
+                    let (id, played) = (perks_id(&value), c.games.unwrap_or(c.n));
+                    let comparison = c.comparison.as_ref().map(row_compared);
+                    candidate(
+                        value,
+                        id,
+                        played,
+                        c.wpa,
+                        c.ci.as_ref(),
+                        &c.flags,
+                        comparison,
+                    )
+                })
+                .collect();
+            (key, candidates)
+        })
         .collect()
 }
 
-/// The published rune choices grouped by row, primary rows first, then pairs, then shards, each
-/// ranked by the same rule as every slot; the row's choice in `page` is marked chosen.
-fn rune_rows(choices: &[RuneChoice], page: Option<&Page>) -> Vec<RuneRow> {
-    let mut rows: Vec<(RowKind, Option<i64>, Option<u64>)> = choices.iter().map(row_of).collect();
-    rows.sort_unstable();
-    rows.dedup();
+/// Each rune row ranked by the same rule as every slot; the row's choice in `page` is marked
+/// chosen.
+fn rune_rows(rows: Vec<(RowKey, Vec<Candidate<Vec<i64>>>)>, page: Option<&Page>) -> Vec<RuneRow> {
     rows.into_iter()
-        .map(|(kind, style, row)| {
-            let candidates = row_candidates(choices, (kind, style, row));
-            let chosen = page.and_then(|p| in_page(p, kind, style, row));
+        .map(|(key, candidates)| {
+            let chosen = page.and_then(|p| in_page(p, key));
             RuneRow {
-                kind,
-                style,
-                row,
+                kind: key.kind,
+                style: key.style,
+                row: key.row,
                 ranked: rank(&candidates, chosen.as_ref()),
             }
         })
         .collect()
 }
 
-/// One rune row's published choices as candidates.
-fn row_candidates(
-    choices: &[RuneChoice],
-    key: (RowKind, Option<i64>, Option<u64>),
-) -> Vec<Candidate<Vec<i64>>> {
-    choices
-        .iter()
-        .filter(|c| row_of(c) == key)
-        .map(|c| {
-            let value: Vec<i64> = c.perks.iter().map(|p| to_i64(*p)).collect();
-            let (id, played) = (perks_id(&value), c.games.unwrap_or(c.n));
-            let comparison = c.comparison.as_ref().map(row_compared);
-            candidate(
-                value,
-                id,
-                played,
-                c.wpa,
-                c.ci.as_ref(),
-                &c.flags,
-                comparison,
-            )
-        })
-        .collect()
-}
-
-/// Stronk's page with each of its rows chosen by the rule (ADR-065): the page is chosen whole by
-/// its keystone; then, row by row (the primary tree's rows, the secondary pair, the shards), the
-/// row's choice replaces the page's rune: its best bet against the row's most played rune, else
-/// that most played one (a page's rune that trails it is the worse bet). A popular page that
-/// changed by a best bet is labelled by its largest.
-fn with_row_bets(choice: Choice<Page>, choices: &[RuneChoice]) -> Choice<Page> {
-    let Choice {
-        mut value,
-        mut label,
-    } = choice;
-    let mut keys: Vec<(RowKind, Option<i64>, Option<u64>)> = choices.iter().map(row_of).collect();
-    keys.sort_unstable();
-    keys.dedup();
-    let mut largest: Option<(f64, Label)> = None;
-    for key in keys {
-        let (kind, style, row) = key;
-        let applies = match kind {
-            RowKind::Primary => style == Some(value.primary_style),
-            RowKind::Secondary => style == Some(value.sub_style),
-            RowKind::Shard => true,
-        };
-        if !applies {
-            continue;
-        }
-        let Some(chosen) = choose(&row_candidates(choices, key)) else {
-            continue;
-        };
-        let gain = match chosen.label {
-            Label::BestBet { wpa, .. } | Label::ClearlyBetter { wpa, .. } => Some(wpa),
-            Label::Popular | Label::Picked => None,
-        };
-        let at = |i: Option<u64>| i.and_then(|i| usize::try_from(i).ok());
-        let placed = match (kind, chosen.value.as_slice()) {
-            (RowKind::Primary, [rune]) => at(row)
-                .and_then(|i| value.perks.get_mut(i))
-                .map(|p| *p = *rune),
-            (RowKind::Shard, [shard]) => at(row.map(|r| r + 5))
-                .and_then(|i| value.perks.get_mut(i))
-                .map(|p| *p = *shard),
-            // The same pair in another order is the page's own: it keeps its order.
-            (RowKind::Secondary, [low, high]) => value.perks.get_mut(4..6).map(|p| {
-                if !(p.contains(low) && p.contains(high)) {
-                    p.copy_from_slice(&[*low, *high]);
-                }
-            }),
-            _ => None,
-        };
-        if let (Some(_), Some(wpa)) = (placed, gain)
-            && largest.as_ref().is_none_or(|(w, _)| wpa > *w)
-        {
-            largest = Some((wpa, chosen.label));
-        }
-    }
-    if let (Label::Popular, Some((_, row_label))) = (label, largest) {
-        label = row_label;
-    }
-    Choice { value, label }
-}
-
-fn row_of(c: &RuneChoice) -> (RowKind, Option<i64>, Option<u64>) {
+fn row_of(c: &RuneChoice) -> RowKey {
     let kind = match c.kind {
         RuneChoiceKind::Primary => RowKind::Primary,
         RuneChoiceKind::Secondary => RowKind::Secondary,
         RuneChoiceKind::Shard => RowKind::Shard,
     };
-    (kind, c.style.map(to_i64), c.row.map(|r| r.get()))
-}
-
-/// What `page` has in a row: perks are the keystone, three primary runes, two secondary runes,
-/// then three shards.
-fn in_page(page: &Page, kind: RowKind, style: Option<i64>, row: Option<u64>) -> Option<Vec<i64>> {
-    let at = |i: u64| {
-        usize::try_from(i)
-            .ok()
-            .and_then(|i| page.perks.get(i))
-            .copied()
-    };
-    match kind {
-        RowKind::Primary if style == Some(page.primary_style) => at(row?).map(|r| vec![r]),
-        RowKind::Secondary if style == Some(page.sub_style) => {
-            let mut pair = vec![at(4)?, at(5)?];
-            pair.sort_unstable();
-            Some(pair)
-        }
-        RowKind::Shard => at(row? + 5).map(|r| vec![r]),
-        RowKind::Primary | RowKind::Secondary => None,
-    }
-}
-
-/// A row's choice as one id for comparisons: the rune, or a pair as `low * 100000 + high`.
-fn perks_id(perks: &[i64]) -> i64 {
-    match perks {
-        [one] => *one,
-        [low, high] => low.saturating_mul(100_000).saturating_add(*high),
-        _ => -1,
+    RowKey {
+        kind,
+        style: c.style.map(to_i64),
+        row: c.row.map(|r| r.get()),
     }
 }
 
@@ -642,21 +511,6 @@ pub fn purchase_buy(options: &[PurchaseOption], items: &[i64]) -> Vec<i64> {
             || items.to_vec(),
             |o| o.buy.iter().map(|i| to_i64(i.get())).collect(),
         )
-}
-
-/// A purchase's items, smallest id first, each once, whatever order they come in.
-pub fn purchase_items(items: &[std::num::NonZeroU64]) -> Vec<i64> {
-    let mut value: Vec<i64> = items.iter().map(|i| to_i64(i.get())).collect();
-    value.sort_unstable();
-    value.dedup();
-    value
-}
-
-/// One id for a set of items, to match a purchase with the one it is compared with.
-fn purchase_id(items: &[i64]) -> i64 {
-    items
-        .iter()
-        .fold(0_i64, |id, i| id.wrapping_mul(1_000_003).wrapping_add(*i))
 }
 
 fn purchase_compared(c: &PurchaseComparison) -> select::Comparison {
@@ -795,22 +649,25 @@ pub(crate) mod tests {
 
     #[test]
     fn a_rows_best_bet_replaces_the_pages_rune_and_the_rest_stays() {
-        // Lee Sin jungle: Cut Down against Coup de Grace, +2.7 likely between 0.0 and +5.6.
-        let rows = choices(serde_json::json!([
+        // Lee Sin jungle: Cut Down against Coup de Grace, +2.7 likely between 0.0 and +5.6, as
+        // published; the rule itself is the domain's (`runes::with_row_bets`).
+        let rows = rune_row_candidates(&choices(serde_json::json!([
+            {"kind": "shard", "row": 1, "perks": [5005], "games": 3765, "n": 3765,
+             "wpa": -0.013, "ci": [-0.03, 0.004], "flags": ["no_clear_difference"]},
             {"kind": "primary", "style": 8000, "row": 3, "perks": [8014], "games": 2194, "n": 2194,
              "wpa": -0.024, "ci": [-0.041, -0.008], "flags": ["no_clear_difference"]},
             {"kind": "primary", "style": 8000, "row": 3, "perks": [8017], "games": 1704, "n": 1704,
              "wpa": 0.019, "ci": [0.002, 0.036], "flags": ["no_clear_difference"],
-             "comparison": {"versus": [8014], "wpa": 0.027, "ci": [-0.00005, 0.05555], "q": 0.61}},
-            {"kind": "shard", "row": 1, "perks": [5005], "games": 3765, "n": 3765,
-             "wpa": -0.013, "ci": [-0.03, 0.004], "flags": ["no_clear_difference"]},
-            {"kind": "shard", "row": 1, "perks": [5008], "games": 425, "n": 425,
-             "wpa": 0.01, "ci": [-0.04, 0.06], "flags": ["no_clear_difference"],
-             "comparison": {"versus": [5005], "wpa": 0.013, "ci": [-0.04, 0.066], "q": 0.9}},
-            {"kind": "primary", "style": 8100, "row": 3, "perks": [8135], "games": 68, "n": 68,
-             "wpa": 0.03, "ci": [0.01, 0.05], "flags": [],
-             "comparison": {"versus": [8106], "wpa": 0.05, "ci": [0.04, 0.06], "q": 0.01}}
-        ]));
+             "comparison": {"versus": [8014], "wpa": 0.027, "ci": [-0.00005, 0.05555], "q": 0.61}}
+        ])));
+        // Primary rows come before shards, each row's options with their comparison.
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].0.kind, RowKind::Primary);
+        let cut_down = &rows[0].1[1];
+        assert_eq!(
+            cut_down.comparison.map(|k| (k.versus, k.wpa)),
+            Some((8014, 0.027))
+        );
         let page = Page {
             primary_style: 8000,
             sub_style: 8300,
@@ -818,37 +675,20 @@ pub(crate) mod tests {
         };
         let chosen = with_row_bets(
             Choice {
-                value: page,
-                label: Label::Popular,
+                value: page.clone(),
+                label: select::Label::Popular,
             },
             &rows,
         );
-        // Cut Down takes row 3; the noisy shard and the other tree's row change nothing.
-        assert_eq!(
-            chosen.value.perks,
-            vec![8010, 9111, 9104, 8017, 8347, 8304, 5005, 5008, 5001]
-        );
-        // A page whose shard trails its row's most played one takes the most played.
-        let page = Page {
-            primary_style: 8000,
-            sub_style: 8300,
-            perks: vec![8010, 9111, 9104, 8014, 8347, 8304, 5008, 5008, 5001],
-        };
-        let chosen = with_row_bets(
-            Choice {
-                value: page,
-                label: Label::Popular,
-            },
-            &rows,
-        );
-        assert_eq!(chosen.value.perks[6], 5005);
-        assert_eq!(
-            chosen.label,
-            Label::BestBet {
-                wpa: 0.027,
-                ci: Some((-0.000_05, 0.055_55)),
-                games: 1704
-            }
+        assert_eq!(chosen.value.perks[3], 8017);
+        // The rune rows mark the page's own runes.
+        let ranked = rune_rows(rows, Some(&chosen.value));
+        assert!(
+            ranked[0]
+                .ranked
+                .rows
+                .iter()
+                .any(|r| r.chosen && r.value == [8017])
         );
     }
 }

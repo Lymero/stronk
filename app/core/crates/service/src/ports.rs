@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::Build;
 use stronk_contracts::champions_v1::Champions;
-use stronk_domain::select::PageInfo;
+use stronk_domain::owned::PageInfo;
 use stronk_domain::{BuildKey, Patch, Role};
 
 use crate::{CommandError, ErrorCode};
