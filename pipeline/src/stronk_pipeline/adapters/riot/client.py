@@ -29,6 +29,7 @@ from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
 from stronk_pipeline.ports import (
+    Division,
     MatchHeader,
     Platform,
     Rejected,
@@ -82,11 +83,15 @@ class RiotApiSource:
         self._retries = 0
         self._waited = 0.0
 
-    async def players(self, tier: Tier) -> Result[list[str], SourceError]:
+    async def players(
+        self, tier: Tier, division: Division, page: int
+    ) -> Result[list[str], SourceError]:
         if tier == "DIAMOND":
-            url = f"{self._platform}/lol/league/v4/entries/RANKED_SOLO_5x5/DIAMOND/I"
-            body = await self._riot(url, "league.entries", {"page": "1"})
+            url = f"{self._platform}/lol/league/v4/entries/RANKED_SOLO_5x5/DIAMOND/{division}"
+            body = await self._riot(url, "league.entries", {"page": str(page)})
             entries = _then(body, lambda b: _validate(_ENTRIES, b, "league entries"))
+        elif page > 1:
+            return Ok([])  # an apex league comes whole on its first page
         else:
             kind = tier.lower()
             url = f"{self._platform}/lol/league/v4/{kind}leagues/by-queue/RANKED_SOLO_5x5"

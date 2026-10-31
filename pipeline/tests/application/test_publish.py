@@ -218,6 +218,18 @@ def test_publishes_the_champions_damage_ratings_and_profile_cuts(tmp_path: Path)
     assert "champions.json" in [f["path"] for f in manifest["files"]]
 
 
+def test_files_are_named_after_the_crawls_bracket(tmp_path: Path) -> None:
+    setup(tmp_path)
+    FileMatchStore(tmp_path / "crawl").set_bracket("diamond")
+    assert isinstance(publish(tmp_path), Ok)
+    build = tmp_path / "dist" / "16.20" / "all" / "diamond" / "Champ1" / "TOP.json"
+    assert json.loads(build.read_text())["elo"] == "diamond"
+    # An elo that isn't the crawls' is refused: Diamond games never read as Master+.
+    refused = publish(tmp_path, elo="master_plus", out=str(tmp_path / "dist2"))
+    assert isinstance(refused, Err)
+    assert "hold diamond games, not master_plus" in refused.error.message
+
+
 def test_publishes_signed_valid_builds(tmp_path: Path) -> None:
     result = publish(setup(tmp_path))
     assert isinstance(result, Ok)

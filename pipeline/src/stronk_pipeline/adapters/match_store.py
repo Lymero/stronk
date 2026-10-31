@@ -23,6 +23,7 @@ from typing import cast
 from pydantic import TypeAdapter, ValidationError
 
 from stronk_pipeline.adapters.recording import IDENTITY_KEYS, PUUID
+from stronk_pipeline.domain.bracket import DIAMOND, LEGACY, MASTER_PLUS
 from stronk_pipeline.domain.match import InvalidMatchError, Match, pseudonym
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
@@ -30,6 +31,8 @@ from stronk_pipeline.ports import Quarantined, StoreError
 
 MATCH_ID = re.compile(r"[A-Z0-9]+_[0-9]+")
 PATCH = re.compile(r"[0-9]+\.[0-9]+")
+BRACKET_FILE = "bracket.txt"
+"""The crawl's elo bracket, one word (ADR-076); absent in crawls from before brackets."""
 _MATCH = TypeAdapter(Match)
 _STATIC = TypeAdapter(StaticData)
 
@@ -143,6 +146,27 @@ class FileMatchStore:
 
     def has_static(self, patch: str) -> bool:
         return self._static_path(patch).is_file()
+
+    def bracket(self) -> Result[str, StoreError]:
+        path = self._dir / BRACKET_FILE
+        if not path.is_file():
+            return Ok(LEGACY)
+        try:
+            bracket = path.read_text().strip()
+        except OSError as e:
+            return Err(StoreError("invalid", f"cannot read {path}: {e}"))
+        if bracket not in (MASTER_PLUS, DIAMOND):
+            return Err(StoreError("invalid", f"{path}: unknown bracket {bracket!r}"))
+        return Ok(bracket)
+
+    def set_bracket(self, bracket: str) -> Result[None, StoreError]:
+        path = self._dir / BRACKET_FILE
+        try:
+            self._dir.mkdir(parents=True, exist_ok=True)
+            path.write_text(bracket + "\n")
+        except OSError as e:
+            return Err(StoreError("invalid", f"cannot write {path}: {e}"))
+        return Ok(None)
 
     def patches(self) -> list[str]:
         found = [p.name.removesuffix(".json.gz") for p in (self._dir / "static").glob("*.json.gz")]

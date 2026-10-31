@@ -6,7 +6,7 @@
     corpus.py pack <crawl> <name>            archive a crawl directory for publishing
 
 Only `fetch` uses the network. An entry already unpacked with the same sha256 is not fetched
-again. Archives hold the crawl's `matches/` and `static/`, never its `.salt`.
+again. Archives hold the crawl's `matches/`, `static/` and its bracket, never its `.salt`.
 """
 
 from __future__ import annotations
@@ -29,6 +29,15 @@ ROOT = Path(__file__).resolve().parents[2]
 LOCK = ROOT / "corpus.lock"
 CORPUS = ROOT / "corpus"
 PACKED = ("matches", "static")
+BRACKET = "bracket.txt"
+"""A crawl's elo bracket (ADR-076), packed and merged with its games; absent: Master+."""
+
+
+def bracket(crawl: Path) -> str:
+    path = crawl / BRACKET
+    return path.read_text().strip() if path.is_file() else "master_plus"
+
+
 MARKER = ".sha256"
 GITHUB_ASSETS = "https://api.github.com/repos/"
 
@@ -87,6 +96,10 @@ def merge(crawls: list[Path], out: Path, games: int | None = None) -> dict[str, 
     if games is not None and not 0 < games <= total:
         raise CorpusError(f"--games must be between 1 and {total}")
     take = {c: len(f) for c, f in found.items()} if games is None else _allocate(found, games)
+    brackets = {c: bracket(c) for c in crawls}
+    if len(set(brackets.values())) > 1:
+        held = ", ".join(f"{c}: {b}" for c, b in brackets.items())
+        raise CorpusError(f"crawls mix brackets ({held}); merge each bracket on its own")
     if (out / "matches").exists():
         raise CorpusError(f"{out} already holds matches; merge into a new directory")
     (out / "matches").mkdir(parents=True)
@@ -101,6 +114,7 @@ def merge(crawls: list[Path], out: Path, games: int | None = None) -> dict[str, 
             if target.exists() and target.read_bytes() != path.read_bytes():
                 raise CorpusError(f"{path.name}: static data differs between crawls")
             target.write_bytes(path.read_bytes())
+    (out / BRACKET).write_text(next(iter(brackets.values())) + "\n")
     return {c.name: take[c] for c in crawls}
 
 
@@ -144,6 +158,8 @@ def pack(crawl: Path, out: Path) -> str:
         files = sorted(p for d in PACKED for p in (crawl / d).rglob("*") if p.is_file())
         if not files:
             raise CorpusError(f"{crawl} has no {' or '.join(PACKED)} to pack")
+        if (crawl / BRACKET).is_file():
+            files.append(crawl / BRACKET)
         for path in files:
             info = tarfile.TarInfo(path.relative_to(crawl).as_posix())
             info.size = path.stat().st_size

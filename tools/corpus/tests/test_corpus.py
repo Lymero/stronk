@@ -170,3 +170,20 @@ def test_select_fetches_only_the_named_entries() -> None:
     assert select(entries, ["ci"]) == [entries[0]]
     with pytest.raises(CorpusError, match=r"not in corpus\.lock"):
         select(entries, ["nope"])
+
+
+def test_a_crawls_bracket_is_packed_and_merged(tmp_path: Path) -> None:
+    diamond = crawl_dir(tmp_path / "diamond")
+    (diamond / "bracket.txt").write_text("diamond\n")
+    archive = tmp_path / "d.tar.gz"
+    digest = pack(diamond, archive)
+    fetch([Entry("d", archive.as_uri(), digest)], tmp_path / "corpus")
+    assert (tmp_path / "corpus" / "d" / "bracket.txt").read_text() == "diamond\n"
+    # Merged, the bracket follows; crawls of two brackets aren't merged.
+    other = region(tmp_path / "kr", "KR", 2)
+    (other / "bracket.txt").write_text("diamond\n")
+    merge([diamond, other], tmp_path / "all")
+    assert (tmp_path / "all" / "bracket.txt").read_text() == "diamond\n"
+    master = region(tmp_path / "na1", "NA1", 2)  # no bracket file: Master+
+    with pytest.raises(CorpusError, match="crawls mix brackets"):
+        merge([diamond, master], tmp_path / "mixed")

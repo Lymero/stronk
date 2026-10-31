@@ -220,3 +220,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: grouping the plan's purchase fields per section, and a generic section-to-pick map for the player's picks (both change formats; saved picks would need converting); `with_picks` in build.import is 107 lines.
 - 2026-10-31: the plan's purchase fields and the player's picks grouped by section (ADR-075; old saved picks converted on read), `with_picks` split per section, the rune page marks Stronk's runes directly, the mock no longer copies the scoring formula; all 2,181 real plans carry the same content as before.
   Open: none from the clean-up list.
+- 2026-10-31: elo brackets (ADR-076): crawls are Master+ or Diamond (Diamond paged through I to IV), marked in the crawl directory, and extract, publish and corpora refuse to mix them; published files are named after the crawl's bracket.
+  Open: crawling at scale; a Diamond pipeline run and an elo choice in the app.

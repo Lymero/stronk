@@ -13,6 +13,7 @@ from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
 from stronk_pipeline.ports import (
+    Division,
     MatchHeader,
     MatchSource,
     Rejected,
@@ -43,10 +44,18 @@ class FakeSource:
         self.timelines: list[str] = []
         self.static_calls: list[str] = []
         self.closed = False
+        self.ladder: list[tuple[str, str, int]] = []
+        self.diamond: dict[str, list[list[str]]] = {}
+        """Diamond ladder pages by division; their players' games are in `histories`."""
 
-    async def players(self, tier: Tier) -> Result[list[str], SourceError]:
-        if tier == "CHALLENGER":
+    async def players(
+        self, tier: Tier, division: Division, page: int
+    ) -> Result[list[str], SourceError]:
+        self.ladder.append((tier, division, page))
+        if tier == "CHALLENGER" and page == 1:
             return Ok(list(self.histories))
+        if tier == "DIAMOND" and page <= len(self.diamond.get(division, [])):
+            return Ok(self.diamond[division][page - 1])
         return Ok([])
 
     async def match_ids(self, player: str, count: int) -> Result[list[str], SourceError]:
@@ -211,3 +220,29 @@ def test_source_errors_from_the_factory_are_returned(tmp_path: Path) -> None:
 def test_record_and_replay_are_exclusive() -> None:
     with pytest.raises(ValidationError, match="cannot be combined"):
         CrawlParams(record="a", replay="b")
+
+
+def test_a_diamond_crawl_pages_through_every_division_and_says_so(tmp_path: Path) -> None:
+    source = FakeSource({puuid(1): [game("EUW1_7")], puuid(2): [game("EUW1_8")]})
+    source.diamond = {"I": [[puuid(1)]], "II": [[puuid(2)]]}
+    result = crawl(source, tmp_path / "diamond", tiers=["DIAMOND"])
+    assert isinstance(result, Ok)
+    assert (result.value.bracket, result.value.stored) == ("diamond", 2)
+    pages = [(d, p) for t, d, p in source.ladder if t == "DIAMOND"]
+    assert pages == [("I", 1), ("I", 2), ("II", 1), ("II", 2), ("III", 1), ("IV", 1)]
+    assert FileMatchStore(tmp_path / "diamond").bracket() == Ok("diamond")
+
+
+def test_a_crawl_holds_one_bracket(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError, match="crawl each bracket into its own directory"):
+        CrawlParams.model_validate({"tiers": ["MASTER", "DIAMOND"]})
+    # Master+ games already there: a Diamond crawl goes elsewhere.
+    assert isinstance(crawl(two_players(), tmp_path), Ok)
+    assert FileMatchStore(tmp_path).bracket() == Ok("master_plus")
+    refused = crawl(two_players(), tmp_path, tiers=["DIAMOND"])
+    assert isinstance(refused, Err)
+    assert "holds master_plus games" in refused.error.message
+
+
+def test_a_crawl_from_before_brackets_is_master_plus(tmp_path: Path) -> None:
+    assert FileMatchStore(tmp_path).bracket() == Ok("master_plus")

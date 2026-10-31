@@ -22,6 +22,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationEr
 from stronk_contracts.build_v1 import Build
 from stronk_contracts.champions_v1 import Champions
 from stronk_contracts.manifest_v1 import Manifest
+from stronk_pipeline.application.extract import crawl_bracket
 from stronk_pipeline.application.registry import Command, CommandError
 from stronk_pipeline.domain.extract.decision_points import (
     BOOTS_SLOT,
@@ -63,7 +64,8 @@ class PublishParams(BaseModel):
         "dist/data"
     )
     region: Annotated[str, Field(pattern=r"^[a-z0-9]{2,8}$")] = "all"
-    elo: Annotated[str, Field(pattern=r"^[a-z_]{2,32}$")] = "master_plus"
+    elo: Annotated[str | None, Field(pattern=r"^[a-z_]{2,32}$")] = None
+    """The files' elo bracket: the crawls' own (ADR-076), and refused if given otherwise."""
 
 
 class PublishResult(BaseModel):
@@ -90,10 +92,10 @@ def publish_command(
                 return Err(_error(e))
             case Ok(value=rows):
                 pass
-        match _games(stores, params.crawl):
+        match _crawled(stores, params):
             case Err(error=e):
-                return Err(_error(e))
-            case Ok(value=(matches, statics)):
+                return Err(e)
+            case Ok(value=(elo, matches, statics)):
                 pass
         patches = sorted({m.patch for m in matches})
         if len(patches) != 1:
@@ -106,7 +108,7 @@ def publish_command(
             case Ok(value=signer):
                 pass
         try:
-            files = _builds(rows, played(matches, statics), patch, params)
+            files = _builds(rows, played(matches, statics), patch, params, elo)
             if patch in statics:
                 files[CHAMPIONS] = _champions(statics[patch], patch)
         except (ValidationError, ValueError) as e:
@@ -155,6 +157,26 @@ def publish_command(
     )
 
 
+def _crawled(
+    stores: Callable[[Path], MatchStore], params: PublishParams
+) -> Result[tuple[str, list[Match], dict[str, StaticData]], CommandError]:
+    """The crawls' games and game data, and the files' elo bracket: the crawls' one (ADR-076),
+    which a given `elo` must match."""
+    match crawl_bracket(stores, params.crawl):
+        case Err() as e:
+            return e
+        case Ok(value=elo):
+            pass
+    if params.elo is not None and params.elo != elo:
+        message = f"the crawls hold {elo} games, not {params.elo}"
+        return Err(CommandError(code="invalid_params", message=message))
+    match _games(stores, params.crawl):
+        case Err(error=e):
+            return Err(_error(e))
+        case Ok(value=(matches, statics)):
+            return Ok((elo, matches, statics))
+
+
 def _games(
     stores: Callable[[Path], MatchStore], crawls: Sequence[str]
 ) -> Result[tuple[list[Match], dict[str, StaticData]], StoreError]:
@@ -182,7 +204,7 @@ SPELL_PAIRS = 5
 
 
 def _builds(
-    rows: Sequence[OptionEstimate], seen: Played, patch: str, params: PublishParams
+    rows: Sequence[OptionEstimate], seen: Played, patch: str, params: PublishParams, elo: str
 ) -> dict[str, bytes]:
     """`{region}/{elo}/{champion}/{role}.json` -> canonical bytes, validated by the contract."""
     by_pick: defaultdict[tuple[str, str], list[OptionEstimate]] = defaultdict(list)
@@ -227,7 +249,7 @@ def _builds(
                 "schemaVersion": 1,
                 "patch": patch,
                 "region": params.region,
-                "elo": params.elo,
+                "elo": elo,
                 "champion": champion,
                 "role": role,
                 "games": seen.games[(champion, role)],
@@ -252,7 +274,7 @@ def _builds(
                     option.pop(key)
             if option.get("comparison") is None:  # optional: absent, not null
                 option.pop("comparison", None)
-        files[f"{params.region}/{params.elo}/{champion}/{role}.json"] = _canonical(data)
+        files[f"{params.region}/{elo}/{champion}/{role}.json"] = _canonical(data)
     return files
 
 

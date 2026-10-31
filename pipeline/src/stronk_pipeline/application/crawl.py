@@ -1,8 +1,10 @@
 """`crawl.run`: ranked solo games of one platform and one patch, into a crawl directory.
 
-Seeds players from the ranked ladder (best first), walks each one's latest games and keeps the
-ones from the target patch. Games that fail validation go to quarantine with their payloads, for
-`extract.run` with `retry_quarantine` once the parser is fixed. Resumable: games already
+Seeds players from the ranked ladder (best first; Diamond page by page, division I to IV), walks
+each one's latest games and keeps the ones from the target patch. A crawl directory holds one elo
+bracket (ADR-076), set by its tiers: Master+ (Challenger, Grandmaster, Master) or Diamond,
+written with its first game. Games that fail validation go to quarantine with their payloads,
+for `extract.run` with `retry_quarantine` once the parser is fixed. Resumable: games already
 stored, skipped or quarantined are never fetched again, so rerunning the command continues where
 the last run stopped.
 """
@@ -10,15 +12,17 @@ the last run stopped.
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from stronk_pipeline.application.registry import Command, CommandError
+from stronk_pipeline.domain.bracket import MASTER_PLUS, bracket_of
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.ports import (
@@ -38,6 +42,8 @@ log = logging.getLogger(__name__)
 RANKED_SOLO = 420
 SUMMONERS_RIFT = 11
 PROGRESS_EVERY = 25
+DIVISIONS = ("I", "II", "III", "IV")
+"""Diamond's divisions, best first."""
 
 
 class CrawlParams(BaseModel):
@@ -61,11 +67,17 @@ class CrawlParams(BaseModel):
     def _record_or_replay(self) -> CrawlParams:
         if self.record is not None and self.replay is not None:
             raise ValueError("record and replay cannot be combined")
+        if bracket_of(self.tiers) is None:
+            raise ValueError(
+                "tiers mix Master+ and Diamond: crawl each bracket into its own directory"
+            )
         return self
 
 
 class CrawlResult(BaseModel):
     platform: str
+    bracket: str
+    """The crawl's elo bracket: `master_plus` or `diamond` (ADR-076)."""
     patch: str | None
     stored: int
     """New games stored in this run."""
@@ -119,6 +131,7 @@ class _Crawl:
         self.source = source
         self.store = store
         self.patch = params.patch
+        self.bracket = bracket_of(params.tiers) or MASTER_PLUS
         self.stored = 0
         self.skipped: Counter[str] = Counter()
         self.errors = 0
@@ -131,28 +144,59 @@ class _Crawl:
                 return Err(_store_error(e))
             case Ok(value=known):
                 pass
+        if (failure := self._check_bracket()) is not None:
+            return Err(failure)
         seen = set(known)
         if self.patch is None and (stored := self.store.patches()):
             self.patch = stored[-1]  # resuming: keep the crawl on one patch
             log.info("target patch: %s (from earlier runs)", self.patch)
         for tier in self.params.tiers:
-            match await self.source.players(tier):
-                case Err(error=e):
-                    if e.kind == "unauthorized":
-                        return Err(self._stopped(e))
-                    log.warning("skipping tier %s: %s", tier, e.message)
-                    self.errors += 1
-                    continue
-                case Ok(value=players):
-                    pass
-            for player in players:
-                if self.stored >= self.params.max_matches:
-                    return Ok(self._result())
-                self.players += 1
-                failure = await self._walk(player, seen)
-                if failure is not None:
-                    return Err(failure)
+            async for players in self._ladder(tier):
+                if isinstance(players, CommandError):
+                    return Err(players)
+                for player in players:
+                    if self.stored >= self.params.max_matches:
+                        return Ok(self._result())
+                    self.players += 1
+                    failure = await self._walk(player, seen)
+                    if failure is not None:
+                        return Err(failure)
         return Ok(self._result())
+
+    async def _ladder(self, tier: Tier) -> AsyncIterator[list[str] | CommandError]:
+        """A tier's players, a page at a time: an apex league whole, Diamond by division and page
+        until a page comes back empty. A rejected key ends the crawl; another error skips the rest
+        of that division."""
+        for division in DIVISIONS if tier == "DIAMOND" else ("I",):
+            for page in itertools.count(1):
+                match await self.source.players(tier, division, page):
+                    case Err(error=e) if e.kind == "unauthorized":
+                        yield self._stopped(e)
+                        return
+                    case Err(error=e):
+                        log.warning("skipping %s %s page %d: %s", tier, division, page, e.message)
+                        self.errors += 1
+                        break
+                    case Ok(value=players):
+                        if not players:
+                            break
+                        yield players
+
+    def _check_bracket(self) -> CommandError | None:
+        """One bracket per crawl directory: the one its games were crawled for, if any."""
+        bracket = self.bracket
+        match self.store.bracket():
+            case Err(error=e):
+                return _store_error(e)
+            case Ok(value=held):
+                pass
+        if self.store.count() > 0 and held != bracket:
+            return CommandError(
+                code="invalid_params",
+                message=f"{self.params.out} holds {held} games; "
+                f"crawl {bracket} into another directory",
+            )
+        return None
 
     async def _walk(self, player: str, seen: set[str]) -> CommandError | None:
         """Store the player's new games; stop at the first game older than the patch."""
@@ -199,6 +243,9 @@ class _Crawl:
             # Histories are newest first: everything after an older game is older too.
             return "player_done" if outcome.reason == "older_patch" else "next"
         if (failure := await self._put(outcome)) is not None:
+            return failure
+        # The bracket is written with the first game, so no game is ever without it.
+        if self.stored == 0 and (failure := self._check(self.store.set_bracket(self.bracket))):
             return failure
         self.stored += 1
         if self.stored % PROGRESS_EVERY == 0:
@@ -272,6 +319,7 @@ class _Crawl:
         stats = self.source.stats()
         return CrawlResult(
             platform=self.params.platform,
+            bracket=self.bracket,
             patch=self.patch,
             stored=self.stored,
             total=self.store.count(),

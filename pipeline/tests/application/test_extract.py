@@ -199,3 +199,15 @@ def test_one_missing_crawl_fails_the_run(tmp_path: Path) -> None:
     result = run([crawled(tmp_path / "euw1"), tmp_path / "nope"], tmp_path / "out")
     assert isinstance(result, Err)
     assert result.error.code == "not_found"
+
+
+def test_crawls_of_two_brackets_are_not_mixed(tmp_path: Path) -> None:
+    master = crawled(tmp_path / "master")
+    diamond = crawled(tmp_path / "diamond")
+    FileMatchStore(diamond).set_bracket("diamond")
+    alone = run(diamond, tmp_path / "out")
+    assert isinstance(alone, Ok)
+    assert alone.value.bracket == "diamond"
+    mixed = run([master, diamond], tmp_path / "out2")
+    assert isinstance(mixed, Err)
+    assert "crawls mix brackets" in mixed.error.message

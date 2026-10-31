@@ -31,7 +31,7 @@ def live() -> FakeRiot:
 
 async def walk(src_transport: httpx.AsyncBaseTransport) -> tuple[list[str], Match]:
     src = source(src_transport)
-    players = await src.players("CHALLENGER")
+    players = await src.players("CHALLENGER", "I", 1)
     assert isinstance(players, Ok)
     ids = await src.match_ids(players.value[0], 20)
     assert isinstance(ids, Ok)
@@ -73,7 +73,7 @@ def test_pseudonyms_keep_the_shape_of_a_puuid() -> None:
 
 
 def test_unrecorded_requests_are_404(tmp_path: Path) -> None:
-    result = run(source(PlaybackTransport(tmp_path)).players("CHALLENGER"))
+    result = run(source(PlaybackTransport(tmp_path)).players("CHALLENGER", "I", 1))
     assert not isinstance(result, Ok)
 
 

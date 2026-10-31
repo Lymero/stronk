@@ -35,15 +35,25 @@ def keep(_: MatchHeader) -> str | None:
 def test_players_best_first() -> None:
     entries = league([puuid(1), puuid(2)])
     entries["entries"].reverse()
-    result = run(source(FakeRiot({CHALLENGER: entries})).players("CHALLENGER"))
+    result = run(source(FakeRiot({CHALLENGER: entries})).players("CHALLENGER", "I", 1))
     assert result == Ok([puuid(1), puuid(2)])
 
 
 def test_diamond_players_come_from_league_entries() -> None:
     path = "/lol/league/v4/entries/RANKED_SOLO_5x5/DIAMOND/I"
     riot = FakeRiot({path: league([puuid(3)])["entries"]})
-    assert run(source(riot).players("DIAMOND")) == Ok([puuid(3)])
+    assert run(source(riot).players("DIAMOND", "I", 1)) == Ok([puuid(3)])
     assert riot.requests[0].url.params["page"] == "1"
+
+
+def test_diamond_pages_by_division_and_apex_leagues_come_whole() -> None:
+    path = "/lol/league/v4/entries/RANKED_SOLO_5x5/DIAMOND/III"
+    riot = FakeRiot({path: league([puuid(4)])["entries"]})
+    assert run(source(riot).players("DIAMOND", "III", 7)) == Ok([puuid(4)])
+    assert riot.requests[0].url.params["page"] == "7"
+    # An apex league has no second page: nothing, and no request.
+    assert run(source(riot).players("MASTER", "I", 2)) == Ok([])
+    assert len(riot.requests) == 1
 
 
 def test_match_ids_use_the_regional_host_and_ranked_solo() -> None:
@@ -177,7 +187,7 @@ def test_429_waits_for_retry_after_then_succeeds() -> None:
         }
     )
     clock = FakeClock()
-    assert run(source(riot, clock).players("CHALLENGER")) == Ok([puuid(1)])
+    assert run(source(riot, clock).players("CHALLENGER", "I", 1)) == Ok([puuid(1)])
     assert clock.now >= 7
 
 
@@ -185,7 +195,7 @@ def test_server_errors_back_off_then_give_up() -> None:
     riot = FakeRiot({CHALLENGER: [httpx.Response(503)]})
     clock = FakeClock()
     src = source(riot, clock)
-    result = run(src.players("CHALLENGER"))
+    result = run(src.players("CHALLENGER", "I", 1))
     assert isinstance(result, Err)
     assert result.error.kind == "unavailable"
     assert clock.slept == [2.0, 4.0, 8.0, 16.0, 32.0]
@@ -202,7 +212,7 @@ def test_transport_errors_are_retried() -> None:
             raise httpx.ConnectError("down", request=request)
         return httpx.Response(200, json=league([puuid(1)]))
 
-    assert run(source(httpx.MockTransport(flaky)).players("CHALLENGER")) == Ok([puuid(1)])
+    assert run(source(httpx.MockTransport(flaky)).players("CHALLENGER", "I", 1)) == Ok([puuid(1)])
 
 
 def test_requests_respect_the_rate_limit() -> None:
@@ -211,7 +221,7 @@ def test_requests_respect_the_rate_limit() -> None:
     clock = FakeClock()
     src = source(riot, clock)
     for _ in range(3):
-        run(src.players("CHALLENGER"))
+        run(src.players("CHALLENGER", "I", 1))
     assert clock.now >= 10
 
 
@@ -240,6 +250,6 @@ def test_static_data_for_an_unknown_patch() -> None:
 
 def test_malformed_json_is_invalid() -> None:
     riot = FakeRiot({CHALLENGER: [httpx.Response(200, content=b"{not json")]})
-    result = run(source(riot).players("CHALLENGER"))
+    result = run(source(riot).players("CHALLENGER", "I", 1))
     assert isinstance(result, Err)
     assert result.error.kind == "invalid"

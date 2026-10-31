@@ -603,3 +603,13 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - The player's picks: `sections` holds each section's items (`start`, `components`, a set each; `boots`, one item), next to the runes, spells and item slots; one pick shape (`{section, items}`) and one branch handle them in the options, the sheet, the panel, saving and the import. Picks saved before, with `start`, `components` and `boots` beside the items, are read into `sections`.
   - `build.import` checks picks one section at a time (`pick_runes`, `pick_spells`, `pick_items`, `pick_purchase`, `pick_boots`).
 - **Consequences:** a new section is one entry in `SECTIONS` and its plan field. On the real 16.20 data all 2,181 plans (727 boards, three enemy teams) carry the same content as before.
+
+### ADR-076 · Elo brackets: Master+ and Diamond, never mixed
+
+- **Context:** the owner asked to crawl far more games, Diamond as well as Master+, with the data marked by where it comes from. The crawler read only the first ladder page of Diamond I (about 200 players), nothing recorded which tiers a crawl had seeded from, and `publish` took the elo as a free parameter (`master_plus` by default), so Diamond games could have been published as Master+.
+- **Decision:**
+  - A crawl directory holds one bracket: `master_plus` (Challenger, Grandmaster, Master) or `diamond` (Diamond I to IV), set by its tiers (`bracket_of`; tiers mixing the two are refused). It is written as `bracket.txt` with the crawl's first game, and a crawl into a directory holding the other bracket is refused. Directories from before have no file and are Master+, as every earlier crawl was.
+  - The Diamond ladder is read page by page, division I to IV, until a page comes back empty (`MatchSource.players(tier, division, page)`; an apex league comes whole on page 1).
+  - `extract` and `publish` read their crawls' bracket and refuse crawls of two (`crawl_bracket`); `extract`'s report records it, and `publish` names the files after it (`{patch}/{region}/{elo}/...`, the build's `elo`), refusing an `elo` that contradicts it. Corpus archives and merges carry the bracket and refuse to merge two.
+  - `just crawl <platform> <games> [out] [bracket]`.
+- **Consequences:** Master+ and Diamond are estimated and published separately and can't be confused; the app shows a build's bracket ("Master+", "Diamond") from the file, and still reads Master+ until it offers a choice. A bracket means the games of players seeded from those tiers: lobbies mix ranks a little at the edges.

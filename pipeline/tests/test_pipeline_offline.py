@@ -26,7 +26,7 @@ def recording(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
     async def walk() -> None:
         src = source(transport)
-        players = await src.players("CHALLENGER")
+        players = await src.players("CHALLENGER", "I", 1)
         assert isinstance(players, Ok)
         for player in players.value:
             ids = await src.match_ids(player, 20)  # crawl.run default

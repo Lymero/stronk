@@ -22,6 +22,7 @@ from stronk_pipeline.domain.static import StaticData
 from stronk_pipeline.domain.wpa.types import OptionEstimate, WpaSettings
 
 type Tier = Literal["CHALLENGER", "GRANDMASTER", "MASTER", "DIAMOND"]
+type Division = Literal["I", "II", "III", "IV"]
 type Platform = Literal[
     "br1", "eun1", "euw1", "jp1", "kr", "la1", "la2", "me1",
     "na1", "oc1", "ru", "sg2", "tr1", "tw2", "vn2",
@@ -97,8 +98,11 @@ class SourceStats:
 class MatchSource(Protocol):
     """Ranked players and their games (Riot API, or recorded responses)."""
 
-    async def players(self, tier: Tier) -> Result[list[str], SourceError]:
-        """Player ids in a ranked tier, best first."""
+    async def players(
+        self, tier: Tier, division: Division, page: int
+    ) -> Result[list[str], SourceError]:
+        """One page of a ranked tier's ladder, best first: the whole league for an apex tier on
+        page 1 (nothing on later pages), a division's page for Diamond; empty past the last."""
         ...
 
     async def match_ids(self, player: str, count: int) -> Result[list[str], SourceError]:
@@ -155,6 +159,13 @@ class MatchStore(Protocol):
         ...
 
     def has_static(self, patch: str) -> bool: ...
+
+    def bracket(self) -> Result[str, StoreError]:
+        """The elo bracket of the crawl's games (ADR-076); a crawl from before brackets were
+        recorded is Master+."""
+        ...
+
+    def set_bracket(self, bracket: str) -> Result[None, StoreError]: ...
 
     def patches(self) -> list[str]:
         """Patches with stored games, oldest first."""

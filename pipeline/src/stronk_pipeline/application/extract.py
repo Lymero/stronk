@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
@@ -20,6 +20,7 @@ from typing import Annotated
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from stronk_pipeline.application.registry import Command, CommandError
+from stronk_pipeline.domain.bracket import single
 from stronk_pipeline.domain.extract.tables import extract
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
@@ -60,6 +61,8 @@ class QuarantineRetry(BaseModel):
 
 
 class ExtractResult(BaseModel):
+    bracket: str
+    """The crawls' elo bracket, one for all of them (ADR-076)."""
     matches: int
     frames: int
     decisions: int
@@ -85,14 +88,11 @@ def extract_command(
     reports: ReportWriter,
 ) -> Command[ExtractParams, ExtractResult]:
     def run(params: ExtractParams) -> Result[ExtractResult, CommandError]:
-        contents: list[_CrawlContents] = []
-        for directory in params.crawl:
-            match _read(stores(Path(directory)), parse, retry=params.retry_quarantine):
-                case Err(error=e):
-                    return Err(_error(e))
-                case Ok(value=one):
-                    contents.append(one)
-        crawl = _merge(contents)
+        match _read_all(stores, parse, params):
+            case Err(error=e):
+                return Err(e)
+            case Ok(value=(bracket, crawl)):
+                pass
         matches, unreadable, statics = crawl.matches, crawl.unreadable, crawl.statics
         if not matches:
             where = ", ".join(params.crawl)
@@ -116,6 +116,7 @@ def extract_command(
             case Ok(value=decisions_path):
                 pass
         result = ExtractResult(
+            bracket=bracket,
             matches=stats.matches,
             frames=len(extracted.frames),
             decisions=len(extracted.decisions),
@@ -267,6 +268,44 @@ def _labelled(result: Result[None, StoreError], label: str) -> Result[str, Store
 def _ids_hash(matches: list[Match]) -> str:
     ids = sorted(m.match_id for m in matches)
     return hashlib.sha256("\n".join(ids).encode()).hexdigest()
+
+
+def _read_all(
+    stores: Callable[[Path], MatchStore], parse: PayloadParser, params: ExtractParams
+) -> Result[tuple[str, _CrawlContents], CommandError]:
+    """Every crawl's contents, merged, and their one bracket."""
+    match crawl_bracket(stores, params.crawl):
+        case Err() as e:
+            return e
+        case Ok(value=bracket):
+            pass
+    contents: list[_CrawlContents] = []
+    for directory in params.crawl:
+        match _read(stores(Path(directory)), parse, retry=params.retry_quarantine):
+            case Err(error=e):
+                return Err(_error(e))
+            case Ok(value=one):
+                contents.append(one)
+    return Ok((bracket, _merge(contents)))
+
+
+def crawl_bracket(
+    stores: Callable[[Path], MatchStore], crawls: Sequence[str]
+) -> Result[str, CommandError]:
+    """The elo bracket of `crawls` (ADR-076), refused when they hold two: Master+ and Diamond
+    games are never estimated or published together."""
+    brackets: list[str] = []
+    for crawl in crawls:
+        match stores(Path(crawl)).bracket():
+            case Err(error=e):
+                return Err(_error(e))
+            case Ok(value=bracket):
+                brackets.append(bracket)
+    bracket = single(brackets)
+    if bracket is None:
+        held = ", ".join(f"{c}: {b}" for c, b in zip(crawls, brackets, strict=True))
+        return Err(CommandError(code="invalid_input", message=f"crawls mix brackets ({held})"))
+    return Ok(bracket)
 
 
 def _error(error: StoreError) -> CommandError:

@@ -174,9 +174,10 @@ backtest-corpora earlier later out:
 winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
     uv run stronk-pipeline run winprob.train --params '{"frames": "{{ frames }}", "out": "{{ out }}"}'
 
-# Crawl ranked games from the Riot API (needs RIOT_API_KEY); rerun to resume
-crawl platform="euw1" games="100" out=("runs/crawl/" + platform):
-    uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}"}'
+# Crawl ranked games from the Riot API (needs RIOT_API_KEY); rerun to resume. One bracket per
+# directory (ADR-076): master_plus (Challenger to Master) or diamond (Diamond I to IV)
+crawl platform="euw1" games="100" out=("runs/crawl/" + platform) bracket="master_plus":
+    uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}", "tiers": {{ if bracket == "diamond" { '["DIAMOND"]' } else if bracket == "master_plus" { '["CHALLENGER", "GRANDMASTER", "MASTER"]' } else { error("bracket: master_plus or diamond") } }}}'
 
 # Frames and decision points from crawl directories (comma-separated for several);
 # --retry-quarantine re-reads quarantined games first
