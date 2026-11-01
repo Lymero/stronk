@@ -1,10 +1,10 @@
 """`publish`: WPA estimates and the crawls behind them -> signed build files for the app.
 
 One file per champion and role (contracts/schemas/build.v1.schema.json): rune options from the
-keystone estimates, each with the page most played with that keystone, and item options per
-slot. Every file is validated against the contract, listed with its sha256 and size in the
-patch manifest, and the manifest is signed (contracts/README.md). Spells and skill order have no
-estimates yet and are published empty.
+keystone estimates, each with the page most played with that keystone, item options per slot,
+and spell pairs from theirs (ADR-083). Every file is validated against the contract, listed with
+its sha256 and size in the patch manifest, and the manifest is signed (contracts/README.md).
+Skill order has no estimates yet and is published empty.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from stronk_pipeline.domain.extract.decision_points import (
     BOOTS_SLOT,
     COMPONENTS_SLOT,
     LATE_SLOT,
+    SPELLS_SLOT,
     START_SLOT,
     is_rune_slot,
     rune_row,
@@ -260,7 +261,7 @@ def _statics(
 
 
 SPELL_PAIRS = 5
-"""Spell pairs published per champion and role, most played first."""
+"""Spell pairs published per champion and role without estimates, most played first."""
 
 
 def _builds(
@@ -299,11 +300,7 @@ def _builds(
             }
             for e in _ranked(o for o in options if is_rune_slot(o.slot))
         ]
-
-        spells = [
-            {"spells": list(pair), "games": n, "wpa": None, "ci": None, "n": n, "flags": []}
-            for pair, n in seen.spells.get((champion, role), [])[:SPELL_PAIRS]
-        ]
+        spells = _spells(options, seen.spells.get((champion, role), []))
         build = Build.model_validate(
             {
                 "schemaVersion": 1,
@@ -327,7 +324,7 @@ def _builds(
             }
         )
         data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order"})
-        every = (*data["runes"], *data["items"], *data["runeChoices"])
+        every = (*data["runes"], *data["items"], *data["runeChoices"], *data["spells"])
         for option in (*every, *data["starts"], *data["firstComponents"], *data["boots"]):
             for key in ("style", "row", "against"):  # optional: absent, not null
                 if option.get(key, 0) is None:
@@ -350,6 +347,26 @@ def _purchases(options: list[OptionEstimate], seen: Played, slot: int) -> list[d
         }
         for e in _ranked(o for o in options if o.slot == slot)
     ]
+
+
+def _spells(
+    options: list[OptionEstimate], played: list[tuple[tuple[int, int], int]]
+) -> list[dict[str, object]]:
+    """The spell pairs (ADR-083): every pair estimated, in its usual key order, with the games
+    played with it; without estimates, the most played pairs alone."""
+    usual = {frozenset(pair): (pair, n) for pair, n in played}
+    estimated = _ranked(o for o in options if o.slot == SPELLS_SLOT)
+    if not estimated:
+        return [
+            {"spells": list(pair), "games": n, "wpa": None, "ci": None, "n": n, "flags": []}
+            for pair, n in played[:SPELL_PAIRS]
+        ]
+    out: list[dict[str, object]] = []
+    for e in estimated:
+        ids = _perks(e.option)
+        pair, games = usual.get(frozenset(ids), (tuple(ids), e.chosen))
+        out.append({"spells": list(pair), "games": games, **_numbers(e, versus=_perks)})
+    return out
 
 
 def _against(slot: int) -> dict[str, str]:

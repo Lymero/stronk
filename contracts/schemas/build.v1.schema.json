@@ -131,6 +131,18 @@
         "ci": { "$ref": "#/$defs/Interval", "description": "95% interval of `wpa`." }
       }
     },
+    "SpellComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["versus", "wpa", "q"],
+      "description": "The spell pair head to head with the most played pair (ADR-083).",
+      "properties": {
+        "versus": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 2, "maxItems": 2, "description": "The most played pair, ids sorted." },
+        "wpa": { "type": "number", "description": "Win probability added by this pair against `versus`." },
+        "q": { "type": "number", "minimum": 0, "maximum": 1, "description": "False-discovery-adjusted p-value of no difference, across the patch." },
+        "ci": { "$ref": "#/$defs/Interval", "description": "95% interval of `wpa`." }
+      }
+    },
     "PurchaseOption": {
       "type": "object",
       "additionalProperties": false,
@@ -190,7 +202,8 @@
         "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
         "n": { "type": "integer", "minimum": 0 },
         "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
-        "games": { "type": "integer", "minimum": 0, "description": "Games played with this pair, whichever key each spell was on." }
+        "games": { "type": "integer", "minimum": 0, "description": "Games played with this pair, whichever key each spell was on." },
+        "comparison": { "$ref": "#/$defs/SpellComparison" }
       }
     },
     "SkillOrderOption": {

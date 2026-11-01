@@ -8,6 +8,7 @@ from stronk_pipeline.domain.extract.decision_points import (
     COMPONENTS_SLOT,
     LATE_SLOT,
     MAX_ITEMS,
+    SPELLS_SLOT,
     START_SLOT,
     DecisionPoint,
     decision_points,
@@ -40,6 +41,19 @@ def test_every_player_has_a_keystone_decision_in_champion_select() -> None:
     assert keystones[0] == DecisionPoint(1, 0, 0, "8010")
 
 
+def test_every_player_has_a_spells_decision_in_champion_select() -> None:
+    """The pair is one option whichever key each spell is on (ADR-083), and no rune slot."""
+    match = domain_match()
+    swapped = replace(match.participants[1], spells=(14, 4))
+    match = replace(match, participants=(match.participants[0], swapped, *match.participants[2:]))
+    points = decision_points(match, STATIC, Counter())
+    spells = [p for p in points if p.slot == SPELLS_SLOT]
+    assert len(spells) == 10
+    assert spells[0] == DecisionPoint(1, SPELLS_SLOT, 0, "4,14")
+    assert spells[1] == DecisionPoint(2, SPELLS_SLOT, 0, "4,14")
+    assert not is_rune_slot(SPELLS_SLOT)
+
+
 def test_the_rest_of_the_page_is_one_decision_per_row() -> None:
     """Rows of the primary tree, the secondary pair and each shard row, all at the start."""
     points = decision_points(domain_match(), STATIC, Counter())
@@ -68,7 +82,7 @@ def test_a_missing_tree_adds_no_rows_and_never_an_item_slot() -> None:
         replace(match, participants=(first, *match.participants[1:])), STATIC, Counter()
     )
     mine = [p for p in points if p.participant_id == 1]
-    assert all(p.slot == 0 or is_rune_slot(p.slot) for p in mine)
+    assert all(p.slot in (0, SPELLS_SLOT) or is_rune_slot(p.slot) for p in mine)
     assert [p.slot for p in mine if is_rune_slot(p.slot)] == [
         81001,
         81002,

@@ -17,7 +17,7 @@ from stronk_pipeline.adapters.match_store import FileMatchStore
 from stronk_pipeline.adapters.minisign import MinisignKeys
 from stronk_pipeline.application.publish import PublishParams, PublishResult, publish_command
 from stronk_pipeline.application.registry import CommandError
-from stronk_pipeline.domain.extract.decision_points import BOOTS_SLOT, START_SLOT
+from stronk_pipeline.domain.extract.decision_points import BOOTS_SLOT, SPELLS_SLOT, START_SLOT
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate
 
@@ -80,6 +80,26 @@ ESTIMATES = [
         contrast=-0.005,
         contrast_ci=(-0.03, 0.02),
         chosen=320,
+    ),
+    # Spells (ADR-083): Flash and Ignite, played in the crawl, and Flash and Teleport against it.
+    OptionEstimate(
+        "Champ1", "fighter", "TOP", SPELLS_SLOT, "4,14", 0.002, (-0.01, 0.014), 600, chosen=600
+    ),
+    OptionEstimate(
+        "Champ1",
+        "fighter",
+        "TOP",
+        SPELLS_SLOT,
+        "4,12",
+        0.009,
+        (-0.004, 0.022),
+        350,
+        frozenset({Flag.NO_CLEAR_DIFFERENCE}),
+        q=0.4,
+        versus="4,14",
+        contrast=0.007,
+        contrast_ci=(-0.01, 0.024),
+        chosen=350,
     ),
     # Boots (ADR-073): Berserker's Greaves, in every game and against magic teams (ADR-074).
     OptionEstimate("Champ1", "fighter", "TOP", BOOTS_SLOT, "3006", None, None, 40, chosen=40),
@@ -161,6 +181,36 @@ def test_publishes_each_rune_row_for_information(tmp_path: Path) -> None:
             "n": 300,
             "flags": [],
         },
+    ]
+
+
+def test_publishes_spell_pairs_with_their_estimates(tmp_path: Path) -> None:
+    """Every pair estimated (ADR-083), best first, with the games played with it in the crawl
+    in its usual key order; a pair the crawl doesn't hold keeps its decisions."""
+    assert isinstance(publish(setup(tmp_path)), Ok)
+    path = tmp_path / "dist" / "16.20" / "all" / "master_plus" / "Champ1" / "TOP.json"
+    assert json.loads(path.read_text())["spells"] == [
+        {
+            "spells": [4, 12],
+            "games": 350,
+            "wpa": 0.009,
+            "ci": [-0.004, 0.022],
+            "n": 350,
+            "flags": ["no_clear_difference"],
+            "comparison": {"versus": [4, 14], "wpa": 0.007, "q": 0.4, "ci": [-0.01, 0.024]},
+        },
+        {"spells": [4, 14], "games": 1, "wpa": 0.002, "ci": [-0.01, 0.014], "n": 600, "flags": []},
+    ]
+
+
+def test_publishes_the_most_played_spell_pairs_without_estimates(tmp_path: Path) -> None:
+    setup(tmp_path)
+    rows = [e for e in ESTIMATES if e.slot != SPELLS_SLOT]
+    JsonEstimateStore().write_estimates("v1-reference", rows, tmp_path / "estimates.json")
+    assert isinstance(publish(tmp_path), Ok)
+    path = tmp_path / "dist" / "16.20" / "all" / "master_plus" / "Champ1" / "TOP.json"
+    assert json.loads(path.read_text())["spells"] == [
+        {"spells": [4, 14], "games": 1, "wpa": None, "ci": None, "n": 1, "flags": []}
     ]
 
 

@@ -238,3 +238,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: the Emerald 16.21 crawls stopped on an expired key at about 2,200–2,500 games per region and were restarted at 20:26; then the Emerald comparison and Emerald+. `e2e-real` still only screenshots the default bracket.
 - 2026-11-01: the item set is imported on lock-in by default and written again until the game starts when boots or item picks change; runes and spells stay a setting, off by default (ADR-082, `build.import` `parts`).
   Open: check it on a real client (lock-in, then enemies picking); backups now turn over two or three per game (20 kept).
+- 2026-11-01: summoner spells are a WPA decision (ADR-083): extract slot 70000, `SpellComparison` in build.v1, the core's rule picks spells too; on 16.21 every other estimate unchanged, two Diamond+ claims at the FDR edge lost their label (imports unchanged), 66 builds import another pair as a best bet; `runs/spells-16.21`.
+  Open: `runs/real/data` (the app's) still holds the builds without spell estimates: republish with the real key; spell estimates ignore the enemy team, as runes do.

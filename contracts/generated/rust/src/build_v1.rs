@@ -776,12 +776,28 @@ impl ::std::convert::TryFrom<::std::string::String> for SkillOrderOptionOrderIte
         value.parse()
     }
 }
+#[doc = "The spell pair head to head with the most played pair (ADR-083)."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SpellComparison {
+    #[doc = "95% interval of `wpa`."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ci: ::std::option::Option<Interval>,
+    #[doc = "False-discovery-adjusted p-value of no difference, across the patch."]
+    pub q: f64,
+    #[doc = "The most played pair, ids sorted."]
+    pub versus: [::std::num::NonZeroU64; 2usize],
+    #[doc = "Win probability added by this pair against `versus`."]
+    pub wpa: f64,
+}
 #[doc = "`SpellOption`"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SpellOption {
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub ci: ::std::option::Option<Interval>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub comparison: ::std::option::Option<SpellComparison>,
     pub flags: ::std::vec::Vec<Flag>,
     #[doc = "Games played with this pair, whichever key each spell was on."]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]

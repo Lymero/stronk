@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{
     BootsOption, BootsOptionAgainst, Build, Comparison, Flag, Interval, PurchaseComparison,
-    PurchaseOption, RuneChoice, RuneChoiceComparison, RuneChoiceKind,
+    PurchaseOption, RuneChoice, RuneChoiceComparison, RuneChoiceKind, SpellComparison,
 };
 use stronk_domain::Role;
 use stronk_domain::damage::{self, Against};
@@ -317,7 +317,8 @@ fn page_candidates(build: &Build) -> Vec<Candidate<Page>> {
         .collect()
 }
 
-/// The published spell pairs. Spells have no WPA yet, so never a claim: always the popular pair.
+/// The published spell pairs, each compared with the most played pair when the data has their
+/// estimates (ADR-083); without, the popular pair.
 fn spell_candidates(build: &Build) -> Vec<Candidate<(i64, i64)>> {
     build
         .spells
@@ -326,7 +327,16 @@ fn spell_candidates(build: &Build) -> Vec<Candidate<(i64, i64)>> {
             let [d, f] = o.spells.map(|s| to_i64(s.get()));
             let id = spells::pair_id(d, f);
             let played = o.games.unwrap_or(o.n);
-            candidate((d, f), id, played, o.wpa, o.ci.as_ref(), &o.flags, None)
+            let comparison = o.comparison.as_ref().map(spell_compared);
+            candidate(
+                (d, f),
+                id,
+                played,
+                o.wpa,
+                o.ci.as_ref(),
+                &o.flags,
+                comparison,
+            )
         })
         .collect()
 }
@@ -528,6 +538,15 @@ fn purchase_compared(c: &PurchaseComparison) -> select::Comparison {
     }
 }
 
+fn spell_compared(c: &SpellComparison) -> select::Comparison {
+    let [a, b] = c.versus.map(|s| to_i64(s.get()));
+    select::Comparison {
+        versus: spells::pair_id(a, b),
+        wpa: c.wpa,
+        ci: c.ci.as_ref().map(interval),
+    }
+}
+
 fn row_compared(c: &RuneChoiceComparison) -> select::Comparison {
     let versus: Vec<i64> = c.versus.iter().map(|v| to_i64(*v)).collect();
     select::Comparison {
@@ -643,6 +662,42 @@ pub(crate) mod tests {
         plan.items[0].choice.value = 3071;
         with_alternatives(&mut plan);
         assert_eq!(plan.items[0].then, vec![6698, 6692, 6610]);
+    }
+
+    #[test]
+    fn a_spell_pair_clearly_better_than_the_most_played_replaces_it() {
+        // Smite and Flash most played; Ghost clearly better against it (ADR-083); Ignite
+        // clearly worse; Exhaust not measured against it.
+        let pair = |spells: [i64; 2], games: u64, flags: &[&str], vs: Option<(f64, f64, f64)>| {
+            let mut o = serde_json::json!({"spells": spells, "games": games, "n": games,
+                                           "wpa": 0.0, "ci": [-0.01, 0.01], "flags": flags});
+            if let Some((wpa, low, high)) = vs {
+                o["comparison"] = serde_json::json!({"versus": [4, 11], "wpa": wpa, "ci": [low, high], "q": 0.01});
+            }
+            o
+        };
+        let build = |spells: Vec<serde_json::Value>| -> Build {
+            serde_json::from_value(serde_json::json!({
+                "schemaVersion": 1, "patch": "16.21", "region": "all", "elo": "master_plus",
+                "champion": "LeeSin", "role": "JUNGLE", "games": 3000, "runes": [], "items": [],
+                "spells": spells
+            }))
+            .unwrap()
+        };
+        let smite_flash = pair([11, 4], 2400, &[], None);
+        let ghost = pair([6, 11], 400, &[], Some((0.03, 0.01, 0.05)));
+        let ignite = pair([11, 14], 150, &[], Some((-0.04, -0.06, -0.02)));
+        let exhaust = pair([3, 11], 50, &["low_sample"], None);
+        let chosen = |b: &Build| plan(b, Role::Jungle, None).spells.map(|c| c.value);
+        let all = build(vec![
+            smite_flash.clone(),
+            ghost,
+            ignite.clone(),
+            exhaust.clone(),
+        ]);
+        assert_eq!(chosen(&all), Some((6, 11)));
+        let without = build(vec![smite_flash, ignite, exhaust]);
+        assert_eq!(chosen(&without), Some((11, 4)));
     }
 
     #[test]

@@ -1,6 +1,8 @@
 """Where players make the choices we score (docs/wpa-method.md, section 2; ADR-026).
 
 - Slot 0, champion select: the keystone rune.
+- Champion select, the summoner spells (slot `SPELLS_SLOT`, ADR-083): the pair as one option
+  `"a,b"` (ids sorted), whichever key each spell is on.
 - The start (slot `START_SLOT`, ADR-071): the items bought before `STARTING_PURCHASES_MS`,
   without supplies (consumables and trinkets: potions, wards), as one option `"a,b"` (ids
   sorted, each once): a jungle pet, a Doran's item, Cull, Dark Seal... Anchored at the first of
@@ -61,6 +63,8 @@ BOOTS_SLOT = 60_002
 """The boots' slot (ADR-073); `BOOTS_SLOT + 1 + profile` against one enemy profile (ADR-074)."""
 PURCHASE_SLOTS = range(START_SLOT, START_SLOT + 10)
 """The slots of purchases outside the item slots: the start, the first components, boots."""
+SPELLS_SLOT = 70_000
+"""The summoner spells' slot (ADR-083)."""
 TRIP_MS = 30_000
 """Purchases within this of a trip's first one are bought on the same trip back."""
 
@@ -69,7 +73,12 @@ def is_tree(tree: int) -> bool:
     """A rune tree id (8000 to 8400 today). The API sometimes sends 0 for a tree, which would
     encode as an item slot, so such a tree's rows are left out; so is one that would land on
     the shard slots."""
-    return tree >= 1_000 and tree not in (SHARD_SLOTS // 10, START_SLOT // 10)
+    return tree >= 1_000 and tree not in (SHARD_SLOTS // 10, START_SLOT // 10, SPELLS_SLOT // 10)
+
+
+def spell_pair(spells: tuple[int, int]) -> str:
+    """A pair of summoner spells as one option, whichever key each is on: `"4,11"`."""
+    return ",".join(str(s) for s in sorted(spells))
 
 
 def rune_slot(tree: int, row: int) -> int:
@@ -78,8 +87,8 @@ def rune_slot(tree: int, row: int) -> int:
 
 
 def is_rune_slot(slot: int) -> bool:
-    """Champion select's choices besides the keystone: rune rows, secondary pairs, shards."""
-    return slot > LATE_SLOT and slot not in PURCHASE_SLOTS
+    """Champion select's rune choices besides the keystone: rune rows, secondary pairs, shards."""
+    return slot > LATE_SLOT and slot not in PURCHASE_SLOTS and slot != SPELLS_SLOT
 
 
 def rune_row(slot: int) -> tuple[str, int | None, int | None]:
@@ -103,6 +112,10 @@ class DecisionPoint:
 
 def decision_points(match: Match, static: StaticData, dropped: Counter[str]) -> list[DecisionPoint]:
     points = [DecisionPoint(p.participant_id, 0, 0, str(p.keystone)) for p in match.participants]
+    points.extend(
+        DecisionPoint(p.participant_id, SPELLS_SLOT, 0, spell_pair(p.spells))
+        for p in match.participants
+    )
     for p in match.participants:
         points.extend(
             _rune_rows(p.participant_id, p.primary_style, p.sub_style, p.perks, p.stat_perks)

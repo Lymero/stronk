@@ -37,6 +37,13 @@ export type Interval2 = [number, number];
  * @maxItems 2
  */
 export type Interval3 = [number, number];
+/**
+ * 95% interval [low, high] of the WPA estimate.
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Interval4 = [number, number];
 
 /**
  * Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json.
@@ -168,6 +175,28 @@ export interface SpellOption {
    * Games played with this pair, whichever key each spell was on.
    */
   games?: number;
+  comparison?: SpellComparison;
+}
+/**
+ * The spell pair head to head with the most played pair (ADR-083).
+ */
+export interface SpellComparison {
+  /**
+   * The most played pair, ids sorted.
+   *
+   * @minItems 2
+   * @maxItems 2
+   */
+  versus: [number, number];
+  /**
+   * Win probability added by this pair against `versus`.
+   */
+  wpa: number;
+  /**
+   * False-discovery-adjusted p-value of no difference, across the patch.
+   */
+  q: number;
+  ci?: Interval2;
 }
 /**
  * Items bought at once and measured as one choice: a start, or first components. Supplies (potions, wards) aside.
@@ -219,7 +248,7 @@ export interface PurchaseComparison {
    * False-discovery-adjusted p-value of no difference, across the patch.
    */
   q: number;
-  ci?: Interval2;
+  ci?: Interval3;
 }
 /**
  * One pair of upgraded boots.
@@ -508,5 +537,5 @@ export interface RuneChoiceComparison {
    * False-discovery-adjusted p-value of no difference, across the patch.
    */
   q: number;
-  ci?: Interval3;
+  ci?: Interval4;
 }

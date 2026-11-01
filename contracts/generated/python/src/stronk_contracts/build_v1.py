@@ -194,6 +194,32 @@ class PurchaseComparison(BaseModel):
     """
 
 
+class SpellComparison(BaseModel):
+    """
+    The spell pair head to head with the most played pair (ADR-083).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    versus: Annotated[list[Versu1], Field(max_length=2, min_length=2)]
+    """
+    The most played pair, ids sorted.
+    """
+    wpa: float
+    """
+    Win probability added by this pair against `versus`.
+    """
+    q: Annotated[float, Field(ge=0.0, le=1.0)]
+    """
+    False-discovery-adjusted p-value of no difference, across the patch.
+    """
+    ci: Interval | None = None
+    """
+    95% interval of `wpa`.
+    """
+
+
 class Item(RootModel[int]):
     root: Annotated[int, Field(ge=1)]
 
@@ -316,6 +342,7 @@ class SpellOption(BaseModel):
     """
     Games played with this pair, whichever key each spell was on.
     """
+    comparison: SpellComparison | None = None
 
 
 class SkillOrderOption(BaseModel):
