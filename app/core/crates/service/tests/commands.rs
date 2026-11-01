@@ -467,6 +467,37 @@ fn import_writes_a_full_stronk_page_and_leaves_the_players_alone() {
 }
 
 #[test]
+fn import_writes_only_the_parts_asked_for() {
+    let picks = json!({"parts": ["item_set"]});
+    let client = FakeClient::new(Some(viego((4, 14))));
+    let (out, client, backups) = import_picks(client, FakeBackups::default(), picks);
+    assert_eq!(out["item_set"]["status"], "imported");
+    assert_eq!(out["runes"], json!({"status": "not_asked"}));
+    assert_eq!(out["spells"], json!({"status": "not_asked"}));
+    let state = client.state();
+    assert_eq!(
+        state.pages.len(),
+        1,
+        "the player's page alone: no Stronk page"
+    );
+    assert_eq!(state.spells, None);
+    assert!(state.item_sets.unwrap().contains("Stronk: Viego Jungle"));
+    assert_eq!(backups.saved.lock().unwrap().len(), 1);
+
+    let picks = json!({"parts": ["runes", "spells"]});
+    let client = FakeClient::new(Some(viego((4, 14))));
+    let (out, client, backups) = import_picks(client, FakeBackups::default(), picks);
+    assert_eq!(out["item_set"], json!({"status": "not_asked"}));
+    assert_eq!(out["item_set_backup"], Value::Null);
+    assert_eq!(out["runes"]["status"], "imported");
+    assert!(
+        backups.saved.lock().unwrap().is_empty(),
+        "no item set read, none backed up"
+    );
+    assert!(!client.state().item_sets.unwrap().contains("Stronk:"));
+}
+
+#[test]
 fn import_replaces_an_existing_stronk_page() {
     let mut state = ClientState::default();
     state.pages.push((

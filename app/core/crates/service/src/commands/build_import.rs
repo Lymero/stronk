@@ -2,7 +2,8 @@
 //! client: Stronk's own rune page, Stronk's own item set, and the summoner spells with Flash
 //! on the player's key (ADR-043). The player's pages and item sets are never changed. The
 //! player can pick other published options instead of Stronk's (ADR-050), and build any rune
-//! page the client's own trees allow (ADR-059).
+//! page the client's own trees allow (ADR-059). An import can write only some parts: on
+//! lock-in the app writes the item set alone unless the player asked for everything (ADR-082).
 
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{Build, PurchaseOption};
@@ -49,6 +50,18 @@ pub struct Params {
     /// none (ADR-079).
     #[serde(default)]
     pub elo: Option<String>,
+    /// The parts to write, all of them when absent (ADR-082); the others are left as they are.
+    #[serde(default)]
+    pub parts: Option<Vec<Part>>,
+}
+
+/// A part of the import, written on its own or with the others.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Part {
+    Runes,
+    ItemSet,
+    Spells,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -70,6 +83,8 @@ pub enum Outcome {
     Skipped {
         reason: String,
     },
+    /// Not among the parts asked for: nothing was read or written.
+    NotAsked,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, schemars::JsonSchema)]
@@ -107,13 +122,32 @@ fn run(ctx: &Context, params: Params) -> Result<Imported, CommandError> {
     let build = build_get::fetch_preferring(ctx, &champion, role, params.elo.as_deref())?;
     let against = against_for(ctx, &build, &session.enemies);
     let plan = with_picks(plan(&build, role, against), &build, &params, client)?;
-    let runes = runes(client, &plan)?;
-    let (item_set, item_set_backup) = item_set(ctx, &plan, session.champion_id);
+    let asked = |part| {
+        params
+            .parts
+            .as_ref()
+            .is_none_or(|parts| parts.contains(&part))
+    };
+    let runes = if asked(Part::Runes) {
+        runes(client, &plan)?
+    } else {
+        Outcome::NotAsked
+    };
+    let (item_set, item_set_backup) = if asked(Part::ItemSet) {
+        item_set(ctx, &plan, session.champion_id)
+    } else {
+        (Outcome::NotAsked, None)
+    };
+    let spells = if asked(Part::Spells) {
+        spells(client, &plan, session.spells.unwrap_or((0, 0)))?
+    } else {
+        Outcome::NotAsked
+    };
     Ok(Imported {
         runes,
         item_set,
         item_set_backup,
-        spells: spells(client, &plan, session.spells.unwrap_or((0, 0)))?,
+        spells,
         champion,
         role,
     })

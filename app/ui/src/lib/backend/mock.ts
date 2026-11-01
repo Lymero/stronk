@@ -16,6 +16,7 @@ import {
   type GameKind,
   type GameNames,
   type Imported,
+  type Part,
   ok,
   type Outcome,
   type Page,
@@ -586,13 +587,15 @@ export class MockBackend implements Backend {
         const picks = params as Commands["build.import"]["params"];
         const name = `Stronk: ${current.champion} ${current.role}`;
         const label = (picked: unknown) => (picked ? ("picked" as const) : ("popular" as const));
+        const asked = (part: Part) => !picks.parts || picks.parts.includes(part);
+        const notAsked = { status: "not_asked" } as const;
         const imported: Imported = {
           champion: current.champion,
           role: current.role,
-          runes: this.scenario.runes ?? { status: "imported", name, label: label(picks.runes) },
-          item_set: { status: "imported", name, label: label(picks.items?.length) },
-          item_set_backup: "backups/item-sets-1.json",
-          spells: { status: "imported", name: "4 11", label: label(picks.spells) },
+          runes: asked("runes") ? (this.scenario.runes ?? { status: "imported", name, label: label(picks.runes) }) : notAsked,
+          item_set: asked("item_set") ? { status: "imported", name, label: label(picks.items?.length) } : notAsked,
+          item_set_backup: asked("item_set") ? "backups/item-sets-1.json" : null,
+          spells: asked("spells") ? { status: "imported", name: "4 11", label: label(picks.spells) } : notAsked,
         };
         return ok(imported) as Out;
       }

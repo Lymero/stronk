@@ -5,12 +5,14 @@
     settings,
     restore,
     onautoimport,
+    onautoitemset,
     onopen,
     onrestore,
   }: {
     settings: Settings;
     restore: AppState["restore"];
     onautoimport: (on: boolean) => void;
+    onautoitemset: (on: boolean) => void;
     /** Settings were opened: list the backups. */
     onopen: () => void;
     onrestore: (location: string) => void;
@@ -35,9 +37,15 @@
   <summary>Settings</summary>
 
   <label class="toggle">
-    <input type="checkbox" checked={settings.autoImport} onchange={(e) => onautoimport(e.currentTarget.checked)} />
-    Auto-import on lock-in
+    <input type="checkbox" checked={settings.autoItemSet} onchange={(e) => onautoitemset(e.currentTarget.checked)} />
+    Import the item set on lock-in
   </label>
+  <p class="meta hint">Adds Stronk's set next to yours, and keeps it up to date until the game starts.</p>
+  <label class="toggle">
+    <input type="checkbox" checked={settings.autoImport} onchange={(e) => onautoimport(e.currentTarget.checked)} />
+    Import runes and spells on lock-in
+  </label>
+  <p class="meta hint">Selects Stronk's rune page and sets your summoner spells, replacing what you chose.</p>
 
   <section aria-label="Item set backups">
     <h3>Item set backups</h3>
@@ -104,6 +112,9 @@
   .toggle {
     display: block;
     margin-top: var(--space-3);
+  }
+  .meta.hint {
+    margin-left: var(--space-6);
   }
   h3 {
     margin: var(--space-4) 0 var(--space-1);

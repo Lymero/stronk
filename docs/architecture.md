@@ -263,7 +263,7 @@ A floor can be raised, never lowered without an entry in `docs/decisions.md`. CI
 | Adapter | pytest, cargo test | against recorded responses, `lcu-mock`, `serve-data` |
 | Contract | codegen check, schema validation, signature tests | generated types current; published data valid and verifiable; tampered data rejected |
 | Component | Vitest + Testing Library | UI against `MockBackend` |
-| End to end | Playwright + `lcu-mock` (`just e2e`) | the UI in Chromium against `MockBackend` scenarios, and against the real core through `CoreBackend` and `tools/lcu_mock/core_bridge.py`: a replayed lobby leads to the correct import, auto-import writes once, restore puts the sets back; screenshots in `runs/e2e/screenshots/` (ADR-048) |
+| End to end | Playwright + `lcu-mock` (`just e2e`) | the UI in Chromium against `MockBackend` scenarios, and against the real core through `CoreBackend` and `tools/lcu_mock/core_bridge.py`: a replayed lobby leads to the correct import, the item set alone on lock-in, auto-import writes once, restore puts the sets back; screenshots in `runs/e2e/screenshots/` (ADR-048) |
 | Performance | `just bench` | budgets in `perf/budgets.toml` |
 
 Tests sit where each language expects them:

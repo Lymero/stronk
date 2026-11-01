@@ -47,7 +47,9 @@ test("a replayed lobby leads to the Lee Sin jungle import", async ({ page }) => 
   await expect(page.getByLabel("Build", { exact: true }).locator("img").first()).toHaveAttribute("src", /^data:image\/png;base64,/);
   await step(page);
   await expect(page.getByLabel("Champion select").locator(".facts > span")).toHaveText(["Jungle", "Locked in", "Final changes"]);
-  expect(await recorded(page)).toEqual([]); // nothing written before the player asks
+  // On lock-in, Stronk's item set alone: the rune page and spells wait for the player.
+  await expect(page.getByRole("status")).toHaveText(/^Imported: Item set\./);
+  expect((await recorded(page)).map((w) => `${w.method} ${w.path}`)).toEqual([`PUT ${ITEM_SETS}`]);
   await page.getByRole("button", { name: "Import" }).click();
   await expect(page.getByRole("status")).toHaveText(/Imported: Rune page, Item set, Spells\./);
   await screenshot(page, "core-imported");
@@ -55,25 +57,29 @@ test("a replayed lobby leads to the Lee Sin jungle import", async ({ page }) => 
   const writes = await recorded(page);
   const created = writes.find((w) => w.method === "POST" && w.path === PAGES);
   expect(created?.body).toMatchObject({ name: "Stronk: LeeSin JUNGLE", current: true });
-  expect(writes.filter((w) => w.method === "PUT" && w.path === ITEM_SETS)).toHaveLength(1);
+  expect(writes.filter((w) => w.method === "PUT" && w.path === ITEM_SETS)).toHaveLength(2);
   // The session has no spells chosen, so the pair keeps its usual order: Smite on D, Flash on F.
   expect(writes.find((w) => w.path === SELECTION)?.body).toEqual({ spell1Id: 11, spell2Id: 4 });
 });
 
 test("auto-import writes once on lock-in", async ({ page }) => {
   await page.getByText("Settings").click();
-  await page.getByLabel("Auto-import on lock-in").check();
+  await page.getByLabel("Import runes and spells on lock-in").check();
   await step(page, 2);
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible();
   expect(await recorded(page)).toEqual([]); // hovering: nothing yet
   await step(page);
   await expect(page.getByRole("status")).toHaveText(/Imported: Rune page, Item set, Spells\./);
   await page.waitForTimeout(2500); // two more polls of the same lock-in
-  const pages = (await recorded(page)).filter((w) => w.method === "POST" && w.path === PAGES);
-  expect(pages).toHaveLength(1);
+  const writes = await recorded(page);
+  expect(writes.filter((w) => w.method === "POST" && w.path === PAGES)).toHaveLength(1);
+  expect(writes.filter((w) => w.method === "PUT" && w.path === ITEM_SETS)).toHaveLength(1);
 });
 
 test("restore puts the player's item sets back after an import", async ({ page }) => {
+  await page.getByText("Settings").click();
+  await page.getByLabel("Import the item set on lock-in").uncheck(); // one import: by hand
+  await page.getByText("Settings").click(); // closed: opening it later lists the backups
   await step(page, 3);
   await page.getByRole("button", { name: "Import" }).click();
   await expect(page.getByRole("status")).toHaveText(/Item set/);

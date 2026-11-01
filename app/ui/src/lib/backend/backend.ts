@@ -22,6 +22,7 @@ export type Imported = Core.Imported;
 export type BuildGetParams = Core.BuildGetParams;
 export type PlanParams = Core.PlanParams;
 export type ImportParams = Core.ImportParams;
+export type Part = Core.Part;
 export type DataStatus = Core.DataStatus;
 export type GameNames = Core.GameNames;
 export type IconParams = Core.IconsParams;

@@ -30,7 +30,7 @@ Status: **missing** · **partial** · **done**
 | Write item set | Blitz, Porofessor | partial: Stronk's own item set, the player's kept and backed up before each write; tested against lcu-mock and on a real client (2026-10-19) |
 | Undo an import | none | partial: settings list the item set backups with their dates and restore one after a confirmation (`item_sets.restore`, current sets backed up first); rune pages and spells have no undo |
 | Set summoner spells | Blitz | partial: most played pair, Flash on the player's key; tested against lcu-mock and on a real client (2026-10-19) |
-| Auto-import on lock-in | Blitz | partial: a setting, off by default, on the websocket watcher (the watcher checked on a real client 2026-10-19; auto-import itself not yet) |
+| Auto-import on lock-in | Blitz | partial: the item set on by default and kept up to date until the game starts, runes and spells a setting, off by default (ADR-082), on the websocket watcher (the watcher checked on a real client 2026-10-19; auto-import itself not yet) |
 | Readable names for runes, spells and items | Blitz, Porofessor | partial: `names.get` reads them from the client's own game data, in its language (ADR-047); readable phases and roles; tested against lcu-mock, not yet on a real client |
 | Champion, rune, spell and item icons | Blitz, Porofessor, u.gg | partial: `icons.get` reads them from the client's own game data and the view shows them next to every name, with a plain stand-in when there is none (ADR-052); tested against lcu-mock, not yet on a real client |
 | Say why part of an import was skipped | none | partial: each skipped part shows as a warning, for example all rune pages in use (ADR-047) |

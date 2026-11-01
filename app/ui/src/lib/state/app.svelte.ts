@@ -13,6 +13,7 @@ import type {
   IconParams,
   Imported,
   ImportParams,
+  Part,
   Plan,
   Restored,
 } from "../backend/backend.ts";
@@ -33,14 +34,18 @@ import {
 export const DEFAULT_ELO = "master_plus";
 
 export interface Settings {
-  /** Import on lock-in without asking (ADR-043); off by default. */
+  /** Write Stronk's item set on lock-in, and again until the game starts whenever it changes
+   * (ADR-082); on by default: it adds a set and leaves the player's alone. */
+  autoItemSet: boolean;
+  /** Write the rune page and spells on lock-in too (ADR-043, ADR-082); off by default: they
+   * replace what the player had chosen. */
   autoImport: boolean;
   /** The elo bracket the builds come from (ADR-078); a champion and role it has no build for
    * get Master+'s, and the plan says so. */
   elo: string;
 }
 
-const defaults: Settings = { autoImport: false, elo: DEFAULT_ELO };
+const defaults: Settings = { autoItemSet: true, autoImport: false, elo: DEFAULT_ELO };
 
 export interface AppState {
   data: DataStatus | null;
@@ -58,8 +63,10 @@ export interface AppState {
   /** The player's picks instead of Stronk's choices, for one champion and role (ADR-050);
    * kept between runs until the patch changes (ADR-051). */
   picks: { key: string; value: Picks } | null;
-  /** The last import, for which champion and role, with which picks, from which bracket. */
-  imported: { key: string; value: Imported; picks: Picks; elo: string } | null;
+  /** The last import, for which champion and role, with which picks, from which bracket, and
+   * what its item set was written from (`itemSetOf`); parts an import didn't write keep the
+   * outcome and picks of the one before. */
+  imported: { key: string; value: Imported; picks: Picks; elo: string; itemSet: string | null } | null;
   settings: Settings;
   /** Item set backups in settings: listed when settings open, and the last restore. */
   restore: { backups: Backup[] | null; done: Restored | null; error: CommandError | null };
@@ -83,7 +90,7 @@ export const browserSettings: SettingsStore = {
       if (parsed && typeof parsed === "object") {
         const saved = parsed as Partial<Record<keyof Settings, unknown>>;
         const elo = typeof saved.elo === "string" && /^[a-z_]{2,32}$/.test(saved.elo) ? saved.elo : DEFAULT_ELO;
-        return { autoImport: saved.autoImport === true, elo };
+        return { autoItemSet: saved.autoItemSet !== false, autoImport: saved.autoImport === true, elo };
       }
     } catch {
       // unreadable or unavailable storage: defaults
@@ -120,12 +127,14 @@ export function createApp(
     error: null,
   });
 
-  async function importBuild(): Promise<void> {
+  /** Imports the plan with the player's picks: every part, or only `parts` (ADR-082). */
+  async function importBuild(parts?: Part[]): Promise<void> {
     if (!state.plan) return;
     const { key } = state.plan;
     const { elo } = state.plan.value;
     const picks = currentPicks();
     const params: ImportParams = {
+      ...(parts ? { parts } : {}),
       ...(elo !== DEFAULT_ELO ? { elo } : {}),
       ...(picks.runes ? { runes: picks.runes } : {}),
       ...(picks.spells ? { spells: picks.spells } : {}),
@@ -138,7 +147,18 @@ export function createApp(
     };
     const imported = await backend.run("build.import", params);
     if (imported.ok) {
-      state.imported = { key, value: imported.value, picks, elo };
+      const asked = (part: Part) => !parts || parts.includes(part);
+      const before = state.imported?.key === key ? state.imported : null;
+      const value = { ...imported.value };
+      const kept = { ...picks };
+      if (before && !asked("runes")) [value.runes, kept.runes] = [before.value.runes, before.picks.runes];
+      if (before && !asked("spells")) [value.spells, kept.spells] = [before.value.spells, before.picks.spells];
+      if (before && !asked("item_set")) {
+        [value.item_set, value.item_set_backup] = [before.value.item_set, before.value.item_set_backup];
+        [kept.items, kept.sections] = [before.picks.items, before.picks.sections];
+      }
+      const itemSet = asked("item_set") ? itemSetOf() : (before?.itemSet ?? null);
+      state.imported = { key, value, picks: kept, elo, itemSet };
       state.error = null;
     } else {
       state.error = imported.error;
@@ -264,9 +284,29 @@ export function createApp(
       state.error = null;
       if (fresh) restorePicks(key, plan.value);
     }
-    if (session?.locked && state.settings.autoImport && state.imported?.key !== key) {
-      await importBuild();
+    if (session?.locked) await autoImport(key);
+  }
+
+  /** On lock-in, the parts the player wants without asking; then, until the game starts, the
+   * item set again whenever what it would write changes: boots follow the enemies' picks
+   * (ADR-074), and the player's picks change (ADR-082). */
+  async function autoImport(key: string): Promise<void> {
+    const { autoItemSet, autoImport } = state.settings;
+    if (state.imported?.key !== key) {
+      const parts: Part[] = [...(autoItemSet ? (["item_set"] as const) : []), ...(autoImport ? (["runes", "spells"] as const) : [])];
+      if (parts.length) await importBuild(parts.length === 3 ? undefined : parts);
+    } else if (autoItemSet && state.imported.itemSet !== itemSetOf()) {
+      await importBuild(["item_set"]);
     }
+  }
+
+  /** What the item set is written from: the plan's items and the player's item picks. */
+  function itemSetOf(): string | null {
+    const plan = state.plan?.value;
+    if (!plan) return null;
+    const { items, sections } = currentPicks();
+    const { start, components, boots } = plan;
+    return JSON.stringify([plan.elo, plan.items, start, components, boots, items, sections]);
   }
 
   /** The picks for the champion and role on screen; none for any other. */
@@ -325,6 +365,11 @@ export function createApp(
     store.save(state.settings);
   }
 
+  function setAutoItemSet(on: boolean): void {
+    state.settings = { ...state.settings, autoItemSet: on };
+    store.save(state.settings);
+  }
+
   /** Builds from another elo bracket (ADR-078): the plan on screen is asked again. */
   async function setElo(elo: string): Promise<void> {
     state.settings = { ...state.settings, elo };
@@ -348,7 +393,7 @@ export function createApp(
     if (restored.ok) await loadBackups(); // the replaced sets are now the newest backup
   }
 
-  return { state, refresh, importBuild, pick, resetPicks, setAutoImport, setElo, loadBackups, restoreItemSets };
+  return { state, refresh, importBuild, pick, resetPicks, setAutoImport, setAutoItemSet, setElo, loadBackups, restoreItemSets };
 }
 
 export type App = ReturnType<typeof createApp>;

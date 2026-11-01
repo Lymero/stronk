@@ -67,6 +67,7 @@
     settings={state.settings}
     restore={state.restore}
     onautoimport={(on) => app.setAutoImport(on)}
+    onautoitemset={(on) => app.setAutoItemSet(on)}
     onopen={() => void app.loadBackups()}
     onrestore={(location) => void app.restoreItemSets(location)}
   />

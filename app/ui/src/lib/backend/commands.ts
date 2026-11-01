@@ -17,6 +17,13 @@ export type Patch = string;
  */
 export type Role = "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
 /**
+ * A part of the import, written on its own or with the others.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Part".
+ */
+export type Part = "runes" | "item_set" | "spells";
+/**
  * What happened to one part of the import.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -68,6 +75,9 @@ export type Outcome =
   | {
       reason: string;
       status: "skipped";
+    }
+  | {
+      status: "not_asked";
     };
 /**
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -475,6 +485,10 @@ export interface ImportParams {
    */
   elo?: string | null;
   items?: ItemPick[];
+  /**
+   * The parts to write, all of them when absent (ADR-082); the others are left as they are.
+   */
+  parts?: Part[] | null;
   runes?: Page | null;
   /**
    * The pair in any order; Flash still goes on the player's key.

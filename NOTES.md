@@ -236,3 +236,5 @@ Session log. Append two lines per session: what landed, what's still open. Newes
   Open: LightGBM's dependence on its bin-edge sample (another seed moves predictions by up to 0.08); extract's headers and skill (15 MB per 1,000 games); the bootstrap of the largest points; packed crawl storage.
 - 2026-11-01: the elo bracket is a switch beside Import on the champion bar (Master+ | Diamond+ …), no longer a setting (ADR-078 amended); one click asks the plan again and is remembered; `just check` and `just e2e-real` green.
   Open: the Emerald 16.21 crawls stopped on an expired key at about 2,200–2,500 games per region and were restarted at 20:26; then the Emerald comparison and Emerald+. `e2e-real` still only screenshots the default bracket.
+- 2026-11-01: the item set is imported on lock-in by default and written again until the game starts when boots or item picks change; runes and spells stay a setting, off by default (ADR-082, `build.import` `parts`).
+  Open: check it on a real client (lock-in, then enemies picking); backups now turn over two or three per game (20 kept).

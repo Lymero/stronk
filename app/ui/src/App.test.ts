@@ -10,6 +10,7 @@ import {
   type SettingsStore,
 } from "./lib/state/app.svelte.ts";
 import type { PicksStore, SavedPicks } from "./lib/state/picks.ts";
+import type { ChampSelectState, ImportParams, Page } from "./lib/backend/backend.ts";
 
 function memory(initial: Settings | null = null): SettingsStore & { saved: Settings | null } {
   return {
@@ -62,6 +63,9 @@ const option = (panel: ReturnType<typeof within>, name: string) =>
   panel.getByRole("radio", { name: new RegExp(`^${name.replace(/[+.()]/g, "\\$&")},`) });
 
 const imports = (backend: MockBackend) => backend.calls.filter((c) => c.id === "build.import").length;
+const imported = (backend: MockBackend) => backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
+/** The imports asked with the Import button: every part, not the item set written on lock-in. */
+const byHand = (backend: MockBackend) => imported(backend).filter((p) => !(p as ImportParams).parts);
 
 describe("App with MockBackend", () => {
   it("shows Riot's legal notice", async () => {
@@ -245,7 +249,7 @@ describe("App with MockBackend", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Use Stronk's picks" }));
     await click(/^Biscuit Delivery/);
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    const sent = backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
+    const sent = byHand(backend);
     expect(sent).toEqual([
       // Magical Footwear (row 1) was picked before Cosmic Insight (row 3): Biscuit Delivery (row 2) replaces it.
       { runes: { primary_style: 8000, sub_style: 8300, perks: [8010, 9111, 9104, 8014, 8345, 8347, 5005, 5008, 5001] } },
@@ -280,7 +284,7 @@ describe("App with MockBackend", () => {
     expect(option(item2, "Sundered Sky")).toHaveTextContent("Stronk's pick");
     expect(tab("Item 2")).toHaveAccessibleName(/^Item 2: Black Cleaver, your pick$/);
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    const sent = () => backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
+    const sent = () => byHand(backend);
     expect(sent()).toEqual([{ items: [{ slot: 2, item: 3071 }] }]);
     expect(await screen.findByRole("status")).toHaveTextContent("Imported: Rune page, Item set, Spells.");
 
@@ -402,7 +406,7 @@ describe("App with MockBackend", () => {
     await fireEvent.click(option(item1, "Trinity Force"));
     expect(option(item1, "Trinity Force")).toHaveAttribute("aria-checked", "true");
     await fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    const sent = backend.calls.filter((c) => c.id === "build.import").map((c) => c.params);
+    const sent = byHand(backend);
     expect(sent).toEqual([{ items: [{ slot: 1, item: 3078 }] }]);
   });
 
@@ -427,7 +431,7 @@ describe("App with MockBackend", () => {
     const second = await lockIn(saved);
     expect(second.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 1: 6676 }, spells: [14, 11], sections: {} } });
     await second.app.importBuild();
-    expect(second.backend.calls.find((c) => c.id === "build.import")?.params).toEqual({
+    expect(byHand(second.backend)[0]).toEqual({
       spells: [14, 11],
       items: [{ slot: 1, item: 6676 }],
     });
@@ -507,7 +511,7 @@ describe("App with MockBackend", () => {
   it("loads icons only after an auto-import, so they never delay it", async () => {
     const locked = scenarios["ranked-jungle"].steps.at(-1);
     const backend = new MockBackend({ ...scenarios["ranked-jungle"], steps: locked ? [locked] : [] });
-    const app = createApp(backend, memory({ autoImport: true, elo: "master_plus" }));
+    const app = createApp(backend, memory({ autoItemSet: true, autoImport: true, elo: "master_plus" }));
     await app.refresh();
     expect(backend.calls.map((c) => c.id).slice(-2)).toEqual(["build.import", "icons.get"]);
   });
@@ -538,29 +542,66 @@ describe("App with MockBackend", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Imported: Item set, Spells.");
   });
 
-  it("imports only when asked, unless auto-import is on", async () => {
+  it("writes only the item set on lock-in, and everything when asked", async () => {
     const { backend, app, next } = setup("ranked-jungle");
-    await app.refresh();
-    for (let i = 0; i < 3; i++) await next(); // locked in
-    expect(imports(backend)).toBe(0);
-    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("Imported: Rune page, Item set, Spells.");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(imports(backend)).toBe(1);
-  });
-
-  it("auto-imports once on lock-in when the setting is on, and remembers it", async () => {
-    const store = memory();
-    const { backend, app, next } = setup("ranked-jungle", store);
-    await fireEvent.click(screen.getByLabelText("Auto-import on lock-in"));
-    expect(store.saved).toEqual({ autoImport: true, elo: "master_plus" });
     await app.refresh();
     await next();
     await next();
     expect(imports(backend)).toBe(0); // hovering only
-    await next();
+    await next(); // locked in
     await app.refresh();
-    expect(imports(backend)).toBe(1); // once, not on every refresh
+    expect(imported(backend)).toEqual([{ parts: ["item_set"] }]); // once, not on every refresh
+    expect(await screen.findByRole("status")).toHaveTextContent(/^Imported: Item set\. /);
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(imported(backend).at(-1)).toEqual({});
+    expect(await screen.findByRole("status")).toHaveTextContent("Imported: Rune page, Item set, Spells.");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps the item set up to date until the game starts, and never the runes", async () => {
+    const locked = scenarios["ranked-jungle"].steps.at(-1) as ChampSelectState;
+    const session = locked.session as NonNullable<ChampSelectState["session"]>;
+    const oneEnemy = { ...locked, session: { ...session, enemies: [103] } };
+    const backend = new MockBackend({ ...scenarios["ranked-jungle"], steps: [oneEnemy, locked] });
+    const app = createApp(backend, memory(), memoryPicks());
+    render(App, { app });
+    await app.refresh();
+    await app.refresh();
+    expect(imported(backend)).toEqual([{ parts: ["item_set"] }]);
+    await fireEvent.click(await screen.findByRole("button", { name: "Import" }));
+    expect(imports(backend)).toBe(2);
+    backend.step(); // three enemies, mages: other boots
+    await app.refresh();
+    expect(imported(backend).at(-1)).toEqual({ parts: ["item_set"] });
+    // The runes imported by hand stay reported: an item set write leaves them as they were.
+    expect(screen.getByRole("status")).toHaveTextContent("Imported: Rune page, Item set, Spells.");
+    const plan = app.state.plan?.value;
+    app.pick({ runes: plan?.alternatives.runes.rows[1]?.value as Page });
+    await app.refresh();
+    expect(imports(backend)).toBe(3); // a rune pick waits for Import
+    expect(screen.getByRole("status")).toHaveTextContent("Your picks changed since");
+    app.pick({ slot: 2, item: 3071 });
+    await app.refresh();
+    expect(imported(backend).at(-1)).toMatchObject({ parts: ["item_set"], items: [{ slot: 2, item: 3071 }] });
+    expect(imports(backend)).toBe(4);
+  });
+
+  it("imports runes and spells on lock-in too when asked, nothing when both are off, and remembers it", async () => {
+    const store = memory();
+    const { backend, app, next } = setup("ranked-jungle", store);
+    await fireEvent.click(screen.getByText("Settings"));
+    await fireEvent.click(screen.getByLabelText("Import runes and spells on lock-in"));
+    expect(store.saved).toEqual({ autoItemSet: true, autoImport: true, elo: "master_plus" });
+    for (let i = 0; i < 3; i++) await next();
+    expect(imported(backend)).toEqual([{}]);
+
+    const off = memory({ autoItemSet: false, autoImport: false, elo: "master_plus" });
+    const again = new MockBackend(scenarios["ranked-jungle"]);
+    const app2 = createApp(again, off, memoryPicks());
+    for (let i = 0; i < 3; i++) again.step();
+    await app2.refresh();
+    await app2.refresh();
+    expect(imports(again)).toBe(0);
   });
 
   it("waits calmly for the League client instead of showing an error", async () => {
@@ -628,7 +669,7 @@ describe("settings", () => {
     await fireEvent.click(bracket.getByRole("radio", { name: "Diamond+" }));
     expect(await within(build).findByText("Master+ (no Diamond+ build)")).toBeInTheDocument();
     expect(bracket.getByRole("radio", { name: "Diamond+" })).toBeChecked();
-    expect(store.saved).toEqual({ autoImport: false, elo: "diamond_plus" });
+    expect(store.saved).toEqual({ autoItemSet: true, autoImport: false, elo: "diamond_plus" });
     await next(); // Lee Sin has a Diamond+ build
     expect(await screen.findByText("2,960 games")).toBeInTheDocument();
     expect(within(build).getByText("Diamond+")).toBeInTheDocument();
@@ -643,9 +684,11 @@ describe("settings", () => {
 
   it("reads settings saved before the bracket choice as Master+", () => {
     localStorage.setItem("stronk.settings", JSON.stringify({ autoImport: true }));
-    expect(browserSettings.load()).toEqual({ autoImport: true, elo: "master_plus" });
+    expect(browserSettings.load()).toEqual({ autoItemSet: true, autoImport: true, elo: "master_plus" });
     localStorage.setItem("stronk.settings", JSON.stringify({ autoImport: false, elo: "../x" }));
-    expect(browserSettings.load()).toEqual({ autoImport: false, elo: "master_plus" });
+    expect(browserSettings.load()).toEqual({ autoItemSet: true, autoImport: false, elo: "master_plus" });
+    localStorage.setItem("stronk.settings", JSON.stringify({ autoItemSet: false, autoImport: false }));
+    expect(browserSettings.load()).toEqual({ autoItemSet: false, autoImport: false, elo: "master_plus" });
     localStorage.removeItem("stronk.settings");
   });
 
