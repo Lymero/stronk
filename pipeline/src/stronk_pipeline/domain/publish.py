@@ -11,7 +11,7 @@ often bought with it; the same for the first components (ADR-072).
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from stronk_pipeline.domain.extract.decision_points import (
@@ -50,7 +50,7 @@ class Played:
     components, supplies included, sorted with repeats."""
 
 
-def played(matches: Sequence[Match], statics: Mapping[str, StaticData]) -> Played:
+def played(matches: Iterable[Match], statics: Mapping[str, StaticData]) -> Played:
     """Games whose patch has no static data, or with an unknown champion, are left out, as
     extract leaves them out."""
     games: Counter[Pick] = Counter()

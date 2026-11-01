@@ -16,14 +16,14 @@ import json
 import re
 import secrets
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import cast
 
 from pydantic import TypeAdapter, ValidationError
 
 from stronk_pipeline.adapters.recording import IDENTITY_KEYS, PUUID
-from stronk_pipeline.domain.bracket import DIAMOND, LEGACY, MASTER_PLUS
+from stronk_pipeline.domain.bracket import BANDS, LEGACY
 from stronk_pipeline.domain.match import InvalidMatchError, Match, pseudonym
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
@@ -32,7 +32,7 @@ from stronk_pipeline.ports import Quarantined, StoreError
 MATCH_ID = re.compile(r"[A-Z0-9]+_[0-9]+")
 PATCH = re.compile(r"[0-9]+\.[0-9]+")
 BRACKET_FILE = "bracket.txt"
-"""The crawl's elo bracket, one word (ADR-076); absent in crawls from before brackets."""
+"""The crawl's band of tiers, one word (ADR-076, ADR-079); absent in crawls from before bands."""
 _MATCH = TypeAdapter(Match)
 _STATIC = TypeAdapter(StaticData)
 
@@ -155,7 +155,7 @@ class FileMatchStore:
             bracket = path.read_text().strip()
         except OSError as e:
             return Err(StoreError("invalid", f"cannot read {path}: {e}"))
-        if bracket not in (MASTER_PLUS, DIAMOND):
+        if bracket not in BANDS:
             return Err(StoreError("invalid", f"{path}: unknown bracket {bracket!r}"))
         return Ok(bracket)
 
@@ -189,16 +189,26 @@ class FileMatchStore:
         return Ok(statics)
 
     def read_matches(self) -> Result[tuple[list[Match], int], StoreError]:
+        match self.iter_matches():
+            case Err() as e:
+                return e
+            case Ok(value=each):
+                read = list(each)
+        matches = [m for m in read if m is not None]
+        return Ok((matches, len(read) - len(matches)))
+
+    def iter_matches(self) -> Result[Iterator[Match | None], StoreError]:
         if not self._dir.is_dir():
             return Err(StoreError("not_found", f"no crawl directory at {self._dir}"))
-        matches: list[Match] = []
-        unreadable = 0
-        for path in sorted(self._matches_dir().glob("*.json.gz")):
+        return Ok(self._each(sorted(self._matches_dir().glob("*.json.gz"))))
+
+    @staticmethod
+    def _each(paths: list[Path]) -> Iterator[Match | None]:
+        for path in paths:
             try:
-                matches.append(_MATCH.validate_json(gzip.decompress(path.read_bytes())))
+                yield _MATCH.validate_json(gzip.decompress(path.read_bytes()))
             except (OSError, ValueError, ValidationError, InvalidMatchError):
-                unreadable += 1
-        return Ok((matches, unreadable))
+                yield None
 
     def _matches_dir(self) -> Path:
         return self._dir / "matches"

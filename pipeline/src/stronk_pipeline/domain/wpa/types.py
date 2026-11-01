@@ -60,3 +60,21 @@ class OptionEstimate:
     """Bootstrap interval of `contrast`, at the run's confidence."""
     chosen: int = 0
     """Decisions choosing this option at its point, inside the overlap or not (popularity)."""
+
+
+@dataclass(frozen=True)
+class PointEstimate:
+    """An option estimated at its decision point, before what spans every point: shrinkage
+    across champions and the false discovery rate (`finish`)."""
+
+    estimate: OptionEstimate
+    std_error: float | None
+    chosen: int = 0
+    """Decisions choosing the option at its point, inside the overlap or not."""
+    eligible: bool = False
+    """Can be claimed: a number, neither low_sample nor low_overlap. Depends on counts only."""
+    contrast_p: float | None = None
+    contrast: float | None = None
+    contrast_ci: tuple[float, float] | None = None
+    """p-value of no difference with `versus`; None for the most played or an ineligible option."""
+    versus: str | None = None

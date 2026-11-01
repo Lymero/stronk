@@ -64,6 +64,17 @@ impl VerifiedManifest {
         })
     }
 
+    /// The elo brackets the manifest has builds for (`{region}/{elo}/{champion}/{role}.json`),
+    /// highest first.
+    pub fn elos(&self) -> Vec<String> {
+        stronk_domain::elo::sorted(self.manifest.files.iter().filter_map(|f| {
+            match f.path.as_str().split('/').collect::<Vec<_>>().as_slice() {
+                [_, elo, _, role] if role.ends_with(".json") => Some((*elo).to_owned()),
+                _ => None,
+            }
+        }))
+    }
+
     pub fn entry(&self, path: &str) -> Option<&FileEntry> {
         self.manifest.files.iter().find(|f| f.path.as_str() == path)
     }

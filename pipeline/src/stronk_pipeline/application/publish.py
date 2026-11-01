@@ -12,18 +12,19 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, model_validator
 
 from stronk_contracts.build_v1 import Build
 from stronk_contracts.champions_v1 import Champions
 from stronk_contracts.manifest_v1 import Manifest
-from stronk_pipeline.application.extract import crawl_bracket
+from stronk_pipeline.application.extract import crawl_bands, each_game
 from stronk_pipeline.application.registry import Command, CommandError
+from stronk_pipeline.domain.bracket import BRACKETS, published
 from stronk_pipeline.domain.extract.decision_points import (
     BOOTS_SLOT,
     COMPONENTS_SLOT,
@@ -50,22 +51,52 @@ MANIFEST = "manifest.json"
 SIGNATURE = "manifest.json.minisig"
 
 
-class PublishParams(BaseModel):
+type Crawls = Annotated[
+    list[Annotated[str, Field(min_length=1)]],
+    BeforeValidator(lambda v: [v] if isinstance(v, str) else v),
+    Field(min_length=1, description="The crawl directories the estimates came from"),
+]
+
+
+class BracketSource(BaseModel):
+    """One bracket's estimates and the crawls behind them; their bands name it (ADR-079)."""
+
     model_config = ConfigDict(extra="forbid")
 
     estimates: Annotated[str, Field(min_length=1, description="Estimates from wpa.estimate")]
-    crawl: Annotated[
-        list[Annotated[str, Field(min_length=1)]],
-        BeforeValidator(lambda v: [v] if isinstance(v, str) else v),
-        Field(min_length=1, description="The crawl directories the estimates came from"),
-    ]
+    crawl: Crawls
+
+
+class PublishParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    estimates: Annotated[str | None, Field(min_length=1)] = None
+    """One bracket's estimates, with `crawl`; or `brackets` for several."""
+    crawl: Crawls | None = None
+    brackets: list[BracketSource] = []
+    """Every bracket of the patch, published together: a patch is replaced as a whole."""
     key: Annotated[str, Field(min_length=1, description="Signing key (signing.keygen)")]
     out: Annotated[str, Field(min_length=1, description="Data root, the CDN's layout")] = (
         "dist/data"
     )
     region: Annotated[str, Field(pattern=r"^[a-z0-9]{2,8}$")] = "all"
     elo: Annotated[str | None, Field(pattern=r"^[a-z_]{2,32}$")] = None
-    """The files' elo bracket: the crawls' own (ADR-076), and refused if given otherwise."""
+    """With `estimates` alone: the files' bracket, the one the crawls' bands make (ADR-079), and
+    refused if given otherwise."""
+
+    @model_validator(mode="after")
+    def _one_or_several(self) -> PublishParams:
+        single = self.estimates is not None or self.crawl is not None
+        if single == bool(self.brackets) or (single and None in (self.estimates, self.crawl)):
+            raise ValueError("give estimates and crawl, or brackets")
+        if self.elo is not None and not single:
+            raise ValueError("elo goes with estimates and crawl; brackets are named by their bands")
+        return self
+
+    def sources(self) -> list[BracketSource]:
+        if self.estimates is not None and self.crawl is not None:
+            return [BracketSource(estimates=self.estimates, crawl=self.crawl)]
+        return self.brackets
 
 
 class PublishResult(BaseModel):
@@ -87,32 +118,37 @@ def publish_command(
     clock: Clock = lambda: datetime.now(UTC),
 ) -> Command[PublishParams, PublishResult]:
     def run(params: PublishParams) -> Result[PublishResult, CommandError]:
-        match estimates.read_estimates(Path(params.estimates)):
-            case Err(error=e):
-                return Err(_error(e))
-            case Ok(value=rows):
-                pass
-        match _crawled(stores, params):
-            case Err(error=e):
-                return Err(e)
-            case Ok(value=(elo, matches, statics)):
-                pass
-        patches = sorted({m.patch for m in matches})
-        if len(patches) != 1:
-            message = f"crawls must hold one patch, found {patches or 'none'}"
-            return Err(CommandError(code="invalid_input", message=message))
-        patch = patches[0]
         match keys.load(Path(params.key)):
             case Err(error=e):
                 return Err(_error(e))
             case Ok(value=signer):
                 pass
-        try:
-            files = _builds(rows, played(matches, statics), patch, params, elo)
-            if patch in statics:
-                files[CHAMPIONS] = _champions(statics[patch], patch)
-        except (ValidationError, ValueError) as e:
-            return Err(CommandError(code="invalid_input", message=f"not publishable: {e}"))
+        files: dict[str, bytes] = {}
+        patches: set[str] = set()
+        statics: dict[str, StaticData] = {}
+        named: set[str] = set()
+        for source in params.sources():
+            match _bracket(estimates, stores, source, params):
+                case Err(error=e):
+                    return Err(e)
+                case Ok(value=(elo, rows, seen, found, held)):
+                    pass
+            if elo in named:
+                message = f"two sources make {elo}: give each bracket once"
+                return Err(CommandError(code="invalid_params", message=message))
+            named.add(elo)
+            patches |= found
+            statics = {**held, **statics}
+            if len(patches) != 1:
+                message = f"crawls must hold one patch, found {sorted(patches) or 'none'}"
+                return Err(CommandError(code="invalid_input", message=message))
+            try:
+                files |= _builds(rows, seen, next(iter(patches)), params.region, elo)
+            except (ValidationError, ValueError) as e:
+                return Err(CommandError(code="invalid_input", message=f"not publishable: {e}"))
+        patch = next(iter(patches))
+        if patch in statics:
+            files[CHAMPIONS] = _champions(statics[patch], patch)
         now = clock()
         content = hashlib.sha256(b"".join(_sha(d).encode() for _, d in sorted(files.items())))
         run_id = f"{now:%Y%m%dT%H%M%SZ}-{content.hexdigest()[:8]}"
@@ -157,46 +193,70 @@ def publish_command(
     )
 
 
-def _crawled(
-    stores: Callable[[Path], MatchStore], params: PublishParams
-) -> Result[tuple[str, list[Match], dict[str, StaticData]], CommandError]:
-    """The crawls' games and game data, and the files' elo bracket: the crawls' one (ADR-076),
-    which a given `elo` must match."""
-    match crawl_bracket(stores, params.crawl):
+type _Bracket = tuple[str, list[OptionEstimate], Played, set[str], dict[str, StaticData]]
+
+
+def _bracket(
+    estimates: EstimateStore,
+    stores: Callable[[Path], MatchStore],
+    source: BracketSource,
+    params: PublishParams,
+) -> Result[_Bracket, CommandError]:
+    """One bracket: its name, the one its crawls' bands make (ADR-079), which a given `elo`
+    must match; its estimates; what its games played, read one at a time; their patches; and
+    the crawls' game data."""
+    match crawl_bands(stores, source.crawl):
         case Err() as e:
             return e
-        case Ok(value=elo):
+        case Ok(value=bands):
             pass
+    elo = published(bands)
+    if elo is None:
+        made = ", ".join(f"{name}: {' + '.join(pooled)}" for name, pooled in BRACKETS.items())
+        message = f"the crawls hold {' + '.join(bands)} games: a bracket pools {made}"
+        return Err(CommandError(code="invalid_params", message=message))
     if params.elo is not None and params.elo != elo:
         message = f"the crawls hold {elo} games, not {params.elo}"
         return Err(CommandError(code="invalid_params", message=message))
-    match _games(stores, params.crawl):
+    match estimates.read_estimates(Path(source.estimates)):
         case Err(error=e):
             return Err(_error(e))
-        case Ok(value=(matches, statics)):
-            return Ok((elo, matches, statics))
+        case Ok(value=rows):
+            pass
+    match _statics(stores, source.crawl):
+        case Err(error=e):
+            return Err(_error(e))
+        case Ok(value=statics):
+            pass
+    match each_game(stores, source.crawl):
+        case Err() as e:
+            return e
+        case Ok(value=games):
+            pass
+    patches: set[str] = set()
+
+    def noting(games: Iterable[Match | None]) -> Iterator[Match]:
+        for game in games:
+            if game is not None:
+                patches.add(game.patch)
+                yield game
+
+    seen = played(noting(games), statics)
+    return Ok((elo, list(rows), seen, patches, statics))
 
 
-def _games(
+def _statics(
     stores: Callable[[Path], MatchStore], crawls: Sequence[str]
-) -> Result[tuple[list[Match], dict[str, StaticData]], StoreError]:
-    matches: dict[str, Match] = {}
+) -> Result[dict[str, StaticData], StoreError]:
     statics: dict[str, StaticData] = {}
     for crawl in crawls:
-        store = stores(Path(crawl))
-        match store.read_matches():
+        match stores(Path(crawl)).read_static():
             case Err() as e:
                 return e
-            case Ok(value=(found, _)):
-                for m in found:
-                    matches.setdefault(m.match_id, m)
-        match store.read_static():
-            case Err() as e:
-                return e
-            case Ok(value=found_statics):
-                for patch, static in found_statics.items():
+            case Ok(value=found):
+                for patch, static in found.items():
                     statics.setdefault(patch, static)
-    return Ok((list(matches.values()), statics))
+    return Ok(statics)
 
 
 SPELL_PAIRS = 5
@@ -204,7 +264,7 @@ SPELL_PAIRS = 5
 
 
 def _builds(
-    rows: Sequence[OptionEstimate], seen: Played, patch: str, params: PublishParams, elo: str
+    rows: Sequence[OptionEstimate], seen: Played, patch: str, region: str, elo: str
 ) -> dict[str, bytes]:
     """`{region}/{elo}/{champion}/{role}.json` -> canonical bytes, validated by the contract."""
     by_pick: defaultdict[tuple[str, str], list[OptionEstimate]] = defaultdict(list)
@@ -248,7 +308,7 @@ def _builds(
             {
                 "schemaVersion": 1,
                 "patch": patch,
-                "region": params.region,
+                "region": region,
                 "elo": elo,
                 "champion": champion,
                 "role": role,
@@ -274,7 +334,7 @@ def _builds(
                     option.pop(key)
             if option.get("comparison") is None:  # optional: absent, not null
                 option.pop("comparison", None)
-        files[f"{params.region}/{elo}/{champion}/{role}.json"] = _canonical(data)
+        files[f"{region}/{elo}/{champion}/{role}.json"] = _canonical(data)
     return files
 
 

@@ -104,10 +104,10 @@ Each stage is a command with explicit inputs and outputs, reading and writing th
 | Stage | Input | Output |
 |---|---|---|
 | `crawl` | `MatchSource` (Riot API or a recording) | compact validated games and Data Dragon data per patch, in a crawl directory |
-| `extract` | raw data | `frames` (per minute, per team and player, with situation features), `decisions` (decision points with game state, options and the chosen one) |
-| `winprob` | frames | win probability model (best of logistic and LightGBM on validation matches), calibration report on test matches |
-| `wpa` | decisions + model | propensity model, estimates per champion, role, slot and option, with interval, sample size and flags |
-| `publish` | estimates + crawls | through the `Publisher` port, signed JSON: one build per patch, region, elo bracket, champion and role (`build.v1`), the patch's champion damage ratings (`champions.v1`), its manifest, and the index of patches (`index.v1`). Keystone estimates carry the page most played with them; spells are published by popularity, skill order stays empty until estimated |
+| `extract` | raw data | `frames` (per minute, per team and player, with situation features), `decisions` (decision points with game state, options and the chosen one). Games stream from disk twice, headers then whole games, a game in two crawls once (ADR-079); each table is a directory of parts, one per 2,000 games (ADR-080) |
+| `winprob` | frames | win probability model (best of logistic and LightGBM on validation matches), calibration report on test matches. Every frame is used, read a part at a time: the logistic fit adds its sums chunk by chunk, LightGBM reads chunks through its `Sequence` interface (ADR-081) |
+| `wpa` | decisions + model | propensity model, estimates per champion, role, slot and option, with interval, sample size and flags. Reads the decisions a batch of picks at a time (about 2 million rows), then shrinks and controls the false discovery rate across every point (ADR-080) |
+| `publish` | estimates + crawls, per bracket | through the `Publisher` port, signed JSON: one build per patch, region, elo bracket, champion and role (`build.v1`), every bracket of a patch under one manifest (ADR-079), the patch's champion damage ratings (`champions.v1`), its manifest, and the index of patches (`index.v1`). Keystone estimates carry the page most played with them; spells are published by popularity, skill order stays empty until estimated |
 
 ### Publishing
 
@@ -128,7 +128,7 @@ Moving to the CDN means switching the publisher and the app's data URL; no other
 ### Crawler
 
 - Async HTTP (httpx) behind the `MatchSource` port.
-- Seeds players from one bracket's league endpoints, Master+ (Challenger, Grandmaster, Master) or Diamond (I to IV, paged), one bracket per crawl directory (ADR-076); walks match histories, fetches match and timeline. The timeline is fetched only for games that pass the header checks (queue, map, remake, patch).
+- Seeds players from one band's league endpoints, Master+ (Challenger, Grandmaster, Master), Diamond or Emerald (I to IV, paged), one band per crawl directory (ADR-076, ADR-079); walks match histories, fetches match and timeline. The timeline is fetched only for games that pass the header checks (queue, map, remake, patch).
 - Rate limiter driven by Riot's rate-limit headers; Retry-After on 429, exponential backoff on 5xx and transport errors.
 - Riot payloads become validated models at the boundary; nothing raw passes inward.
 - Games are stored compact and pseudonymous, one file per game, and raw JSON is discarded (ADR-027). Reruns resume.
@@ -141,7 +141,7 @@ runs/crawl/<platform>/
 ├── static/<patch>.json.gz       # Data Dragon champions and items
 ├── quarantine/                  # games that failed validation, kept to re-read (`--retry-quarantine`)
 ├── skipped.jsonl                # rejected games and why: never refetched
-├── bracket.txt                  # master_plus or diamond; none means master_plus (ADR-076)
+├── bracket.txt                  # the band: master_plus, diamond or emerald; none means master_plus (ADR-076, ADR-079)
 └── .salt                        # pseudonym key: never packed, published or committed
 ```
 
@@ -221,7 +221,7 @@ Published files, each with its schema in `contracts/schemas/` and a valid exampl
 | `/{patch}/champions.json` | `champions.v1` | Each champion's damage ratings and the enemy-profile cuts (ADR-074) |
 | `/{patch}/{region}/{elo}/{champion}/{role}.json` | `build.v1` | One build: games; rune pages and each rune row (`runeChoices`); spells; starts, first components, boots by enemy damage; items per slot and the late slot; each option with its estimate, interval, games, flags and head-to-head comparison |
 
-`region` is `all` or a platform; `elo` is `master_plus` or `diamond` (ADR-076).
+`region` is `all` or a platform; `elo` is a bracket, a band of tiers with every band above it: `master_plus`, `diamond_plus` (Diamond and Master+ games) or `emerald_plus` (Emerald, Diamond and Master+) (ADR-079; data published before it may hold `diamond`, Diamond alone, ADR-076). `data.status` lists the brackets the manifest has builds for; `build.plan` and `build.import` read the player's bracket and, when it has no build for the champion and role, the closest one that has, wider first, the plan's `elo` saying which (ADR-078, ADR-079). `build.get` reads the exact file asked for.
 
 ## 7. Budgets and floors
 

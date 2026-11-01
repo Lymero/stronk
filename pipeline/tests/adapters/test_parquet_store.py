@@ -84,3 +84,38 @@ def test_frames_without_required_columns_are_invalid(tmp_path: Path) -> None:
     result = ParquetFrameStore().read_frames(tmp_path / "f.parquet")
     assert isinstance(result, Err)
     assert "lacks columns" in result.error.message
+
+
+def test_a_table_written_in_parts_reads_whole(tmp_path: Path, table_factory: TableFactory) -> None:
+    """ADR-080: extract writes a chunk of games at a time; part 0 replaces the old table."""
+    store, path = ParquetDecisionStore(), tmp_path / "d.parquet"
+    assert isinstance(store.write_decisions(table_factory(["Z"], [0]), path), Ok)  # a whole file
+    first = table_factory(["A", "B"], [1, 0], champions=["Ahri", "Zed"])
+    second = table_factory(["C"], [1], champions=["Ahri"], match_ids=["M9"])
+    for part, table in enumerate((first, second)):
+        assert isinstance(store.write_decisions(table, path, part), Ok)
+    assert sorted(p.name for p in path.iterdir()) == ["part-00000.parquet", "part-00001.parquet"]
+    read = store.read_decisions(path)
+    assert isinstance(read, Ok)
+    assert read.value.option.tolist() == ["A", "C", "B"]  # canonical order: Ahri, then Zed
+
+
+def test_decisions_read_a_few_picks_at_a_time(tmp_path: Path, table_factory: TableFactory) -> None:
+    store, path = ParquetDecisionStore(), tmp_path / "d.parquet"
+    table = table_factory(
+        ["A", "B", "C", "D"], [1, 0, 1, 0], champions=["Zed", "Ahri", "Zed", "Lux"]
+    )
+    assert isinstance(store.write_decisions(table, path, 0), Ok)
+    picks = store.picks(path)
+    assert isinstance(picks, Ok)
+    assert [(p.champion, p.role, p.rows) for p in picks.value] == [
+        ("Ahri", "MIDDLE", 1),
+        ("Lux", "MIDDLE", 1),
+        ("Zed", "MIDDLE", 2),
+    ]
+    zed = store.read_decisions(path, [("Zed", "MIDDLE")])
+    assert isinstance(zed, Ok)
+    assert zed.value.option.tolist() == ["A", "C"]  # in the table's order
+    none = store.read_decisions(path, [("Zed", "TOP")])
+    assert isinstance(none, Ok)
+    assert len(none.value) == 0

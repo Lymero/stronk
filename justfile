@@ -120,6 +120,14 @@ publish estimates crawl key="~/.config/stronk/signing.key" out="dist/data":
     crawls=$(printf '%s' "{{ crawl }}" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().split(",")))')
     uv run stronk-pipeline run publish --params '{"estimates": "{{ estimates }}", "crawl": '"$crawls"', "key": "'"$(eval echo {{ key }})"'", "out": "{{ out }}"}'
 
+# Example: just publish-brackets "m/estimates.json=crawl/m d/estimates.json=crawl/m,crawl/d"
+# Every bracket of a patch under one manifest (ADR-079), each "<estimates>=<crawl,…>"
+publish-brackets brackets key="~/.config/stronk/signing.key" out="dist/data":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sources=$(printf '%s' "{{ brackets }}" | python3 -c 'import json, sys; print(json.dumps([{"estimates": e, "crawl": c.split(",")} for e, c in (b.split("=", 1) for b in sys.stdin.read().split())]))')
+    uv run stronk-pipeline run publish --params '{"brackets": '"$sources"', "key": "'"$(eval echo {{ key }})"'", "out": "{{ out }}"}'
+
 # Real data for the app from the full corpus (crawl-all-16.20), signed with your key (stops if
 # missing: `just keygen` once): runs/real/data and its public key runs/real/data.pub, for `just app-real`
 [unix]
@@ -174,10 +182,10 @@ backtest-corpora earlier later out:
 winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
     uv run stronk-pipeline run winprob.train --params '{"frames": "{{ frames }}", "out": "{{ out }}"}'
 
-# Crawl ranked games from the Riot API (needs RIOT_API_KEY); rerun to resume. One bracket per
-# directory (ADR-076): master_plus (Challenger to Master) or diamond (Diamond I to IV)
+# Crawl ranked games from the Riot API (needs RIOT_API_KEY); rerun to resume. One band of tiers
+# per directory (ADR-076, ADR-079): master_plus (Challenger to Master), diamond or emerald (I to IV)
 crawl platform="euw1" games="100" out=("runs/crawl/" + platform) bracket="master_plus":
-    uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}", "tiers": {{ if bracket == "diamond" { '["DIAMOND"]' } else if bracket == "master_plus" { '["CHALLENGER", "GRANDMASTER", "MASTER"]' } else { error("bracket: master_plus or diamond") } }}}'
+    uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}", "tiers": {{ if bracket == "diamond" { '["DIAMOND"]' } else if bracket == "emerald" { '["EMERALD"]' } else if bracket == "master_plus" { '["CHALLENGER", "GRANDMASTER", "MASTER"]' } else { error("bracket: master_plus, diamond or emerald") } }}}'
 
 # Frames and decision points from crawl directories (comma-separated for several);
 # --retry-quarantine re-reads quarantined games first

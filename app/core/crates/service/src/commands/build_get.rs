@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::Build;
-use stronk_domain::{BuildKey, Patch, Role};
+use stronk_domain::{BuildKey, Patch, Role, elo};
 
 use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
@@ -29,7 +29,7 @@ fn all() -> String {
 }
 
 fn master_plus() -> String {
-    "master_plus".to_owned()
+    elo::DEFAULT.to_owned()
 }
 
 pub fn command() -> Command {
@@ -73,7 +73,7 @@ fn run(ctx: &Context, params: Params) -> Result<BuildFile, CommandError> {
     .map(BuildFile)
 }
 
-/// The verified build file; `None` means the newest patch, `all` regions, `master_plus`.
+/// The verified build file; `None` means the newest patch, `all` regions, [`elo::DEFAULT`].
 pub fn fetch(
     ctx: &Context,
     champion: &str,
@@ -86,7 +86,7 @@ pub fn fetch(
         |e: &dyn std::fmt::Display| CommandError::new(ErrorCode::InvalidParams, e.to_string());
     let key = BuildKey::new(
         region.unwrap_or("all"),
-        elo.unwrap_or("master_plus"),
+        elo.unwrap_or(elo::DEFAULT),
         champion,
         role,
     )
@@ -96,4 +96,22 @@ pub fn fetch(
         None => ctx.builds.status()?.patch,
     };
     Ok(ctx.builds.build(patch, &key)?)
+}
+
+/// The newest patch's build in the player's elo bracket, or in the first wider bracket that
+/// has one for this champion and role (ADR-078, ADR-079): the build's own `elo` says which.
+pub fn fetch_preferring(
+    ctx: &Context,
+    champion: &str,
+    role: Role,
+    elo: Option<&str>,
+) -> Result<Build, CommandError> {
+    let mut missing = None;
+    for bracket in elo::fallbacks(elo.unwrap_or(elo::DEFAULT)) {
+        match fetch(ctx, champion, role, None, None, Some(bracket)) {
+            Err(e) if e.code == ErrorCode::NotFound => missing = missing.or(Some(e)),
+            found => return found,
+        }
+    }
+    Err(missing.unwrap_or_else(|| CommandError::new(ErrorCode::NotFound, "no build")))
 }

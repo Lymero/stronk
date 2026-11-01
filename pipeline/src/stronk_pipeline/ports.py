@@ -5,7 +5,7 @@ Publish writes through Signer and Publisher.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
@@ -19,9 +19,10 @@ from stronk_pipeline.domain.logistic import Floats
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Result
 from stronk_pipeline.domain.static import StaticData
-from stronk_pipeline.domain.wpa.types import OptionEstimate, WpaSettings
+from stronk_pipeline.domain.winprob import Rows
+from stronk_pipeline.domain.wpa.types import OptionEstimate, PointEstimate, WpaSettings
 
-type Tier = Literal["CHALLENGER", "GRANDMASTER", "MASTER", "DIAMOND"]
+type Tier = Literal["CHALLENGER", "GRANDMASTER", "MASTER", "DIAMOND", "EMERALD"]
 type Division = Literal["I", "II", "III", "IV"]
 type Platform = Literal[
     "br1", "eun1", "euw1", "jp1", "kr", "la1", "la2", "me1",
@@ -161,8 +162,8 @@ class MatchStore(Protocol):
     def has_static(self, patch: str) -> bool: ...
 
     def bracket(self) -> Result[str, StoreError]:
-        """The elo bracket of the crawl's games (ADR-076); a crawl from before brackets were
-        recorded is Master+."""
+        """The band of tiers the crawl's games come from (`bracket.BANDS`, ADR-076, ADR-079); a
+        crawl from before bands were recorded is Master+."""
         ...
 
     def set_bracket(self, bracket: str) -> Result[None, StoreError]: ...
@@ -175,15 +176,34 @@ class MatchStore(Protocol):
 
     def read_static(self) -> Result[dict[str, StaticData], StoreError]: ...
 
+    def iter_matches(self) -> Result[Iterator[Match | None], StoreError]:
+        """Every stored game in id order, read one at a time; None for a file that doesn't
+        read. Whole crawls don't fit in memory past some 30,000 games (ADR-079)."""
+        ...
+
     def read_matches(self) -> Result[tuple[list[Match], int], StoreError]:
         """Every stored game, and how many files could not be read."""
         ...
 
 
 class FrameStore(Protocol):
-    def read_frames(self, path: Path) -> Result[FrameTable, StoreError]: ...
+    def read_frames(self, path: Path) -> Result[FrameTable, StoreError]:
+        """A table written whole, or in parts (a directory of them)."""
+        ...
 
-    def write_frames(self, table: FrameTable, path: Path) -> Result[Path, StoreError]: ...
+    def frame_chunks(
+        self, path: Path
+    ) -> Result[list[Callable[[], Result[FrameTable, StoreError]]], StoreError]:
+        """The table a part at a time, each read when called: one for a table written whole
+        (ADR-081)."""
+        ...
+
+    def write_frames(
+        self, table: FrameTable, path: Path, part: int | None = None
+    ) -> Result[Path, StoreError]:
+        """The table at `path`; with `part`, one part of a table written a chunk at a time,
+        into the directory `path` (part 0 replaces whatever was there, ADR-080)."""
+        ...
 
 
 class WinProbModel(Protocol):
@@ -206,13 +226,14 @@ class WinProbLearner(Protocol):
 
     def fit(
         self,
-        train: tuple[Floats, Floats, Floats],
-        valid: tuple[Floats, Floats, Floats],
+        train: Rows,
+        valid: Rows,
         feature_names: tuple[str, ...],
         monotone: tuple[int, ...],
         seed: int,
     ) -> WinProbModel:
-        """`train` and `valid` are (features, minute, outcome); `valid` stops boosting early.
+        """`train` and `valid` are (features, minute, outcome) a chunk at a time (ADR-081);
+        `valid` stops boosting early.
         `monotone` per feature: 1 when P(win) may only rise with it, 0 when unconstrained."""
         ...
 
@@ -227,10 +248,33 @@ class ReportWriter(Protocol):
     def write(self, report: Mapping[str, object], path: Path) -> Result[Path, StoreError]: ...
 
 
-class DecisionStore(Protocol):
-    def read_decisions(self, path: Path) -> Result[DecisionTable, StoreError]: ...
+@dataclass(frozen=True)
+class Pick:
+    """A champion and role of a decision table, and how many decisions it holds."""
 
-    def write_decisions(self, table: DecisionTable, path: Path) -> Result[Path, StoreError]: ...
+    champion: str
+    champion_class: str
+    role: str
+    rows: int
+
+
+class DecisionStore(Protocol):
+    def read_decisions(
+        self, path: Path, picks: Collection[tuple[str, str]] | None = None
+    ) -> Result[DecisionTable, StoreError]:
+        """A table written whole or in parts; with `picks` (champion, role), only their rows,
+        in the table's order, so a table larger than memory reads a few picks at a time."""
+        ...
+
+    def picks(self, path: Path) -> Result[list[Pick], StoreError]:
+        """Every champion and role of the table, sorted, with its decisions."""
+        ...
+
+    def write_decisions(
+        self, table: DecisionTable, path: Path, part: int | None = None
+    ) -> Result[Path, StoreError]:
+        """As `FrameStore.write_frames`."""
+        ...
 
 
 class Estimator(Protocol):
@@ -249,6 +293,21 @@ class Estimator(Protocol):
     ) -> list[OptionEstimate]:
         """`outcome` defaults to the final result (docs/wpa-method.md, section 5); `strata`
         compares options within each label (champion, when pooled by class)."""
+        ...
+
+    def points(
+        self,
+        table: DecisionTable,
+        wp: Floats,
+        settings: WpaSettings,
+        outcome: Floats | None = None,
+        strata: NDArray[np.str_] | None = None,
+    ) -> list[PointEstimate]:
+        """`estimate` up to what spans every decision point, for part of a table (ADR-080)."""
+        ...
+
+    def finish(self, raw: list[PointEstimate], settings: WpaSettings) -> list[OptionEstimate]:
+        """`estimate`'s end, over the points of every part, in canonical order."""
         ...
 
 

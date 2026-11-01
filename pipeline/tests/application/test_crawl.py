@@ -45,8 +45,9 @@ class FakeSource:
         self.static_calls: list[str] = []
         self.closed = False
         self.ladder: list[tuple[str, str, int]] = []
-        self.diamond: dict[str, list[list[str]]] = {}
-        """Diamond ladder pages by division; their players' games are in `histories`."""
+        self.divided: dict[str, dict[str, list[list[str]]]] = {}
+        """Diamond and Emerald ladder pages by tier and division; their players' games are in
+        `histories`."""
 
     async def players(
         self, tier: Tier, division: Division, page: int
@@ -54,8 +55,9 @@ class FakeSource:
         self.ladder.append((tier, division, page))
         if tier == "CHALLENGER" and page == 1:
             return Ok(list(self.histories))
-        if tier == "DIAMOND" and page <= len(self.diamond.get(division, [])):
-            return Ok(self.diamond[division][page - 1])
+        pages = self.divided.get(tier, {}).get(division, [])
+        if page <= len(pages):
+            return Ok(pages[page - 1])
         return Ok([])
 
     async def match_ids(self, player: str, count: int) -> Result[list[str], SourceError]:
@@ -222,20 +224,24 @@ def test_record_and_replay_are_exclusive() -> None:
         CrawlParams(record="a", replay="b")
 
 
-def test_a_diamond_crawl_pages_through_every_division_and_says_so(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("tier", "band"), [("DIAMOND", "diamond"), ("EMERALD", "emerald")])
+def test_a_divided_tier_crawl_pages_through_every_division_and_says_so(
+    tmp_path: Path, tier: Tier, band: str
+) -> None:
     source = FakeSource({puuid(1): [game("EUW1_7")], puuid(2): [game("EUW1_8")]})
-    source.diamond = {"I": [[puuid(1)]], "II": [[puuid(2)]]}
-    result = crawl(source, tmp_path / "diamond", tiers=["DIAMOND"])
+    source.divided = {tier: {"I": [[puuid(1)]], "II": [[puuid(2)]]}}
+    result = crawl(source, tmp_path / band, tiers=[tier])
     assert isinstance(result, Ok)
-    assert (result.value.bracket, result.value.stored) == ("diamond", 2)
-    pages = [(d, p) for t, d, p in source.ladder if t == "DIAMOND"]
+    assert (result.value.bracket, result.value.stored) == (band, 2)
+    pages = [(d, p) for t, d, p in source.ladder if t == tier]
     assert pages == [("I", 1), ("I", 2), ("II", 1), ("II", 2), ("III", 1), ("IV", 1)]
-    assert FileMatchStore(tmp_path / "diamond").bracket() == Ok("diamond")
+    assert FileMatchStore(tmp_path / band).bracket() == Ok(band)
 
 
 def test_a_crawl_holds_one_bracket(tmp_path: Path) -> None:
-    with pytest.raises(ValidationError, match="crawl each bracket into its own directory"):
-        CrawlParams.model_validate({"tiers": ["MASTER", "DIAMOND"]})
+    for tiers in (["MASTER", "DIAMOND"], ["DIAMOND", "EMERALD"]):
+        with pytest.raises(ValidationError, match="crawl each into its own directory"):
+            CrawlParams.model_validate({"tiers": tiers})
     # Master+ games already there: a Diamond crawl goes elsewhere.
     assert isinstance(crawl(two_players(), tmp_path), Ok)
     assert FileMatchStore(tmp_path).bracket() == Ok("master_plus")

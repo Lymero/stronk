@@ -9,7 +9,7 @@ synthetic games, which have no frames.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -17,7 +17,12 @@ from numpy.typing import NDArray
 
 from stronk_pipeline.domain.decisions import DecisionTable
 from stronk_pipeline.domain.extract.situation import SITUATION_FEATURES
-from stronk_pipeline.domain.logistic import Floats, LogisticModel, fit_logistic
+from stronk_pipeline.domain.logistic import (
+    Floats,
+    LogisticModel,
+    fit_logistic,
+    fit_logistic_chunks,
+)
 
 WP_FEATURES = SITUATION_FEATURES
 """What the model reads besides the minute: team leads, each from the predicted team's side."""
@@ -41,23 +46,52 @@ class Split:
     test: NDArray[np.bool_]
 
 
-def split_by_match(match_id: NDArray[np.str_]) -> Split:
-    """Every row of a match in the same part, so no game is seen in training and tested on.
-    Matches are ordered by a hash of their id: the split is stable and independent of order.
-    Needs at least 3 matches; each part gets at least one."""
-    matches = sorted(set(match_id.tolist()), key=_hash)
+TRAIN, VALID, TEST = 0, 1, 2
+"""The parts of the split, as `match_parts` numbers them."""
+
+
+def match_parts(match_ids: Iterable[str]) -> dict[str, int]:
+    """The part of each match: matches ordered by a hash of their id, the first `SHARES[0]` to
+    training, the next `SHARES[1]` to validation, the rest to test. Stable and independent of
+    order; needs at least 3 matches, and each part gets at least one."""
+    matches = sorted(set(match_ids), key=_hash)
     n = len(matches)
     if n < 3:
         raise ValueError(f"need at least 3 matches to split, got {n}")
     n_train = min(max(1, round(SHARES[0] * n)), n - 2)
     n_valid = min(max(1, round(SHARES[1] * n)), n - n_train - 1)
-    rank = {m: i for i, m in enumerate(matches)}
-    position = np.array([rank[m] for m in match_id.tolist()], dtype=np.int64)
-    return Split(
-        train=position < n_train,
-        valid=(position >= n_train) & (position < n_train + n_valid),
-        test=position >= n_train + n_valid,
-    )
+    return {
+        m: TRAIN if i < n_train else VALID if i < n_train + n_valid else TEST
+        for i, m in enumerate(matches)
+    }
+
+
+def split_by_match(match_id: NDArray[np.str_]) -> Split:
+    """Every row of a match in the same part (`match_parts`), so no game is seen in training
+    and tested on."""
+    parts = match_parts(match_id.tolist())
+    position = np.array([parts[m] for m in match_id.tolist()], dtype=np.int64)
+    return Split(train=position == TRAIN, valid=position == VALID, test=position == TEST)
+
+
+@dataclass(frozen=True)
+class Rows:
+    """Training rows, (features in WP_FEATURES order, minute, outcome), read a chunk at a time,
+    so frames larger than memory are never held whole (ADR-081): chunk `i` has `sizes[i]` rows
+    and `load(i)` reads it. Rows in memory are one chunk (`Rows.of`)."""
+
+    sizes: tuple[int, ...]
+    load: Callable[[int], tuple[Floats, Floats, Floats]]
+
+    @staticmethod
+    def of(features: Floats, minute: Floats, outcome: Floats) -> Rows:
+        return Rows((len(outcome),), lambda _: (features, minute, outcome))
+
+    def __len__(self) -> int:
+        return sum(self.sizes)
+
+    def chunks(self) -> Iterator[tuple[Floats, Floats, Floats]]:
+        return (self.load(i) for i in range(len(self.sizes)))
 
 
 def columns(features: Floats, names: Sequence[str], wanted: Sequence[str]) -> Floats:
@@ -94,14 +128,16 @@ class LogisticLearner:
 
     def fit(
         self,
-        train: tuple[Floats, Floats, Floats],
-        valid: tuple[Floats, Floats, Floats],
+        train: Rows,
+        valid: Rows,
         feature_names: tuple[str, ...],
         monotone: tuple[int, ...],
         seed: int,
     ) -> LogisticWinProb:
-        x, minute, y = train
-        return LogisticWinProb(feature_names, fit_logistic(_inputs(x, minute), y))
+        def chunks() -> Iterator[tuple[Floats, Floats]]:
+            return ((_inputs(x, minute), y) for x, minute, y in train.chunks())
+
+        return LogisticWinProb(feature_names, fit_logistic_chunks(chunks))
 
 
 @dataclass(frozen=True)

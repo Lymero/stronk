@@ -45,6 +45,10 @@ pub struct Params {
     /// Published upgraded boots (ADR-073).
     #[serde(default)]
     pub boots: Option<i64>,
+    /// The elo bracket of the plan shown (ADR-078); the closest one with a build when it has
+    /// none (ADR-079).
+    #[serde(default)]
+    pub elo: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -100,7 +104,7 @@ fn run(ctx: &Context, params: Params) -> Result<Imported, CommandError> {
         return Err(not_ready("champion"));
     }
     let champion = client.champion_key(session.champion_id)?;
-    let build = build_get::fetch(ctx, &champion, role, None, None, None)?;
+    let build = build_get::fetch_preferring(ctx, &champion, role, params.elo.as_deref())?;
     let against = against_for(ctx, &build, &session.enemies);
     let plan = with_picks(plan(&build, role, against), &build, &params, client)?;
     let runes = runes(client, &plan)?;

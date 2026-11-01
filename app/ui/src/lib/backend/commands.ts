@@ -469,6 +469,11 @@ export interface ImportParams {
    * Published first components, in any order (ADR-072).
    */
   components?: number[] | null;
+  /**
+   * The elo bracket of the plan shown (ADR-078); the closest one with a build when it has
+   * none (ADR-079).
+   */
+  elo?: string | null;
   items?: ItemPick[];
   runes?: Page | null;
   /**
@@ -524,6 +529,11 @@ export interface Imported {
  */
 export interface PlanParams {
   champion: string;
+  /**
+   * The player's elo bracket; a champion and role it has no build for get the closest
+   * bracket's, wider first, and the plan's `elo` says which (ADR-078, ADR-079). Ignored with
+   * a `patch` or `region`, which ask for that exact file.
+   */
   elo?: string | null;
   /**
    * The enemy champions picked so far: boots are chosen against their damage (ADR-074).
@@ -911,6 +921,10 @@ export interface ChampSelect {
  * via the `definition` "DataStatus".
  */
 export interface DataStatus {
+  /**
+   * The elo brackets the patch has builds for, highest first (ADR-078, ADR-079).
+   */
+  elos: string[];
   files: number;
   key_id: string;
   patch: Patch;

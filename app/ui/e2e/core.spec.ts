@@ -44,7 +44,7 @@ test("a replayed lobby leads to the Lee Sin jungle import", async ({ page }) => 
   // Icons from the client's game data, as PNG data URLs through the core.
   const portrait = page.getByLabel("Champion select").locator("img");
   await expect(portrait).toHaveAttribute("src", /^data:image\/png;base64,/);
-  await expect(page.getByLabel("Build").locator("img").first()).toHaveAttribute("src", /^data:image\/png;base64,/);
+  await expect(page.getByLabel("Build", { exact: true }).locator("img").first()).toHaveAttribute("src", /^data:image\/png;base64,/);
   await step(page);
   await expect(page.getByLabel("Champion select").locator(".facts > span")).toHaveText(["Jungle", "Locked in", "Final changes"]);
   expect(await recorded(page)).toEqual([]); // nothing written before the player asks

@@ -25,6 +25,7 @@ from stronk_pipeline.adapters.riot.payloads import (
     to_static,
 )
 from stronk_pipeline.adapters.riot.rate_limit import RateLimiter
+from stronk_pipeline.domain.bracket import DIVIDED
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
@@ -86,8 +87,8 @@ class RiotApiSource:
     async def players(
         self, tier: Tier, division: Division, page: int
     ) -> Result[list[str], SourceError]:
-        if tier == "DIAMOND":
-            url = f"{self._platform}/lol/league/v4/entries/RANKED_SOLO_5x5/DIAMOND/{division}"
+        if tier in DIVIDED:
+            url = f"{self._platform}/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{division}"
             body = await self._riot(url, "league.entries", {"page": str(page)})
             entries = _then(body, lambda b: _validate(_ENTRIES, b, "league entries"))
         elif page > 1:

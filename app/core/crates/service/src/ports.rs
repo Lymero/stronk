@@ -41,6 +41,8 @@ pub struct DataStatus {
     pub run_id: String,
     pub key_id: String,
     pub files: usize,
+    /// The elo brackets the patch has builds for, highest first (ADR-078, ADR-079).
+    pub elos: Vec<String>,
 }
 
 /// Published build files (docs/architecture.md, section 5, "Data source"). Every

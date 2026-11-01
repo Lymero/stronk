@@ -1,16 +1,22 @@
 <script lang="ts">
   import type { AppState, Settings } from "../../state/app.svelte.ts";
+  import { elo } from "../../ui/labels.ts";
 
   let {
     settings,
+    elos,
     restore,
     onautoimport,
+    onelo,
     onopen,
     onrestore,
   }: {
     settings: Settings;
+    /** The brackets the data has builds for, highest first. */
+    elos: string[];
     restore: AppState["restore"];
     onautoimport: (on: boolean) => void;
+    onelo: (elo: string) => void;
     /** Settings were opened: list the backups. */
     onopen: () => void;
     onrestore: (location: string) => void;
@@ -38,6 +44,19 @@
     <input type="checkbox" checked={settings.autoImport} onchange={(e) => onautoimport(e.currentTarget.checked)} />
     Auto-import on lock-in
   </label>
+
+  {#if elos.length > 1}
+    <label class="bracket">
+      Builds from
+      <select value={settings.elo} onchange={(e) => onelo(e.currentTarget.value)}>
+        {#each elos as id (id)}<option value={id}>{elo(id)} games</option>{/each}
+      </select>
+    </label>
+    <p class="meta">
+      Each bracket includes the games of those above it. A champion with no build in yours shows the closest bracket's,
+      and says so.
+    </p>
+  {/if}
 
   <section aria-label="Item set backups">
     <h3>Item set backups</h3>
@@ -101,9 +120,19 @@
     cursor: pointer;
     font-weight: 600;
   }
-  .toggle {
+  .toggle,
+  .bracket {
     display: block;
     margin-top: var(--space-3);
+  }
+  select {
+    margin-left: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
   }
   h3 {
     margin: var(--space-4) 0 var(--space-1);

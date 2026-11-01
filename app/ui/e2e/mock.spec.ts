@@ -121,7 +121,7 @@ test("waits for the League client when it isn't running", async ({ page }) => {
 test("refuses data that failed verification", async ({ page }) => {
   await page.goto("/?scenario=bad-data");
   await expect(page.getByRole("alert")).toHaveText(/hash mismatch/);
-  await expect(page.getByLabel("Build")).toHaveCount(0);
+  await expect(page.getByLabel("Build", { exact: true })).toHaveCount(0);
 });
 
 test("restores item sets from a backup after confirming", async ({ page }) => {
@@ -134,4 +134,15 @@ test("restores item sets from a backup after confirming", async ({ page }) => {
   await page.getByRole("group", { name: "Confirm restore" }).getByRole("button", { name: "Restore" }).click();
   await expect(page.getByRole("status")).toHaveText(/Restored 30 item sets/);
   await expect(page.getByRole("radio")).toHaveCount(3);
+});
+
+test("builds from the chosen bracket, or Master+'s and says so", async ({ page }) => {
+  await page.goto("/?scenario=ranked-jungle");
+  await next(page);
+  await page.getByText("Settings").click();
+  await page.getByLabel("Builds from").selectOption("diamond_plus");
+  await expect(page.getByText("Master+ (no Diamond+ build)")).toBeVisible(); // Graves: Master+ only
+  await next(page);
+  await expect(page.getByText("2,960 games")).toBeVisible();
+  await screenshot(page, "mock-diamond");
 });

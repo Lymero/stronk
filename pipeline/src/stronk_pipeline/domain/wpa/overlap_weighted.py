@@ -18,8 +18,15 @@ from numpy.typing import NDArray
 
 from stronk_pipeline.domain.decisions import DecisionTable
 from stronk_pipeline.domain.logistic import Floats
-from stronk_pipeline.domain.wpa.reference import Bools, Weights, estimate, weighted_means
-from stronk_pipeline.domain.wpa.types import OptionEstimate, WpaSettings
+from stronk_pipeline.domain.wpa.reference import (
+    Bools,
+    Weights,
+    estimate,
+    finish,
+    points,
+    weighted_means,
+)
+from stronk_pipeline.domain.wpa.types import OptionEstimate, PointEstimate, WpaSettings
 
 
 def overlap_weighted(
@@ -50,3 +57,16 @@ class OverlapWeightedEstimator:
         return estimate(
             table, wp, settings, effect=overlap_weighted, outcome=outcome, strata=strata
         )
+
+    def points(
+        self,
+        table: DecisionTable,
+        wp: Floats,
+        settings: WpaSettings,
+        outcome: Floats | None = None,
+        strata: NDArray[np.str_] | None = None,
+    ) -> list[PointEstimate]:
+        return points(table, wp, settings, effect=overlap_weighted, outcome=outcome, strata=strata)
+
+    def finish(self, raw: list[PointEstimate], settings: WpaSettings) -> list[OptionEstimate]:
+        return finish(raw, settings)

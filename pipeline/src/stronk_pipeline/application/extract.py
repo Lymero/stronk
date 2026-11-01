@@ -1,7 +1,8 @@
 """`extract.run`: crawl directories -> `frames.parquet`, `decisions.parquet`, `report.json`.
 
-Several crawls (one per region, say) are read into one table: match ids carry their platform,
-and a game found in two crawls counts once.
+Several crawls (one per region, or one per band of tiers) are read into one table: match ids
+carry their platform, and a game found in two crawls counts once. Games are read one at a time,
+twice: their headers first, for player skill across every game, then each game whole (ADR-079).
 
 With `retry_quarantine`, games the crawl quarantined are first read again with today's parser:
 those that now pass are stored and leave quarantine, those whose match now reads but whose
@@ -11,8 +12,9 @@ timeline was never fetched leave it to be crawled again, the rest stay.
 from __future__ import annotations
 
 import hashlib
+import itertools
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
@@ -20,8 +22,9 @@ from typing import Annotated
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from stronk_pipeline.application.registry import Command, CommandError
-from stronk_pipeline.domain.bracket import single
-from stronk_pipeline.domain.extract.tables import extract
+from stronk_pipeline.domain.bracket import ordered, published
+from stronk_pipeline.domain.extract.skill import GameHeader, PlayerGame, prior_skill
+from stronk_pipeline.domain.extract.tables import ExtractStats, extract
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
@@ -61,8 +64,10 @@ class QuarantineRetry(BaseModel):
 
 
 class ExtractResult(BaseModel):
-    bracket: str
-    """The crawls' elo bracket, one for all of them (ADR-076)."""
+    bands: list[str]
+    """The crawls' bands of tiers, highest first (ADR-076, ADR-079)."""
+    bracket: str | None
+    """The published bracket those bands make (`diamond_plus`...), if they make one."""
     matches: int
     frames: int
     decisions: int
@@ -91,35 +96,33 @@ def extract_command(
         match _read_all(stores, parse, params):
             case Err(error=e):
                 return Err(e)
-            case Ok(value=(bracket, crawl)):
+            case Ok(value=(bands, crawl)):
                 pass
-        matches, unreadable, statics = crawl.matches, crawl.unreadable, crawl.statics
-        if not matches:
-            where = ", ".join(params.crawl)
-            return Err(CommandError(code="invalid_input", message=f"no games in {where}"))
-        extracted = extract(matches, statics)
-        stats = extracted.stats
+        statics = crawl.statics
+        match _two_passes(stores, params.crawl):
+            case Err(error=e):
+                return Err(e)
+            case Ok(value=(headers, unreadable, games)):
+                pass
+        out = Path(params.out)
+        match _write_tables(
+            games, statics, prior_skill(headers), out=out, frames=frames, decisions=decisions
+        ):
+            case Err(error=e):
+                return Err(e)
+            case Ok(value=(stats, rows, outputs)):
+                pass
         if unreadable:
             stats.dropped["unreadable_file"] += unreadable
         held = sum(crawl.quarantined.values())
         failed = held + sum(n for k, n in stats.dropped.items() if k in GAME_DROPS)
-        attempted = len(matches) + unreadable + held
-        out = Path(params.out)
-        match frames.write_frames(extracted.frames, out / "frames.parquet"):
-            case Err(error=e):
-                return Err(_error(e))
-            case Ok(value=frames_path):
-                pass
-        match decisions.write_decisions(extracted.decisions, out / "decisions.parquet"):
-            case Err(error=e):
-                return Err(_error(e))
-            case Ok(value=decisions_path):
-                pass
+        attempted = len(headers) + unreadable + held
         result = ExtractResult(
-            bracket=bracket,
+            bands=bands,
+            bracket=published(bands),
             matches=stats.matches,
-            frames=len(extracted.frames),
-            decisions=len(extracted.decisions),
+            frames=rows[0],
+            decisions=rows[1],
             decisions_by_slot=dict(sorted(stats.decisions_by_slot.items())),
             inferred=stats.inferred,
             dropped=dict(sorted(stats.dropped.items())),
@@ -127,13 +130,13 @@ def extract_command(
             quarantined=dict(sorted(crawl.quarantined.items())),
             skip_rate=round(failed / attempted, 6),
             retried=crawl.retried,
-            outputs=[str(frames_path), str(decisions_path)],
+            outputs=[str(p) for p in outputs],
         )
         report = {
             "stage": "extract",
             "params": params.model_dump(),
-            "inputs": {"matches": len(matches), "match_ids_sha256": _ids_hash(matches)},
-            "patches": sorted({m.patch for m in matches}),
+            "inputs": {"matches": len(headers), "match_ids_sha256": _ids_hash(headers)},
+            "patches": sorted({h.patch for h in headers}),
             "static_versions": {p: s.version for p, s in sorted(statics.items())},
             "result": result.model_dump(),
         }
@@ -153,10 +156,41 @@ def extract_command(
     )
 
 
+CHUNK_GAMES = 2_000
+"""Games extracted and written at once, as one part of each table (ADR-080)."""
+
+
+def _write_tables(
+    games: Iterable[Match],
+    statics: Mapping[str, StaticData],
+    skill: Mapping[PlayerGame, tuple[float, float]],
+    *,
+    out: Path,
+    frames: FrameStore,
+    decisions: DecisionStore,
+) -> Result[tuple[ExtractStats, tuple[int, int], tuple[Path, Path]], CommandError]:
+    """Both tables, written a chunk of games at a time as the parts of `frames.parquet` and
+    `decisions.parquet`; the counts, the rows of each, and where they are."""
+    stats = ExtractStats()
+    frame_rows = decision_rows = 0
+    frames_path, decisions_path = out / "frames.parquet", out / "decisions.parquet"
+    for part, chunk in enumerate(itertools.batched(games, CHUNK_GAMES, strict=False)):
+        extracted = extract(chunk, statics, skill)
+        stats.add(extracted.stats)
+        frame_rows += len(extracted.frames)
+        decision_rows += len(extracted.decisions)
+        written = frames.write_frames(extracted.frames, frames_path, part)
+        if isinstance(written, Ok):
+            written = decisions.write_decisions(extracted.decisions, decisions_path, part)
+        if isinstance(written, Err):
+            return Err(_error(written.error))
+    return Ok((stats, (frame_rows, decision_rows), (frames_path, decisions_path)))
+
+
 @dataclass(frozen=True)
 class _CrawlContents:
-    matches: list[Match]
-    unreadable: int
+    """A crawl's game data and counts; its games are read on their own (`each_game`)."""
+
     statics: dict[str, StaticData]
     skipped: dict[str, int]
     quarantined: Counter[str]
@@ -173,11 +207,6 @@ def _read(
                 return e
             case Ok(value=retried):
                 pass
-    match store.read_matches():
-        case Err() as e:
-            return e
-        case Ok(value=(matches, unreadable)):
-            pass
     match store.read_static():
         case Err() as e:
             return e
@@ -193,19 +222,16 @@ def _read(
             return e
         case Ok(value=held):
             quarantined = Counter(q.reason for q in held)
-    return Ok(_CrawlContents(matches, unreadable, statics, skipped, quarantined, retried))
+    return Ok(_CrawlContents(statics, skipped, quarantined, retried))
 
 
 def _merge(contents: list[_CrawlContents]) -> _CrawlContents:
-    """One crawl's worth of contents from several; the first copy of a game or a patch wins."""
-    matches: dict[str, Match] = {}
+    """One crawl's worth of contents from several; the first copy of a patch wins."""
     statics: dict[str, StaticData] = {}
     skipped: Counter[str] = Counter()
     quarantined: Counter[str] = Counter()
     retried: Counter[str] = Counter()
     for c in contents:
-        for m in c.matches:
-            matches.setdefault(m.match_id, m)
         for patch, static in c.statics.items():
             statics.setdefault(patch, static)
         skipped.update(c.skipped)
@@ -213,8 +239,6 @@ def _merge(contents: list[_CrawlContents]) -> _CrawlContents:
         if c.retried is not None:
             retried.update(c.retried.model_dump())
     return _CrawlContents(
-        matches=list(matches.values()),
-        unreadable=sum(c.unreadable for c in contents),
         statics=statics,
         skipped=dict(sorted(skipped.items())),
         quarantined=quarantined,
@@ -265,19 +289,19 @@ def _labelled(result: Result[None, StoreError], label: str) -> Result[str, Store
     return result if isinstance(result, Err) else Ok(label)
 
 
-def _ids_hash(matches: list[Match]) -> str:
-    ids = sorted(m.match_id for m in matches)
+def _ids_hash(headers: Sequence[GameHeader]) -> str:
+    ids = sorted(h.match_id for h in headers)
     return hashlib.sha256("\n".join(ids).encode()).hexdigest()
 
 
 def _read_all(
     stores: Callable[[Path], MatchStore], parse: PayloadParser, params: ExtractParams
-) -> Result[tuple[str, _CrawlContents], CommandError]:
-    """Every crawl's contents, merged, and their one bracket."""
-    match crawl_bracket(stores, params.crawl):
+) -> Result[tuple[list[str], _CrawlContents], CommandError]:
+    """Every crawl's game data and counts, merged, and their bands."""
+    match crawl_bands(stores, params.crawl):
         case Err() as e:
             return e
-        case Ok(value=bracket):
+        case Ok(value=bands):
             pass
     contents: list[_CrawlContents] = []
     for directory in params.crawl:
@@ -286,26 +310,73 @@ def _read_all(
                 return Err(_error(e))
             case Ok(value=one):
                 contents.append(one)
-    return Ok((bracket, _merge(contents)))
+    return Ok((bands, _merge(contents)))
 
 
-def crawl_bracket(
+def each_game(
     stores: Callable[[Path], MatchStore], crawls: Sequence[str]
-) -> Result[str, CommandError]:
-    """The elo bracket of `crawls` (ADR-076), refused when they hold two: Master+ and Diamond
-    games are never estimated or published together."""
-    brackets: list[str] = []
+) -> Result[Iterator[Match | None], CommandError]:
+    """Every game of `crawls`, read one at a time in order, a game in two crawls once (its first
+    copy); None for a file that doesn't read."""
+    each: list[Iterator[Match | None]] = []
+    for crawl in crawls:
+        match stores(Path(crawl)).iter_matches():
+            case Err(error=e):
+                return Err(_error(e))
+            case Ok(value=games):
+                each.append(games)
+    return Ok(_first_copies(itertools.chain.from_iterable(each)))
+
+
+def _first_copies(games: Iterable[Match | None]) -> Iterator[Match | None]:
+    seen: set[str] = set()
+    for game in games:
+        if game is not None:
+            if game.match_id in seen:
+                continue
+            seen.add(game.match_id)
+        yield game
+
+
+def _two_passes(
+    stores: Callable[[Path], MatchStore], crawls: Sequence[str]
+) -> Result[tuple[list[GameHeader], int, Iterator[Match]], CommandError]:
+    """Every game's header and how many files didn't read, read through once; then the games
+    again, one at a time, for the tables."""
+    match each_game(stores, crawls):
+        case Err() as e:
+            return e
+        case Ok(value=games):
+            pass
+    headers: list[GameHeader] = []
+    unreadable = 0
+    for game in games:
+        if game is None:
+            unreadable += 1
+        else:
+            headers.append(GameHeader.of(game))
+    if not headers:
+        message = f"no games in {', '.join(crawls)}"
+        return Err(CommandError(code="invalid_input", message=message))
+    match each_game(stores, crawls):
+        case Err() as e:
+            return e
+        case Ok(value=again):
+            return Ok((headers, unreadable, (g for g in again if g is not None)))
+
+
+def crawl_bands(
+    stores: Callable[[Path], MatchStore], crawls: Sequence[str]
+) -> Result[list[str], CommandError]:
+    """The bands of tiers `crawls` hold (ADR-079), highest first."""
+    bands: list[str] = []
     for crawl in crawls:
         match stores(Path(crawl)).bracket():
             case Err(error=e):
                 return Err(_error(e))
-            case Ok(value=bracket):
-                brackets.append(bracket)
-    bracket = single(brackets)
-    if bracket is None:
-        held = ", ".join(f"{c}: {b}" for c, b in zip(crawls, brackets, strict=True))
-        return Err(CommandError(code="invalid_input", message=f"crawls mix brackets ({held})"))
-    return Ok(bracket)
+            case Ok(value=band):
+                bands.append(band)
+    return Ok(ordered(bands))
 
 
 def _error(error: StoreError) -> CommandError:

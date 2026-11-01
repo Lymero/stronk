@@ -25,7 +25,7 @@ from __future__ import annotations
 import zlib
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import replace
 
 import numpy as np
 from numpy.typing import NDArray
@@ -34,7 +34,7 @@ from stronk_pipeline.domain.decisions import DecisionKey, DecisionTable
 from stronk_pipeline.domain.logistic import Floats, fit_logistic
 from stronk_pipeline.domain.wpa.fdr import benjamini_hochberg, two_sided_p
 from stronk_pipeline.domain.wpa.shrinkage import shrink
-from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate, WpaSettings
+from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate, PointEstimate, WpaSettings
 
 type Bools = NDArray[np.bool_]
 type Weights = NDArray[np.float64]
@@ -69,20 +69,18 @@ class ReferenceEstimatorV1:
     ) -> list[OptionEstimate]:
         return estimate(table, wp, settings, outcome=outcome, strata=strata)
 
+    def points(
+        self,
+        table: DecisionTable,
+        wp: Floats,
+        settings: WpaSettings,
+        outcome: Floats | None = None,
+        strata: NDArray[np.str_] | None = None,
+    ) -> list[PointEstimate]:
+        return points(table, wp, settings, outcome=outcome, strata=strata)
 
-@dataclass(frozen=True)
-class _Raw:
-    estimate: OptionEstimate
-    std_error: float | None
-    chosen: int = 0
-    """Decisions choosing the option at its point, inside the overlap or not."""
-    eligible: bool = False
-    """Can be claimed: a number, neither low_sample nor low_overlap. Depends on counts only."""
-    contrast_p: float | None = None
-    contrast: float | None = None
-    contrast_ci: tuple[float, float] | None = None
-    """p-value of no difference with `versus`; None for the most played or an ineligible option."""
-    versus: str | None = None
+    def finish(self, raw: list[PointEstimate], settings: WpaSettings) -> list[OptionEstimate]:
+        return finish(raw, settings)
 
 
 def estimate(
@@ -99,6 +97,23 @@ def estimate(
     `strata` (one label per row), scores are centred within each stratum at each point, so
     options are compared within strata (fixed effects; `pooling.pool_by_class`)."""
     settings = settings or WpaSettings()
+    return finish(
+        points(table, wp, settings, effect=effect, outcome=outcome, strata=strata), settings
+    )
+
+
+def points(
+    table: DecisionTable,
+    wp: Floats,
+    settings: WpaSettings,
+    *,
+    effect: Effect = difference_of_means,
+    outcome: Floats | None = None,
+    strata: NDArray[np.str_] | None = None,
+) -> list[PointEstimate]:
+    """Steps 1 to 5 at each decision point of `table`, in canonical order. A point needs only
+    its own rows (its bootstrap is seeded by its key), so a table can be estimated a few picks
+    at a time and the points joined, in order, for `finish` (ADR-080)."""
     if wp.shape != (len(table),):
         raise ValueError(f"wp has shape {wp.shape}, expected ({len(table)},)")
     if not ((wp >= 0.0) & (wp <= 1.0)).all():
@@ -106,11 +121,16 @@ def estimate(
     if strata is not None and strata.shape != (len(table),):
         raise ValueError(f"strata has shape {strata.shape}, expected ({len(table)},)")
     score = event_scores(table, wp, outcome)
-    raw: list[_Raw] = []
+    raw: list[PointEstimate] = []
     for key, rows in table.decision_points():
         if strata is not None:
             score[rows] = _centred(score[rows], strata[rows])
         raw.extend(_estimate_point(table, rows, score, key, settings, effect=effect))
+    return raw
+
+
+def finish(raw: list[PointEstimate], settings: WpaSettings) -> list[OptionEstimate]:
+    """Steps 6 to 8, across every point of the run: shrinkage and claims."""
     return _flag_unclear(_shrink_across_champions(raw, settings), settings)
 
 
@@ -138,7 +158,7 @@ def _estimate_point(
     settings: WpaSettings,
     *,
     effect: Effect,
-) -> list[_Raw]:
+) -> list[PointEstimate]:
     champion, role, slot = key
     champion_class = str(table.champion_class[rows[0]])
     chosen = table.option[rows]
@@ -153,13 +173,13 @@ def _estimate_point(
         wpa: float | None = None,
         ci: tuple[float, float] | None = None,
         std_error: float | None = None,
-    ) -> _Raw:
+    ) -> PointEstimate:
         estimate = OptionEstimate(
             champion, champion_class, role, slot, option, wpa, ci, n, frozenset(flags)
         )
         count = int((chosen == option).sum())
         eligible = wpa is not None and not flags & {Flag.LOW_SAMPLE, Flag.LOW_OVERLAP}
-        return _Raw(replace(estimate, chosen=count), std_error, count, eligible)
+        return PointEstimate(replace(estimate, chosen=count), std_error, count, eligible)
 
     if len(options) < 2:
         return [result(options[0], len(rows), {Flag.LOW_OVERLAP})]
@@ -192,7 +212,7 @@ def _estimate_point(
         )
         return point, boot, inside
 
-    out: list[_Raw] = []
+    out: list[PointEstimate] = []
     everyone = np.ones(len(rows), dtype=np.bool_)
     for option in options:
         mine: Bools = chosen == option
@@ -219,11 +239,11 @@ def _estimate_point(
 
 
 def _contrast_with_most_played(
-    out: list[_Raw],
+    out: list[PointEstimate],
     chosen: NDArray[np.str_],
     compare: Callable[[Bools, Bools], tuple[float, Floats, Bools] | None],
     alpha: float,
-) -> list[_Raw]:
+) -> list[PointEstimate]:
     """Head-to-head p-values of eligible options against the most played eligible one.
 
     Which options are compared depends on counts only, never on results, so the family of
@@ -233,7 +253,7 @@ def _contrast_with_most_played(
     if not eligible:
         return out
     most_played = min(eligible, key=lambda r: (-r.chosen, r.estimate.option)).estimate.option
-    contrasted: list[_Raw] = []
+    contrasted: list[PointEstimate] = []
     for r in out:
         option = r.estimate.option
         if not r.eligible or option == most_played:
@@ -274,7 +294,9 @@ def weighted_means(weights: NDArray[np.float64], values: Floats) -> Floats:
         return np.where(totals > 0, (weights @ values) / totals, np.nan)
 
 
-def _shrink_across_champions(raw: list[_Raw], settings: WpaSettings) -> list[_Raw]:
+def _shrink_across_champions(
+    raw: list[PointEstimate], settings: WpaSettings
+) -> list[PointEstimate]:
     groups: defaultdict[tuple[str, str, int, str], list[int]] = defaultdict(list)
     for i, r in enumerate(raw):
         e = r.estimate
@@ -301,7 +323,7 @@ def _shrink_across_champions(raw: list[_Raw], settings: WpaSettings) -> list[_Ra
     return out
 
 
-def _flag_unclear(raw: list[_Raw], settings: WpaSettings) -> list[OptionEstimate]:
+def _flag_unclear(raw: list[PointEstimate], settings: WpaSettings) -> list[OptionEstimate]:
     """Benjamini-Hochberg across every contrast of the run (ADR-036). A contrast with q above
     `settings.fdr` is no clear difference; so is a most played option none of whose
     alternatives differs clearly from it."""

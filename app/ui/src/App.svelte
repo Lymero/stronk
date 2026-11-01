@@ -13,7 +13,11 @@
   );
   const picks = $derived(state.picks && state.picks.key === state.plan?.key ? state.picks.value : noPicks());
   const picked = $derived(picks.runes !== undefined || picks.spells !== undefined || Object.keys(picks.items).length > 0);
-  const changed = $derived(!!imported && JSON.stringify(state.imported?.picks) !== JSON.stringify(picks));
+  /** The picks, or the bracket the build comes from (ADR-078), changed since that import. */
+  const changed = $derived(
+    !!imported &&
+      (JSON.stringify(state.imported?.picks) !== JSON.stringify(picks) || state.imported?.elo !== state.plan?.value.elo),
+  );
   /** The client isn't open: not an error, the app waits for it. */
   const waiting = $derived(clientMissing(state.error));
   const showPlan = $derived(!!state.plan && !!state.champSelect?.champion);
@@ -45,6 +49,7 @@
   {#if state.plan && showPlan}
     <PlanView
       plan={state.plan.value}
+      wanted={state.plan.elo}
       names={state.names}
       icons={state.icons}
       {picks}
@@ -56,8 +61,10 @@
 
   <Settings
     settings={state.settings}
+    elos={state.data?.elos ?? []}
     restore={state.restore}
     onautoimport={(on) => app.setAutoImport(on)}
+    onelo={(elo) => void app.setElo(elo)}
     onopen={() => void app.loadBackups()}
     onrestore={(location) => void app.restoreItemSets(location)}
   />

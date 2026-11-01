@@ -12,6 +12,7 @@ from stronk_pipeline.domain.winprob import (
     WP_FEATURES,
     WP_MONOTONE,
     LogisticLearner,
+    Rows,
     columns,
     split_by_match,
 )
@@ -28,7 +29,7 @@ def test_round_trip_predicts_the_same(learner: WinProbLearner, tmp_path: Path) -
     split = split_by_match(table.match_id)
     train = (x[split.train], table.minute[split.train], y[split.train])
     valid = (x[split.valid], table.minute[split.valid], y[split.valid])
-    model = learner.fit(train, valid, WP_FEATURES, WP_MONOTONE, 0)
+    model = learner.fit(Rows.of(*train), Rows.of(*valid), WP_FEATURES, WP_MONOTONE, 0)
     store = JsonWinProbStore()
     assert store.save(model, tmp_path / "m.json") == Ok(tmp_path / "m.json")
     loaded = store.load(tmp_path / "m.json")

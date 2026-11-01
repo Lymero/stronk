@@ -33,15 +33,29 @@ impl BuildSource for FakeBuilds {
             patch,
             run_id: "r".into(),
             key_id: "K".into(),
-            files: 1,
+            files: 2,
+            elos: vec!["master_plus".into(), "diamond_plus".into()],
         })
     }
 
+    /// Viego JUNGLE in Master+, and in Diamond+ with its own `elo` and games; Viego TOP in
+    /// Diamond+ only.
     fn build(&self, patch: Patch, key: &BuildKey) -> Result<Build, PortError> {
-        if patch.to_string() == "16.20" && key.path() == "all/master_plus/Viego/JUNGLE.json" {
-            Ok(example_build())
-        } else {
-            Err(PortError::NotFound(key.path()))
+        if patch.to_string() != "16.20" {
+            return Err(PortError::NotFound(key.path()));
+        }
+        let mut build = example_build();
+        match key.path().as_str() {
+            "all/master_plus/Viego/JUNGLE.json" => {
+                build.elo = "master_plus".parse().unwrap();
+                Ok(build)
+            }
+            "all/diamond_plus/Viego/JUNGLE.json" | "all/diamond_plus/Viego/TOP.json" => {
+                build.elo = "diamond_plus".parse().unwrap();
+                build.games = 7;
+                Ok(build)
+            }
+            _ => Err(PortError::NotFound(key.path())),
         }
     }
 

@@ -29,6 +29,7 @@
 
   let {
     plan,
+    wanted,
     names,
     icons,
     picks,
@@ -37,6 +38,8 @@
     onpick,
   }: {
     plan: Plan;
+    /** The bracket the player chose; the plan's own is Master+'s when that one has no build (ADR-078). */
+    wanted: string;
     names: GameNames | null;
     icons: Icons;
     picks: Picks;
@@ -46,7 +49,12 @@
     onpick: (pick: Pick) => void;
   } = $props();
 
-  const source = $derived([`Patch ${plan.patch}`, games(plan.games), elo(plan.elo), region(plan.region)]);
+  const source = $derived([
+    `Patch ${plan.patch}`,
+    games(plan.games),
+    plan.elo === wanted ? elo(plan.elo) : `${elo(plan.elo)} (no ${elo(wanted)} build)`,
+    region(plan.region),
+  ]);
   const how = $derived(
     (allPopular(plan)
       ? "No option beats the most played one clearly yet, so Stronk imports the most played build."

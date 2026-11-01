@@ -3,7 +3,9 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+import numpy as np
 import polars as pl
+import pytest
 from riot_builders import buy, domain_match, domain_static, fake_ladder, match_payload, monster
 from riot_server import FakeRiot, source
 
@@ -11,9 +13,12 @@ from stronk_pipeline.adapters.json_report import JsonReportWriter
 from stronk_pipeline.adapters.match_store import FileMatchStore
 from stronk_pipeline.adapters.parquet_store import ParquetDecisionStore, ParquetFrameStore
 from stronk_pipeline.adapters.riot.payloads import parse_quarantined
+from stronk_pipeline.application import extract as extract_module
 from stronk_pipeline.application.crawl import CrawlParams, crawl_command
 from stronk_pipeline.application.extract import ExtractParams, ExtractResult, extract_command
 from stronk_pipeline.application.registry import CommandError
+from stronk_pipeline.domain.extract.skill import GameHeader, prior_skill
+from stronk_pipeline.domain.extract.tables import extract
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.ports import MatchSource, PayloadParser
@@ -201,13 +206,54 @@ def test_one_missing_crawl_fails_the_run(tmp_path: Path) -> None:
     assert result.error.code == "not_found"
 
 
-def test_crawls_of_two_brackets_are_not_mixed(tmp_path: Path) -> None:
+def test_bands_extract_together_and_name_the_bracket_they_make(tmp_path: Path) -> None:
     master = crawled(tmp_path / "master")
-    diamond = crawled(tmp_path / "diamond")
+    diamond = crawled(tmp_path / "diamond")  # the same two games: a lobby of both bands
     FileMatchStore(diamond).set_bracket("diamond")
+    FileMatchStore(diamond).put(domain_match("EUW1_3", created=1_760_200_000_000))
     alone = run(diamond, tmp_path / "out")
     assert isinstance(alone, Ok)
-    assert alone.value.bracket == "diamond"
-    mixed = run([master, diamond], tmp_path / "out2")
-    assert isinstance(mixed, Err)
-    assert "crawls mix brackets" in mixed.error.message
+    assert (alone.value.bands, alone.value.bracket) == (["diamond"], None)
+    pooled = run([diamond, master], tmp_path / "out2")
+    assert isinstance(pooled, Ok)
+    assert (pooled.value.bands, pooled.value.bracket) == (
+        ["master_plus", "diamond"],
+        "diamond_plus",
+    )
+    assert pooled.value.matches == 3  # a game in both crawls counts once
+
+
+def test_games_stream_to_the_same_tables(tmp_path: Path) -> None:
+    """Extract reads games one at a time (ADR-079): the same tables as from every game at once."""
+    crawl = crawled(tmp_path / "crawl")
+    assert isinstance(run(crawl, tmp_path / "out"), Ok)
+    store = FileMatchStore(crawl)
+    matches, _ = cast(Ok[tuple[list[Match], int]], store.read_matches()).value
+    statics = cast(Ok[dict[str, Any]], store.read_static()).value
+    at_once = extract(matches, statics)
+    streamed = extract(iter(matches), statics, prior_skill(GameHeader.of(m) for m in matches))
+    assert np.array_equal(at_once.decisions.features, streamed.decisions.features)
+    written = pl.read_parquet(tmp_path / "out" / "decisions.parquet")
+    assert written.height == len(at_once.decisions.match_id)
+
+
+def test_tables_are_written_a_chunk_of_games_at_a_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-080: one part per chunk of games, read back as one table, as when written whole."""
+    crawl = crawled(tmp_path / "crawl")
+    whole = run(crawl, tmp_path / "whole")
+    monkeypatch.setattr(extract_module, "CHUNK_GAMES", 1)
+    chunked = run(crawl, tmp_path / "chunked")
+    assert isinstance(whole, Ok)
+    assert isinstance(chunked, Ok)
+    parts = sorted(p.name for p in (tmp_path / "chunked" / "decisions.parquet").iterdir())
+    assert parts == ["part-00000.parquet", "part-00001.parquet"]
+    # Decision tables sort canonically by each decision's identity, whole or a chunk at a time.
+    identity = ["champion", "role", "slot", "match_id", "participant", "minute"]
+    for table, order in (("decisions", identity), ("frames", [])):
+        a, b = (pl.read_parquet(tmp_path / d / f"{table}.parquet") for d in ("whole", "chunked"))
+        assert a.sort(order or a.columns).equals(b.sort(order or b.columns))
+    assert whole.value.model_dump(exclude={"outputs"}) == chunked.value.model_dump(
+        exclude={"outputs"}
+    )

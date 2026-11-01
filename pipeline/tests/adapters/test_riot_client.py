@@ -46,6 +46,12 @@ def test_diamond_players_come_from_league_entries() -> None:
     assert riot.requests[0].url.params["page"] == "1"
 
 
+def test_emerald_players_come_from_league_entries() -> None:
+    path = "/lol/league/v4/entries/RANKED_SOLO_5x5/EMERALD/II"
+    riot = FakeRiot({path: league([puuid(5)])["entries"]})
+    assert run(source(riot).players("EMERALD", "II", 3)) == Ok([puuid(5)])
+
+
 def test_diamond_pages_by_division_and_apex_leagues_come_whole() -> None:
     path = "/lol/league/v4/entries/RANKED_SOLO_5x5/DIAMOND/III"
     riot = FakeRiot({path: league([puuid(4)])["entries"]})

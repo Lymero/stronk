@@ -352,6 +352,7 @@ impl BuildSource for HttpSource {
             run_id: verified.manifest.run_id.to_string(),
             key_id: verified.manifest.key_id.to_string(),
             files: verified.manifest.files.len(),
+            elos: verified.elos(),
         })
     }
 

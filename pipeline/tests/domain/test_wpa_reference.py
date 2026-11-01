@@ -8,8 +8,8 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from stronk_pipeline.domain.decisions import DecisionTable
-from stronk_pipeline.domain.wpa.reference import estimate, event_scores
-from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate, WpaSettings
+from stronk_pipeline.domain.wpa.reference import estimate, event_scores, finish, points
+from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate, PointEstimate, WpaSettings
 
 type TableFactory = Callable[..., DecisionTable]
 
@@ -223,3 +223,23 @@ def test_low_sample_options_are_not_in_the_family(table_factory: TableFactory) -
     assert estimates["C"].q is None
     assert Flag.NO_CLEAR_DIFFERENCE not in estimates["C"].flags
     assert estimates["B"].q is not None
+
+
+def test_points_estimated_a_few_champions_at_a_time_finish_as_one_run(
+    table_factory: TableFactory,
+) -> None:
+    """ADR-080: a decision table larger than memory is estimated a batch of picks at a time;
+    shrinkage across champions and the false discovery rate still span the whole run."""
+    rng = np.random.default_rng(5)
+    champions = [c for c in ("Aatrox", "Darius", "Garen", "Sett") for _ in range(600)]
+    options = np.where(rng.random(len(champions)) < 0.5, "A", "B").tolist()
+    outcomes = (rng.random(len(champions)) < 0.5).astype(int).tolist()
+    match_ids = [f"M{i}" for i in range(len(options))]
+    table = table_factory(options, outcomes, champions=champions, match_ids=match_ids)
+    wp = np.clip(0.5 + 0.1 * rng.normal(size=len(table)), 0.0, 1.0)
+    whole = estimate(table, wp, FAST)
+    raw: list[PointEstimate] = []
+    for batch in (("Aatrox", "Darius"), ("Garen",), ("Sett",)):
+        rows = np.flatnonzero(np.isin(table.champion, batch))
+        raw += points(table.take(rows), wp[rows], FAST)
+    assert finish(raw, FAST) == whole

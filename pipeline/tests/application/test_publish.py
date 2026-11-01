@@ -4,6 +4,8 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
 from riot_builders import buy, domain_match, domain_static
 
 from stronk_contracts.build_v1 import Build
@@ -218,16 +220,69 @@ def test_publishes_the_champions_damage_ratings_and_profile_cuts(tmp_path: Path)
     assert "champions.json" in [f["path"] for f in manifest["files"]]
 
 
-def test_files_are_named_after_the_crawls_bracket(tmp_path: Path) -> None:
+def diamond_crawl(tmp_path: Path) -> str:
+    """A Diamond crawl holding the Master+ crawl's game and one of its own."""
+    store = FileMatchStore(tmp_path / "diamond")
+    store.set_bracket("diamond")
+    store.put_static("16.20", domain_static())
+    store.put(domain_match("EUW1_0"))
+    store.put(domain_match("EUW1_9"))
+    return str(tmp_path / "diamond")
+
+
+def test_files_are_named_after_the_bracket_the_crawls_bands_make(tmp_path: Path) -> None:
     setup(tmp_path)
-    FileMatchStore(tmp_path / "crawl").set_bracket("diamond")
-    assert isinstance(publish(tmp_path), Ok)
-    build = tmp_path / "dist" / "16.20" / "all" / "diamond" / "Champ1" / "TOP.json"
-    assert json.loads(build.read_text())["elo"] == "diamond"
-    # An elo that isn't the crawls' is refused: Diamond games never read as Master+.
-    refused = publish(tmp_path, elo="master_plus", out=str(tmp_path / "dist2"))
+    diamond = diamond_crawl(tmp_path)
+    pooled = publish(tmp_path, crawl=[str(tmp_path / "crawl"), diamond])
+    assert isinstance(pooled, Ok)
+    build = tmp_path / "dist" / "16.20" / "all" / "diamond_plus" / "Champ1" / "TOP.json"
+    assert json.loads(build.read_text())["elo"] == "diamond_plus"
+    # Diamond alone makes no bracket: Diamond+ always pools Master+ (ADR-079).
+    alone = publish(tmp_path, crawl=diamond, out=str(tmp_path / "dist2"))
+    assert isinstance(alone, Err)
+    assert "hold diamond games: a bracket pools" in alone.error.message
+    # An elo that isn't the crawls' is refused: Diamond+ games never read as Master+.
+    refused = publish(
+        tmp_path,
+        crawl=[str(tmp_path / "crawl"), diamond],
+        elo="master_plus",
+        out=str(tmp_path / "d3"),
+    )
     assert isinstance(refused, Err)
-    assert "hold diamond games, not master_plus" in refused.error.message
+    assert "hold diamond_plus games, not master_plus" in refused.error.message
+
+
+def test_a_patch_holds_every_bracket_under_one_manifest(tmp_path: Path) -> None:
+    setup(tmp_path)
+    master, diamond = str(tmp_path / "crawl"), diamond_crawl(tmp_path)
+    estimates = str(tmp_path / "estimates.json")
+    brackets = [
+        {"estimates": estimates, "crawl": master},
+        {"estimates": estimates, "crawl": [master, diamond]},
+    ]
+    assert isinstance(publish(tmp_path, estimates=None, crawl=None, brackets=brackets), Ok)
+    manifest = json.loads((tmp_path / "dist" / "16.20" / "manifest.json").read_text())
+    elos = {f["path"].split("/")[1] for f in manifest["files"] if f["path"].count("/") == 3}
+    assert elos == {"master_plus", "diamond_plus"}
+    twice = publish(tmp_path, estimates=None, crawl=None, brackets=[brackets[0], brackets[0]])
+    assert isinstance(twice, Err)
+    assert "two sources make master_plus" in twice.error.message
+
+
+def test_params_take_one_bracket_or_several() -> None:
+    for params in (
+        {"key": "k"},
+        {"key": "k", "estimates": "e"},
+        {
+            "key": "k",
+            "estimates": "e",
+            "crawl": "c",
+            "brackets": [{"estimates": "e", "crawl": "c"}],
+        },
+        {"key": "k", "brackets": [{"estimates": "e", "crawl": "c"}], "elo": "master_plus"},
+    ):
+        with pytest.raises(ValidationError):
+            PublishParams.model_validate(params)
 
 
 def test_publishes_signed_valid_builds(tmp_path: Path) -> None:

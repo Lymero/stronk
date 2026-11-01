@@ -29,10 +29,18 @@ import {
   samePair,
 } from "./picks.ts";
 
+/** The elo bracket builds come from unless the player chooses another (ADR-078). */
+export const DEFAULT_ELO = "master_plus";
+
 export interface Settings {
   /** Import on lock-in without asking (ADR-043); off by default. */
   autoImport: boolean;
+  /** The elo bracket the builds come from (ADR-078); a champion and role it has no build for
+   * get Master+'s, and the plan says so. */
+  elo: string;
 }
+
+const defaults: Settings = { autoImport: false, elo: DEFAULT_ELO };
 
 export interface AppState {
   data: DataStatus | null;
@@ -44,13 +52,14 @@ export interface AppState {
   icons: Record<GameKind, Record<string, string | null>>;
   /** What an import would write for the champion picked or hovered, and each slot's
    * alternatives; loaded as soon as known. */
-  /** The plan for `key` (champion/role), asked with these enemy picks (sorted ids, ADR-074). */
-  plan: { key: string; value: Plan; enemies?: string } | null;
+  /** The plan for `key` (champion/role), asked with these enemy picks (sorted ids, ADR-074) in
+   * this elo bracket (ADR-078); the plan's own `elo` is where it came from. */
+  plan: { key: string; value: Plan; enemies?: string; elo: string } | null;
   /** The player's picks instead of Stronk's choices, for one champion and role (ADR-050);
    * kept between runs until the patch changes (ADR-051). */
   picks: { key: string; value: Picks } | null;
-  /** The last import, for which champion and role, and with which picks. */
-  imported: { key: string; value: Imported; picks: Picks } | null;
+  /** The last import, for which champion and role, with which picks, from which bracket. */
+  imported: { key: string; value: Imported; picks: Picks; elo: string } | null;
   settings: Settings;
   /** Item set backups in settings: listed when settings open, and the last restore. */
   restore: { backups: Backup[] | null; done: Restored | null; error: CommandError | null };
@@ -71,8 +80,10 @@ export const browserSettings: SettingsStore = {
     try {
       const raw = globalThis.localStorage?.getItem(KEY);
       const parsed: unknown = raw ? JSON.parse(raw) : null;
-      if (parsed && typeof parsed === "object" && "autoImport" in parsed) {
-        return { autoImport: parsed.autoImport === true };
+      if (parsed && typeof parsed === "object") {
+        const saved = parsed as Partial<Record<keyof Settings, unknown>>;
+        const elo = typeof saved.elo === "string" && /^[a-z_]{2,32}$/.test(saved.elo) ? saved.elo : DEFAULT_ELO;
+        return { autoImport: saved.autoImport === true, elo };
       }
     } catch {
       // unreadable or unavailable storage: defaults
@@ -104,16 +115,18 @@ export function createApp(
     plan: null,
     picks: null,
     imported: null,
-    settings: store.load() ?? { autoImport: false },
+    settings: { ...defaults, ...store.load() },
     restore: { backups: null, done: null, error: null },
     error: null,
   });
 
   async function importBuild(): Promise<void> {
-    const key = state.plan?.key;
-    if (!key) return;
+    if (!state.plan) return;
+    const { key } = state.plan;
+    const { elo } = state.plan.value;
     const picks = currentPicks();
     const params: ImportParams = {
+      ...(elo !== DEFAULT_ELO ? { elo } : {}),
       ...(picks.runes ? { runes: picks.runes } : {}),
       ...(picks.spells ? { spells: picks.spells } : {}),
       ...(picks.sections.start ? { start: picks.sections.start } : {}),
@@ -125,7 +138,7 @@ export function createApp(
     };
     const imported = await backend.run("build.import", params);
     if (imported.ok) {
-      state.imported = { key, value: imported.value, picks };
+      state.imported = { key, value: imported.value, picks, elo };
       state.error = null;
     } else {
       state.error = imported.error;
@@ -228,18 +241,26 @@ export function createApp(
       return;
     }
     const key = `${champion}/${role}`;
-    // Asked again as the enemies pick: boots follow their damage (ADR-074).
+    // Asked again as the enemies pick: boots follow their damage (ADR-074); and when the
+    // player chooses another bracket (ADR-078).
     const enemies = session?.enemies ?? [];
     const seen = [...enemies].sort((a, b) => a - b).join(",");
-    if (state.plan?.key !== key || (state.plan.enemies ?? "") !== seen) {
-      const plan = await backend.run("build.plan", { champion, role, ...(enemies.length ? { enemies } : {}) });
+    const elo = state.settings.elo;
+    if (state.plan?.key !== key || (state.plan.enemies ?? "") !== seen || state.plan.elo !== elo) {
+      const plan = await backend.run("build.plan", {
+        champion,
+        role,
+        ...(elo !== DEFAULT_ELO ? { elo } : {}),
+        ...(enemies.length ? { enemies } : {}),
+      });
       if (!plan.ok) {
         state.plan = null;
         state.error = plan.error;
         return;
       }
-      const fresh = state.plan?.key !== key;
-      state.plan = { key, value: plan.value, enemies: seen }; // hovered earlier: lock-in is a cache hit
+      // Another bracket has other options: the saved picks are matched against them again.
+      const fresh = state.plan?.key !== key || state.plan.elo !== elo;
+      state.plan = { key, value: plan.value, enemies: seen, elo }; // hovered earlier: lock-in is a cache hit
       state.error = null;
       if (fresh) restorePicks(key, plan.value);
     }
@@ -304,6 +325,13 @@ export function createApp(
     store.save(state.settings);
   }
 
+  /** Builds from another elo bracket (ADR-078): the plan on screen is asked again. */
+  async function setElo(elo: string): Promise<void> {
+    state.settings = { ...state.settings, elo };
+    store.save(state.settings);
+    await refresh();
+  }
+
   async function loadBackups(): Promise<void> {
     const listed = await backend.run("item_sets.backups", {});
     state.restore = listed.ok
@@ -320,7 +348,7 @@ export function createApp(
     if (restored.ok) await loadBackups(); // the replaced sets are now the newest backup
   }
 
-  return { state, refresh, importBuild, pick, resetPicks, setAutoImport, loadBackups, restoreItemSets };
+  return { state, refresh, importBuild, pick, resetPicks, setAutoImport, setElo, loadBackups, restoreItemSets };
 }
 
 export type App = ReturnType<typeof createApp>;

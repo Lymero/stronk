@@ -26,6 +26,9 @@ pub struct Params {
     pub role: Role,
     pub patch: Option<String>,
     pub region: Option<String>,
+    /// The player's elo bracket; a champion and role it has no build for get the closest
+    /// bracket's, wider first, and the plan's `elo` says which (ADR-078, ADR-079). Ignored with
+    /// a `patch` or `region`, which ask for that exact file.
     pub elo: Option<String>,
     /// The enemy champions picked so far: boots are chosen against their damage (ADR-074).
     #[serde(default)]
@@ -140,14 +143,18 @@ pub fn command() -> Command {
 }
 
 fn run(ctx: &Context, params: Params) -> Result<Plan, CommandError> {
-    let build = build_get::fetch(
-        ctx,
-        &params.champion,
-        params.role,
-        params.patch.as_deref(),
-        params.region.as_deref(),
-        params.elo.as_deref(),
-    )?;
+    let build = if params.patch.is_none() && params.region.is_none() {
+        build_get::fetch_preferring(ctx, &params.champion, params.role, params.elo.as_deref())?
+    } else {
+        build_get::fetch(
+            ctx,
+            &params.champion,
+            params.role,
+            params.patch.as_deref(),
+            params.region.as_deref(),
+            params.elo.as_deref(),
+        )?
+    };
     let against = against_for(ctx, &build, &params.enemies);
     Ok(plan(&build, params.role, against))
 }

@@ -1,10 +1,11 @@
 """`crawl.run`: ranked solo games of one platform and one patch, into a crawl directory.
 
-Seeds players from the ranked ladder (best first; Diamond page by page, division I to IV), walks
-each one's latest games and keeps the ones from the target patch. A crawl directory holds one elo
-bracket (ADR-076), set by its tiers: Master+ (Challenger, Grandmaster, Master) or Diamond,
-written with its first game. Games that fail validation go to quarantine with their payloads,
-for `extract.run` with `retry_quarantine` once the parser is fixed. Resumable: games already
+Seeds players from the ranked ladder (best first; Diamond and Emerald page by page, division I to
+IV), walks each one's latest games and keeps the ones from the target patch. A crawl directory
+holds one band of tiers (ADR-076, ADR-079), set by its tiers: Master+ (Challenger, Grandmaster,
+Master), Diamond or Emerald, written with its first game. Games that fail validation go to
+quarantine with their payloads, for `extract.run` with `retry_quarantine` once the parser is
+fixed. Resumable: games already
 stored, skipped or quarantined are never fetched again, so rerunning the command continues where
 the last run stopped.
 """
@@ -22,7 +23,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from stronk_pipeline.application.registry import Command, CommandError
-from stronk_pipeline.domain.bracket import MASTER_PLUS, bracket_of
+from stronk_pipeline.domain.bracket import DIVIDED, MASTER_PLUS, bracket_of
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.ports import (
@@ -43,7 +44,7 @@ RANKED_SOLO = 420
 SUMMONERS_RIFT = 11
 PROGRESS_EVERY = 25
 DIVISIONS = ("I", "II", "III", "IV")
-"""Diamond's divisions, best first."""
+"""Diamond's and Emerald's divisions, best first."""
 
 
 class CrawlParams(BaseModel):
@@ -69,7 +70,7 @@ class CrawlParams(BaseModel):
             raise ValueError("record and replay cannot be combined")
         if bracket_of(self.tiers) is None:
             raise ValueError(
-                "tiers mix Master+ and Diamond: crawl each bracket into its own directory"
+                "tiers mix Master+, Diamond and Emerald: crawl each into its own directory"
             )
         return self
 
@@ -77,7 +78,7 @@ class CrawlParams(BaseModel):
 class CrawlResult(BaseModel):
     platform: str
     bracket: str
-    """The crawl's elo bracket: `master_plus` or `diamond` (ADR-076)."""
+    """The crawl's band of tiers: `master_plus`, `diamond` or `emerald` (ADR-076, ADR-079)."""
     patch: str | None
     stored: int
     """New games stored in this run."""
@@ -164,10 +165,10 @@ class _Crawl:
         return Ok(self._result())
 
     async def _ladder(self, tier: Tier) -> AsyncIterator[list[str] | CommandError]:
-        """A tier's players, a page at a time: an apex league whole, Diamond by division and page
-        until a page comes back empty. A rejected key ends the crawl; another error skips the rest
-        of that division."""
-        for division in DIVISIONS if tier == "DIAMOND" else ("I",):
+        """A tier's players, a page at a time: an apex league whole, Diamond and Emerald by
+        division and page until a page comes back empty. A rejected key ends the crawl; another
+        error skips the rest of that division."""
+        for division in DIVISIONS if tier in DIVIDED else ("I",):
             for page in itertools.count(1):
                 match await self.source.players(tier, division, page):
                     case Err(error=e) if e.kind == "unauthorized":

@@ -2,6 +2,7 @@
 
 pub mod build_key;
 pub mod damage;
+pub mod elo;
 pub mod item_set;
 pub mod owned;
 pub mod patch;

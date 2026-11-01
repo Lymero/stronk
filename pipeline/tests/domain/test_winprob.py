@@ -12,6 +12,7 @@ from stronk_pipeline.domain.winprob import (
     BaselineWinProb,
     LogisticLearner,
     MissingFeaturesError,
+    Rows,
     columns,
     split_by_match,
     symmetric,
@@ -81,7 +82,7 @@ def test_logistic_learner_recovers_a_logistic_truth() -> None:
     table = frames(400, seed=3)
     x = columns(table.features, table.feature_names, WP_FEATURES)
     y = table.outcome.astype(np.float64)
-    part = (x, table.minute, y)
+    part = Rows.of(x, table.minute, y)
     model = LogisticLearner().fit(part, part, WP_FEATURES, WP_MONOTONE, 0)
     late = table.minute == 24
     predicted = symmetric(model.predict, x[late], table.minute[late])

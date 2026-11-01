@@ -1,4 +1,5 @@
-from collections.abc import Callable
+from collections import Counter
+from collections.abc import Callable, Collection
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,7 @@ from stronk_pipeline.application.registry import CommandError
 from stronk_pipeline.application.wpa_estimate import (
     WpaEstimateParams,
     WpaEstimateResult,
+    batched,
     wpa_estimate_command,
 )
 from stronk_pipeline.domain.decisions import DecisionTable
@@ -19,7 +21,7 @@ from stronk_pipeline.domain.logistic import fit_logistic
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.winprob import LogisticWinProb
 from stronk_pipeline.domain.wpa.reference import ReferenceEstimatorV1
-from stronk_pipeline.ports import StoreError
+from stronk_pipeline.ports import Pick, StoreError
 
 type TableFactory = Callable[..., DecisionTable]
 
@@ -28,11 +30,40 @@ class FakeStore:
     def __init__(self, tables: dict[str, DecisionTable]) -> None:
         self.tables = tables
 
-    def read_decisions(self, path: Path) -> Result[DecisionTable, StoreError]:
+    def read_decisions(
+        self, path: Path, picks: Collection[tuple[str, str]] | None = None
+    ) -> Result[DecisionTable, StoreError]:
         table = self.tables.get(str(path))
-        return Ok(table) if table is not None else Err(StoreError("not_found", str(path)))
+        if table is None:
+            return Err(StoreError("not_found", str(path)))
+        if picks is None:
+            return Ok(table)
+        keep = np.array(
+            [
+                (str(c), str(r)) in set(picks)
+                for c, r in zip(table.champion, table.role, strict=True)
+            ]
+        )
+        return Ok(table.take(np.flatnonzero(keep)))
 
-    def write_decisions(self, table: DecisionTable, path: Path) -> Result[Path, StoreError]:
+    def picks(self, path: Path) -> Result[list[Pick], StoreError]:
+        table = self.tables.get(str(path))
+        if table is None:
+            return Err(StoreError("not_found", str(path)))
+        rows = Counter(
+            zip(
+                table.champion.tolist(),
+                table.champion_class.tolist(),
+                table.role.tolist(),
+                strict=True,
+            )
+        )
+        return Ok([Pick(c, k, r, n) for (c, k, r), n in sorted(rows.items())])
+
+    def write_decisions(
+        self, table: DecisionTable, path: Path, part: int | None = None
+    ) -> Result[Path, StoreError]:
+        del part
         self.tables[str(path)] = table
         return Ok(path)
 
@@ -145,3 +176,22 @@ def test_group_by_class_pools_champions(table_factory: TableFactory) -> None:
 def test_window_needs_frames_and_a_model() -> None:
     with pytest.raises(ValidationError, match="window needs frames and winprob"):
         WpaEstimateParams.model_validate({"decisions": "d.parquet", "window": 5})
+
+
+def test_batches_keep_picks_whole_and_classes_together_when_pooled() -> None:
+    picks = [
+        Pick("Zed", "assassin", "MIDDLE", 5),
+        Pick("Ahri", "mage", "MIDDLE", 4),
+        Pick("Akali", "assassin", "TOP", 3),
+        Pick("Ahri", "mage", "TOP", 1),
+    ]
+    assert batched(picks, "champion", limit=4) == [
+        [("Ahri", "MIDDLE")],
+        [("Ahri", "TOP"), ("Akali", "TOP")],
+        [("Zed", "MIDDLE")],
+    ]
+    assert batched(picks, "class", limit=4) == [
+        [("Akali", "TOP"), ("Zed", "MIDDLE")],
+        [("Ahri", "MIDDLE"), ("Ahri", "TOP")],
+    ]
+    assert batched([], "champion") == []

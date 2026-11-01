@@ -17,7 +17,7 @@ from stronk_pipeline.application.winprob_train import (
 from stronk_pipeline.domain.frames import FrameTable
 from stronk_pipeline.domain.logistic import Floats
 from stronk_pipeline.domain.result import Err, Ok, Result
-from stronk_pipeline.domain.winprob import LogisticLearner, LogisticWinProb
+from stronk_pipeline.domain.winprob import LogisticLearner, LogisticWinProb, Rows
 from stronk_pipeline.ports import WinProbLearner, WinProbModel
 
 
@@ -28,8 +28,8 @@ class CoinFlip:
 
     def fit(
         self,
-        train: tuple[Floats, Floats, Floats],
-        valid: tuple[Floats, Floats, Floats],
+        train: Rows,
+        valid: Rows,
         feature_names: tuple[str, ...],
         monotone: tuple[int, ...],
         seed: int,

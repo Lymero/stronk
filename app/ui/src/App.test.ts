@@ -2,7 +2,13 @@ import { fireEvent, render, screen, within } from "@testing-library/svelte";
 import { describe, expect, it } from "vitest";
 import App from "./App.svelte";
 import { MockBackend, scenarios } from "./lib/backend/mock.ts";
-import { createApp, ICONS_PER_CALL, type Settings, type SettingsStore } from "./lib/state/app.svelte.ts";
+import {
+  browserSettings,
+  createApp,
+  ICONS_PER_CALL,
+  type Settings,
+  type SettingsStore,
+} from "./lib/state/app.svelte.ts";
 import type { PicksStore, SavedPicks } from "./lib/state/picks.ts";
 
 function memory(initial: Settings | null = null): SettingsStore & { saved: Settings | null } {
@@ -501,7 +507,7 @@ describe("App with MockBackend", () => {
   it("loads icons only after an auto-import, so they never delay it", async () => {
     const locked = scenarios["ranked-jungle"].steps.at(-1);
     const backend = new MockBackend({ ...scenarios["ranked-jungle"], steps: locked ? [locked] : [] });
-    const app = createApp(backend, memory({ autoImport: true }));
+    const app = createApp(backend, memory({ autoImport: true, elo: "master_plus" }));
     await app.refresh();
     expect(backend.calls.map((c) => c.id).slice(-2)).toEqual(["build.import", "icons.get"]);
   });
@@ -547,7 +553,7 @@ describe("App with MockBackend", () => {
     const store = memory();
     const { backend, app, next } = setup("ranked-jungle", store);
     await fireEvent.click(screen.getByLabelText("Auto-import on lock-in"));
-    expect(store.saved).toEqual({ autoImport: true });
+    expect(store.saved).toEqual({ autoImport: true, elo: "master_plus" });
     await app.refresh();
     await next();
     await next();
@@ -607,6 +613,41 @@ describe("settings", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(backend.calls.some((c) => c.id === "item_sets.restore")).toBe(false);
     expect(screen.getByRole("button", { name: "Restore this backup" })).toBeInTheDocument();
+  });
+
+  it("builds from the chosen bracket, or Master+'s and says so, and remembers the choice", async () => {
+    const store = memory();
+    const { backend, app, next } = setup("ranked-jungle", store);
+    await app.refresh();
+    await next(); // Graves: Master+ only
+    expect(await screen.findByText("Master+")).toBeInTheDocument();
+    await fireEvent.click(screen.getByText("Settings"));
+    const bracket = screen.getByLabelText("Builds from");
+    expect([...bracket.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+      "Master+ games",
+      "Diamond+ games",
+    ]);
+    await fireEvent.change(bracket, { target: { value: "diamond_plus" } });
+    expect(await screen.findByText("Master+ (no Diamond+ build)")).toBeInTheDocument();
+    expect(store.saved).toEqual({ autoImport: false, elo: "diamond_plus" });
+    await next(); // Lee Sin has a Diamond+ build
+    expect(await screen.findByText("2,960 games")).toBeInTheDocument();
+    expect(screen.getByText("Diamond+")).toBeInTheDocument();
+    const asked = backend.calls.filter((c) => c.id === "build.plan").map((c) => c.params);
+    expect(asked.slice(-2)).toEqual([
+      { champion: "Graves", role: "JUNGLE", elo: "diamond_plus" },
+      { champion: "LeeSin", role: "JUNGLE", elo: "diamond_plus" },
+    ]);
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ elo: "diamond_plus" });
+  });
+
+  it("reads settings saved before the bracket choice as Master+", () => {
+    localStorage.setItem("stronk.settings", JSON.stringify({ autoImport: true }));
+    expect(browserSettings.load()).toEqual({ autoImport: true, elo: "master_plus" });
+    localStorage.setItem("stronk.settings", JSON.stringify({ autoImport: false, elo: "../x" }));
+    expect(browserSettings.load()).toEqual({ autoImport: false, elo: "master_plus" });
+    localStorage.removeItem("stronk.settings");
   });
 
   it("says when there is nothing to restore", async () => {

@@ -47,6 +47,9 @@ export function placeholderIcon(kind: GameKind, id: number, name: string): strin
 export interface Scenario {
   steps: (ChampSelectState | CommandError)[];
   plans: Record<string, Plan | CommandError>;
+  /** Plans from other elo brackets than Master+, by bracket; a champion and role without one
+   * gets Master+'s, the only other bracket here, as from the core (ADR-078, ADR-079). */
+  brackets?: Record<string, Record<string, Plan>>;
   status: DataStatus | CommandError;
   /** The client's game data names; without them the UI shows ids. */
   names?: GameNames | CommandError;
@@ -60,7 +63,13 @@ export interface Scenario {
 }
 
 const lobby: ChampSelectState = { session: null, champion: null, role: null };
-const status: DataStatus = { patch: "16.20", run_id: "fixture", key_id: "036EAC4B585E4DCA", files: 80 };
+const status: DataStatus = {
+  patch: "16.20",
+  run_id: "fixture",
+  key_id: "036EAC4B585E4DCA",
+  files: 80,
+  elos: ["master_plus", "diamond_plus"],
+};
 
 function selecting(champion: string, champion_id: number, phase: string, locked = false, enemies: number[] = []): ChampSelectState {
   return { session: { champion_id, locked, role: "JUNGLE", phase, spells: [4, 14], enemies }, champion, role: "JUNGLE" };
@@ -465,6 +474,7 @@ export const scenarios = {
   "ranked-jungle": {
     steps: rankedJungle,
     plans: { "Graves/JUNGLE": graves, "LeeSin/JUNGLE": leeSin },
+    brackets: { diamond_plus: { "LeeSin/JUNGLE": { ...leeSin, elo: "diamond_plus", games: 2960 } } },
     status,
     names,
     backups: backups(),
@@ -561,8 +571,9 @@ export class MockBackend implements Backend {
         return ok(icons) as Out;
       }
       case "build.plan": {
-        const { champion, role, enemies } = params as Commands["build.plan"]["params"];
-        const plan = this.scenario.plans[`${champion}/${role}`];
+        const { champion, role, enemies, elo } = params as Commands["build.plan"]["params"];
+        const key = `${champion}/${role}`;
+        const plan = (elo ? this.scenario.brackets?.[elo]?.[key] : undefined) ?? this.scenario.plans[key];
         if (!plan) return err("not_found", `no build for ${champion} ${role}`) as Out;
         // Three enemies or more: the core reads their damage; here, always a magic team.
         const against = (enemies?.length ?? 0) >= 3 && "boots" in plan && plan.boots;

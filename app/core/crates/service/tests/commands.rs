@@ -93,6 +93,41 @@ fn build_get_defaults_to_the_newest_patch() {
 }
 
 #[test]
+fn the_plan_comes_from_the_players_bracket_or_the_closest_one_with_a_build() {
+    let plan = |params: Value| run(&ctx(NoClient), "build.plan", params).unwrap();
+    let elo = |params: Value| plan(params)["elo"].as_str().map(str::to_owned);
+    let diamond = plan(json!({"champion": "Viego", "role": "JUNGLE", "elo": "diamond_plus"}));
+    assert_eq!(
+        (diamond["elo"].as_str(), diamond["games"].as_u64()),
+        (Some("diamond_plus"), Some(7))
+    );
+    // No Master+ build for Viego TOP: Diamond+'s, whose games include Master+'s.
+    let wider = elo(json!({"champion": "Viego", "role": "TOP"}));
+    assert_eq!(wider.as_deref(), Some("diamond_plus"));
+    // No Emerald+ data: the closest narrower bracket; one Stronk doesn't know: Master+.
+    let narrower = elo(json!({"champion": "Viego", "role": "JUNGLE", "elo": "emerald_plus"}));
+    assert_eq!(narrower.as_deref(), Some("diamond_plus"));
+    let unknown = elo(json!({"champion": "Viego", "role": "JUNGLE", "elo": "gold_plus"}));
+    assert_eq!(unknown.as_deref(), Some("master_plus"));
+    // None anywhere: not found.
+    let none = run(
+        &ctx(NoClient),
+        "build.plan",
+        json!({"champion": "Viego", "role": "MIDDLE"}),
+    );
+    assert_eq!(none.unwrap_err().code, ErrorCode::NotFound);
+    // build.get asks for one exact file.
+    let exact = run(
+        &ctx(NoClient),
+        "build.get",
+        json!({"champion": "Viego", "role": "JUNGLE", "elo": "emerald_plus"}),
+    );
+    assert_eq!(exact.unwrap_err().code, ErrorCode::NotFound);
+    let status = run(&ctx(NoClient), "data.status", json!({})).unwrap();
+    assert_eq!(status["elos"], json!(["master_plus", "diamond_plus"]));
+}
+
+#[test]
 fn build_get_rejects_unsafe_and_unknown_params() {
     let unsafe_key = run(
         &ctx(NoClient),
@@ -264,7 +299,7 @@ fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
     .unwrap();
     assert_eq!(
         (&out["games"], &out["elo"], &out["region"]),
-        (&json!(18432), &json!("diamond_plus"), &json!("euw1"))
+        (&json!(18432), &json!("master_plus"), &json!("euw1"))
     );
     let alternatives = &out["alternatives"];
     assert_eq!(

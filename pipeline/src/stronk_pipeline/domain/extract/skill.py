@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Protocol
 
-from stronk_pipeline.domain.match import Match
+from stronk_pipeline.domain.match import Match, Participant
 
 SKILL_FEATURES = ("skill_proxy", "champion_games")
 PRIOR_GAMES = 5
@@ -22,7 +24,33 @@ type PlayerGame = tuple[str, int]
 """(match_id, participant_id)."""
 
 
-def prior_skill(matches: Iterable[Match]) -> Mapping[PlayerGame, tuple[float, float]]:
+class Played(Protocol):
+    """What skill reads of a game: a `Match`, or its `GameHeader`."""
+
+    @property
+    def match_id(self) -> str: ...
+    @property
+    def created_at(self) -> int: ...
+    @property
+    def participants(self) -> Sequence[Participant]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class GameHeader:
+    """A game without its timeline: enough for skill over many games at once, which whole
+    games would not fit in memory for (ADR-079)."""
+
+    match_id: str
+    patch: str
+    created_at: int
+    participants: tuple[Participant, ...]
+
+    @staticmethod
+    def of(match: Match) -> GameHeader:
+        return GameHeader(match.match_id, match.patch, match.created_at, match.participants)
+
+
+def prior_skill(matches: Iterable[Played]) -> Mapping[PlayerGame, tuple[float, float]]:
     """SKILL_FEATURES for every player of every game, from their earlier games only."""
     record: defaultdict[tuple[str, int], list[int]] = defaultdict(lambda: [0, 0])
     skill: dict[PlayerGame, tuple[float, float]] = {}

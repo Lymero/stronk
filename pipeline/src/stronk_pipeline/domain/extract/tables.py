@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -16,7 +16,7 @@ from stronk_pipeline.domain.extract.situation import (
     player_situation,
     situation,
 )
-from stronk_pipeline.domain.extract.skill import SKILL_FEATURES, prior_skill
+from stronk_pipeline.domain.extract.skill import SKILL_FEATURES, PlayerGame, prior_skill
 from stronk_pipeline.domain.frames import FrameTable
 from stronk_pipeline.domain.match import TEAMS, Match
 from stronk_pipeline.domain.static import StaticData
@@ -33,6 +33,13 @@ class ExtractStats:
     dropped: Counter[str] = field(default_factory=Counter[str])
     """Matches or decisions left out, by reason."""
 
+    def add(self, other: ExtractStats) -> None:
+        """Count `other`'s games too: one chunk of games after another (ADR-080)."""
+        self.matches += other.matches
+        self.decisions_by_slot.update(other.decisions_by_slot)
+        self.inferred += other.inferred
+        self.dropped.update(other.dropped)
+
 
 @dataclass(frozen=True)
 class Extracted:
@@ -41,14 +48,23 @@ class Extracted:
     stats: ExtractStats
 
 
-def extract(matches: Sequence[Match], statics: Mapping[str, StaticData]) -> Extracted:
-    """Build both tables. `statics` maps a patch to its game data; matches without it drop."""
+def extract(
+    matches: Iterable[Match],
+    statics: Mapping[str, StaticData],
+    skill: Mapping[PlayerGame, tuple[float, float]] | None = None,
+) -> Extracted:
+    """Build both tables. `statics` maps a patch to its game data; matches without it drop.
+    `skill` is `prior_skill` over every game; given, `matches` are read once, one at a time,
+    so they can stream from disk (ADR-079)."""
+    if skill is None:
+        matches = list(matches)
+        skill = prior_skill(matches)
     stats = ExtractStats()
-    usable = [m for m in matches if _usable(m, statics, stats)]
-    skill = prior_skill(matches)
     frames = _Columns()
     decisions = _Columns()
-    for match in usable:
+    for match in matches:
+        if not _usable(match, statics, stats):
+            continue
         stats.matches += 1
         static = statics[match.patch]
         for frame in match.frames[1:]:
@@ -118,17 +134,26 @@ def _usable(match: Match, statics: Mapping[str, StaticData], stats: ExtractStats
     return True
 
 
+_BLOCK = 65_536
+"""Feature rows kept as Python floats before they become one float64 block: a quarter of the
+memory, for tables of millions of rows (ADR-079)."""
+
+
 class _Columns:
     """Row-wise accumulation, column-wise output."""
 
     def __init__(self) -> None:
         self._values: dict[str, list[object]] = {}
         self._features: list[tuple[float, ...]] = []
+        self._blocks: list[np.ndarray[tuple[int, int], np.dtype[np.float64]]] = []
 
     def add(self, *, features: tuple[float, ...], **values: object) -> None:
         for name, value in values.items():
             self._values.setdefault(name, []).append(value)
         self._features.append(features)
+        if len(self._features) == _BLOCK:
+            self._blocks.append(np.array(self._features, dtype=np.float64))
+            self._features = []
 
     def strings(self, name: str) -> np.ndarray[tuple[int], np.dtype[np.str_]]:
         return np.array(self._values.get(name, []), dtype=np.str_)
@@ -140,4 +165,5 @@ class _Columns:
         return np.array(self._values.get(name, []), dtype=np.float64)
 
     def matrix(self, width: int) -> np.ndarray[tuple[int, int], np.dtype[np.float64]]:
-        return np.array(self._features, dtype=np.float64).reshape(len(self._features), width)
+        rest = np.array(self._features, dtype=np.float64).reshape(len(self._features), width)
+        return np.concatenate([*self._blocks, rest]) if self._blocks else rest
