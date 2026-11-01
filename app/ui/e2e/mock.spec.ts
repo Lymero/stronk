@@ -127,20 +127,20 @@ test("refuses data that failed verification", async ({ page }) => {
 test("restores item sets from a backup after confirming", async ({ page }) => {
   await page.goto("/?scenario=ranked-jungle");
   await page.getByText("Settings").click();
-  await expect(page.getByRole("radio")).toHaveCount(2);
-  await page.getByRole("radio").nth(1).check();
+  const backups = page.getByRole("region", { name: "Item set backups" }).getByRole("radio");
+  await expect(backups).toHaveCount(2);
+  await backups.nth(1).check();
   await page.getByRole("button", { name: "Restore this backup" }).click();
   await screenshot(page, "mock-restore-confirm");
   await page.getByRole("group", { name: "Confirm restore" }).getByRole("button", { name: "Restore" }).click();
   await expect(page.getByRole("status")).toHaveText(/Restored 30 item sets/);
-  await expect(page.getByRole("radio")).toHaveCount(3);
+  await expect(backups).toHaveCount(3);
 });
 
-test("builds from the chosen bracket, or Master+'s and says so", async ({ page }) => {
+test("builds from the bracket switched to beside Import, or Master+'s and says so", async ({ page }) => {
   await page.goto("/?scenario=ranked-jungle");
   await next(page);
-  await page.getByText("Settings").click();
-  await page.getByLabel("Builds from").selectOption("diamond_plus");
+  await page.getByRole("radiogroup", { name: "Builds from" }).getByText("Diamond+").click();
   await expect(page.getByText("Master+ (no Diamond+ build)")).toBeVisible(); // Graves: Master+ only
   await next(page);
   await expect(page.getByText("2,960 games")).toBeVisible();

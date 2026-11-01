@@ -1,4 +1,5 @@
 <script lang="ts">
+  import BracketSwitch from "./lib/features/build-view/BracketSwitch.svelte";
   import PlanView from "./lib/features/build-view/PlanView.svelte";
   import ChampSelect from "./lib/features/champ-select/ChampSelect.svelte";
   import Settings from "./lib/features/settings/Settings.svelte";
@@ -21,6 +22,8 @@
   /** The client isn't open: not an error, the app waits for it. */
   const waiting = $derived(clientMissing(state.error));
   const showPlan = $derived(!!state.plan && !!state.champSelect?.champion);
+  /** The brackets the data has builds for, highest first (ADR-078). */
+  const elos = $derived(state.data?.elos ?? []);
 </script>
 
 <main>
@@ -42,6 +45,7 @@
     actions={showPlan ? actions : undefined}
   />
   {#snippet actions()}
+    {#if elos.length > 1}<BracketSwitch {elos} value={state.settings.elo} onelo={(elo) => void app.setElo(elo)} />{/if}
     {#if picked}<button type="button" class="quiet" onclick={() => app.resetPicks()}>Use Stronk's picks</button>{/if}
     <button type="button" class="primary" onclick={() => void app.importBuild()}>Import</button>
   {/snippet}
@@ -61,10 +65,8 @@
 
   <Settings
     settings={state.settings}
-    elos={state.data?.elos ?? []}
     restore={state.restore}
     onautoimport={(on) => app.setAutoImport(on)}
-    onelo={(elo) => void app.setElo(elo)}
     onopen={() => void app.loadBackups()}
     onrestore={(location) => void app.restoreItemSets(location)}
   />

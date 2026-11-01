@@ -584,7 +584,7 @@ describe("App with MockBackend", () => {
 describe("settings", () => {
   async function openSettings() {
     await fireEvent.click(screen.getByText("Settings"));
-    return screen.findAllByRole("radio");
+    return within(screen.getByRole("region", { name: "Item set backups" })).findAllByRole("radio");
   }
 
   it("lists item set backups newest first and restores the chosen one after confirming", async () => {
@@ -603,7 +603,7 @@ describe("settings", () => {
     );
     const restores = backend.calls.filter((c) => c.id === "item_sets.restore").map((c) => c.params);
     expect(restores).toEqual([{ backup: "backups/item-sets-0001792318800000-000.json" }]);
-    expect(await screen.findAllByRole("radio")).toHaveLength(3); // the replaced sets, backed up
+    expect(await within(screen.getByRole("region", { name: "Item set backups" })).findAllByRole("radio")).toHaveLength(3); // the replaced sets, backed up
   });
 
   it("cancelling a restore writes nothing", async () => {
@@ -615,24 +615,23 @@ describe("settings", () => {
     expect(screen.getByRole("button", { name: "Restore this backup" })).toBeInTheDocument();
   });
 
-  it("builds from the chosen bracket, or Master+'s and says so, and remembers the choice", async () => {
+  it("builds from the bracket switched to beside Import, or Master+'s and says so, and remembers it", async () => {
     const store = memory();
     const { backend, app, next } = setup("ranked-jungle", store);
     await app.refresh();
     await next(); // Graves: Master+ only
-    expect(await screen.findByText("Master+")).toBeInTheDocument();
-    await fireEvent.click(screen.getByText("Settings"));
-    const bracket = screen.getByLabelText("Builds from");
-    expect([...bracket.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
-      "Master+ games",
-      "Diamond+ games",
-    ]);
-    await fireEvent.change(bracket, { target: { value: "diamond_plus" } });
-    expect(await screen.findByText("Master+ (no Diamond+ build)")).toBeInTheDocument();
+    const build = screen.getByRole("region", { name: "Build" });
+    expect(await within(build).findByText("Master+")).toBeInTheDocument();
+    const bracket = within(screen.getByRole("radiogroup", { name: "Builds from" }));
+    expect(bracket.getAllByRole("radio").map((r) => r.closest("label")?.textContent?.trim())).toEqual(["Master+", "Diamond+"]);
+    expect(bracket.getByRole("radio", { name: "Master+" })).toBeChecked();
+    await fireEvent.click(bracket.getByRole("radio", { name: "Diamond+" }));
+    expect(await within(build).findByText("Master+ (no Diamond+ build)")).toBeInTheDocument();
+    expect(bracket.getByRole("radio", { name: "Diamond+" })).toBeChecked();
     expect(store.saved).toEqual({ autoImport: false, elo: "diamond_plus" });
     await next(); // Lee Sin has a Diamond+ build
     expect(await screen.findByText("2,960 games")).toBeInTheDocument();
-    expect(screen.getByText("Diamond+")).toBeInTheDocument();
+    expect(within(build).getByText("Diamond+")).toBeInTheDocument();
     const asked = backend.calls.filter((c) => c.id === "build.plan").map((c) => c.params);
     expect(asked.slice(-2)).toEqual([
       { champion: "Graves", role: "JUNGLE", elo: "diamond_plus" },
