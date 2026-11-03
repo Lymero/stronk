@@ -36,6 +36,8 @@ setup:
     pnpm install --frozen-lockfile
     cargo fetch {{ contracts_rs }} --locked
     cargo fetch {{ core_rs }} --locked
+    rustup target add wasm32-unknown-unknown
+    cargo install wasm-bindgen-cli --version {{ wasm_bindgen }} --locked
     if (git rev-parse --git-dir 2>$null) { uv run pre-commit install --hook-type pre-commit --hook-type commit-msg }
 
 # The web viewer's core (ADR-086): `stronk-web` to WebAssembly, with its JavaScript bindings,
@@ -56,6 +58,17 @@ viewer data="runs/real/data" key="runs/real/data.pub" data_port="8787":
     trap 'kill $!' EXIT
     cd app/ui
     VITE_STRONK_DATA="http://127.0.0.1:{{ data_port }}/" VITE_STRONK_DATA_KEY="$(cat ../../{{ key }})" pnpm exec vite --config vite.viewer.config.ts
+
+# The web build viewer (Windows PowerShell): as above
+[windows]
+viewer data="runs/real/data" key="runs/real/data.pub" data_port="8787":
+    just web-core
+    if (-not (Test-Path '{{ key }}')) { Write-Host -ForegroundColor Red "no {{ key }}: copy the real data here first (``just data-to-windows`` in WSL), or run ``just viewer fixtures/data fixtures/data.pub`` for the test data"; exit 1 }; \
+    $server = Start-Process -PassThru -NoNewWindow uv -ArgumentList 'run', 'python', 'tools/serve_data/serve_data.py', '--root', '{{ data }}', '--port', '{{ data_port }}'; \
+    try { \
+      $env:VITE_STRONK_DATA = 'http://127.0.0.1:{{ data_port }}/'; $env:VITE_STRONK_DATA_KEY = Get-Content -Raw '{{ key }}'; \
+      Set-Location app/ui; pnpm exec vite --config vite.viewer.config.ts \
+    } finally { taskkill /PID $server.Id /T /F | Out-Null }
 
 # Format, lint, typecheck, architecture rules, tests, codegen drift, floors, budgets
 check: fmt-check lint typecheck arch test core-e2e e2e gen-check floors bench budgets
