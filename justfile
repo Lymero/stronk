@@ -372,7 +372,7 @@ site-shot data="runs/real/data" key="runs/real/data.pub":
     uv run python tools/lcu_mock/site_icons.py --session runs/e2e-real/session.json --data "{{ data }}" --out runs/site-icons
     STRONK_LCU_ASSETS="$PWD/runs/site-icons" STRONK_SITE_SHOT=1 STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" STRONK_REAL_DATA="{{ data }}" STRONK_REAL_KEY="{{ key }}" \
         pnpm --filter @stronk/ui exec playwright test --config playwright.real.config.ts
-    echo "site/public/img/: runes.png, items.png and their -phone versions"
+    uv run python tools/lcu_mock/site_png.py site/public/img/runes.png site/public/img/items.png site/public/img/runes-phone.png site/public/img/items-phone.png
 
 # Fake League client replaying a session: just lcu-mock tools/lcu_mock/sessions/<file>.json
 lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":

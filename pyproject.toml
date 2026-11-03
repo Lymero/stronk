@@ -15,6 +15,7 @@ dev = [
     "import-linter",
     "jsonschema",
     "rfc3339-validator",
+    "pillow",
     "pre-commit",
     "pytest",
     "ruff",

@@ -5,7 +5,7 @@
 // on the row of Stronk's best bet and an item slot where it takes one, each as two pictures at the
 // size the site shows them, so their text stays readable: the desktop app at 1200 px for wide
 // screens, and the open slot in the app's narrow layout for phones. The app's wordmark, legend
-// and hint are left out: the site says what they say.
+// and hint, and the import's status line, are left out: the site says what they say.
 
 import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
@@ -21,10 +21,10 @@ const VIEWS: Record<string, (page: Page) => Promise<void>> = {
     await page.getByLabel("Rune page").getByRole("button", { name: "Cut Down" }).click();
     await expect(page.getByRole("radio", { name: /^Cut Down,/ })).toContainText("Best bet");
   },
-  // Item 1, where Stronk takes Profane Hydra over Eclipse.
+  // Item 2, where Stronk takes Death's Dance.
   items: async (page) => {
-    await page.getByRole("tab", { name: /^Item 1:/ }).click();
-    await expect(page.getByRole("radio", { name: /^Profane Hydra,/ })).toContainText("Best bet");
+    await page.getByRole("tab", { name: /^Item 2:/ }).click();
+    await expect(page.getByRole("radio", { name: /^Death's Dance,/ })).toContainText("Best bet");
   },
 };
 
@@ -41,9 +41,12 @@ async function open(page: Page, view: string): Promise<void> {
   expect((await page.request.post("/core/mock/step")).ok()).toBe(true);
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible();
   await VIEWS[view]?.(page);
-  // Every icon on screen loaded, none a stand-in letter.
-  await expect(page.locator("main .stand-in")).toHaveCount(0);
-  await page.addStyleTag({ content: "main > header, .legend, .how { display: none !important; }" });
+  // Every icon on screen loaded, none a stand-in letter, but the skill order's key tiles, which
+  // have no icon yet (ADR-085).
+  await expect(page.locator("main .stand-in:not(#slot-tab-skill_levels *, #slot-tab-skill_max *)")).toHaveCount(0);
+  // The import's status line too: the site's text says what lock-in imports, and the wide
+  // runes picture stays under the 512 KB file limit without it.
+  await page.addStyleTag({ content: "main > header, .legend, .how, .plan > .result { display: none !important; }" });
   // No hover highlight left by the clicks.
   await page.mouse.move(0, 0);
 }
@@ -61,10 +64,10 @@ for (const view of Object.keys(VIEWS)) {
       const top = await page.getByLabel("Champion select").boundingBox();
       const bottom = await page.getByRole("region", { name: "Build" }).boundingBox();
       if (!top || !bottom) throw new Error("nothing to capture");
-      const y = top.y - 12;
+      const y = top.y - 6;
       await page.screenshot({
         path: resolve(IMG, `${view}.png`),
-        clip: { x: 0, y, width: 1200, height: bottom.y + bottom.height + 12 - y },
+        clip: { x: 0, y, width: 1200, height: bottom.y + bottom.height + 6 - y },
       });
       await done(page);
     });

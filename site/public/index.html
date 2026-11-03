@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stronk</title>
-<meta name="description" content="A free desktop app that imports runes, items and summoner spells in League of Legends champion select, ranked by win impact.">
+<meta name="description" content="A free desktop app that sets up your runes, summoner spells, skill order and items in League of Legends champion select, ranked by win impact.">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -14,7 +14,7 @@
 </header>
 <main>
 <h1>Your build, set up before the game starts.</h1>
-<p class="lead">Stronk is a free desktop app for League of Legends. In champion select it shows the runes, summoner spells and items played on your champion and role, how much each one changes the chance of winning, and how sure that number is. One click puts the build into your client.</p>
+<p class="lead">Stronk is a free desktop app for League of Legends. In champion select it shows what's played on your champion and role (runes, summoner spells, skill order and items), how much each choice changes your chance to win, and how sure that number is. Your item set goes into the client when you lock in, and the rest is one click away.</p>
 
 <p class="status">Stronk is in development and not available for download yet. The source code is <a href="https://github.com/Lymero/stronk">on GitHub</a>.</p>
 
@@ -24,35 +24,37 @@
 <div class="frames">
 <picture class="runes">
 <source media="(max-width: 640px)" srcset="/img/runes-phone.png" width="420" height="757">
-<img src="/img/runes.png" width="1200" height="685" alt="Stronk during champion select for Lee Sin jungle, with the champion, rune and item icons from the game. On the left, the build it will import by name: Conqueror runes, Smite and Flash, a Gustwalker Hatchling start, Long Sword and Pickaxe on the first back, three items with Plated Steelcaps after the first, and the late items as one slot; Stronk's best bets are marked on the runes, the start, the first back, the boots and the first two items. On the right, the rune page drawn as in the client, with the third Precision row open as a list: Coup de Grace as the baseline at 0, Cut Down marked best bet at +2.7 wins per 100 games, Last Stand with too few games for a number.">
+<img src="/img/runes.png" width="1200" height="786" alt="Stronk during champion select for Lee Sin jungle, with the champion, rune and item icons from the game. On the left, the build it will import by name: Conqueror runes, Smite and Flash, E Q W Q for the first four levels and Q then W then E to max, a Scorchclaw Pup start, Pickaxe on the first back, Eclipse, Mercury's Treads after the first item, Death's Dance, Edge of Night, and Guardian Angel leading the late items. Stronk's best bets are marked on the runes (+3.0), the first back (+2.8) and item 2 (+1.8). On the right, the rune page drawn as in the client, with the third Precision row open as a list: Coup de Grace as the baseline at 0, in 61% of games; Cut Down marked best bet at +3.0 wins per 100 games, in 34%; Last Stand in 4%.">
 </picture>
 <picture class="items">
-<source media="(max-width: 640px)" srcset="/img/items-phone.png" width="420" height="532">
-<img src="/img/items.png" width="1200" height="685" loading="lazy" alt="The same build with its first item slot open: Eclipse as the baseline at 0, played in 60% of 2,512 games; Profane Hydra marked best bet at +3.1 wins per 100 games, in 26% of games; Voltaic Cyclosword, already in item 2; Bastionbreaker; and 12 more rarely played items behind a button.">
+<source media="(max-width: 640px)" srcset="/img/items-phone.png" width="420" height="567">
+<img src="/img/items.png" width="1200" height="786" loading="lazy" alt="The same build with its second item slot open: Black Cleaver as the baseline at 0, in 46% of games; Voltaic Cyclosword at −1.6 and Sundered Sky at −1.9 wins per 100 games; Death's Dance marked best bet at +1.8, in 9% of games (523 games); Bastionbreaker; and 22 more rarely played items behind a button.">
 </picture>
 </div>
 <figcaption>
 <span class="switch"><label for="shot-runes">Runes</label><label for="shot-items">Items</label></span>
-<span class="caption runes">The rune page, drawn as in the client: Stronk takes Cut Down over Coup de Grace.</span>
-<span class="caption items">An item slot, every option against the most played one: Profane Hydra over Eclipse.</span>
-<span class="source">Lee Sin jungle on patch 16.20, from 4,190 Master+ games.</span>
+<span class="caption runes">The rune page, drawn like in the client. Stronk takes Cut Down over Coup de Grace.</span>
+<span class="caption items">An item slot, every option against the most played one. Death's Dance comes out ahead of Black Cleaver.</span>
+<span class="source">Lee Sin jungle on patch 16.21, from 6,508 Master+ games.</span>
 </figcaption>
 </figure>
 
 <h2>What it does</h2>
 <ul>
-<li>Follows champion select as you hover and lock in, and shows the build for your champion and role from high-elo ranked games on the current patch.</li>
-<li>Shows the build it will import at a glance, by name: the rune page, the summoner spells, the starting items, the first components, the boots and each item slot. Open any slot to see every option with its share of games, the games behind it, and its <a href="/method">win impact</a> against the most played option. The rune page is drawn as in the client.</li>
-<li>Imports its best bet: the option that comes out ahead of the most played one once each number is weighed by how sure it is, so a rarely played option with a lucky number doesn't win. It says "clearly better" only when the difference holds up after correcting for chance across the whole patch; anything else ahead is marked "best bet", and options with too few games get no number at all.</li>
-<li>Lets you pick any other option for any slot, and build your rune page rune by rune. Your picks are kept until the patch changes.</li>
-<li>Imports with one click, or on lock-in if you turn that on: a rune page and an item set named "Stronk: champion role", on top of the shop's list with each slot's pick and its alternatives, and your summoner spells, with Flash kept on the key you use.</li>
+<li>Follows champion select while you hover and lock in, and shows the build for your champion and role from ranked games on the current patch. You choose whose games: Master+, Diamond+ or Emerald+, right next to the Import button.</li>
+<li>Shows the whole build at a glance, by name: runes, summoner spells, skill order (your first four levels and what to max), starting items, first back, boots and every item slot. Open any of them to see every option, how often it's played, how many games are behind it, and its <a href="/method">win impact</a> against the most played one. The rune page is drawn like in the client.</li>
+<li>Picks boots for the team you're up against: once three enemies have picked, it goes with what does best against their kind of damage.</li>
+<li>Goes with its best bet: the option that comes out ahead of the most played one once each number is weighed by how sure it is, so a rarely played option with a lucky number doesn't win. It only says "clearly better" when the difference still holds after correcting for chance across the whole patch, and options with too few games don't get a number at all.</li>
+<li>Lets you pick anything else, slot by slot, and build your rune page rune by rune. Your picks stay until the next patch.</li>
+<li>Puts the item set in when you lock in, named "Stronk: champion role" and on top of your shop, with each slot's pick and its alternatives, and keeps it up to date until the game starts (your boots change as the enemies pick). The client can't take a skill order, so it's written on the item set's first block, where you'll see it in the shop.</li>
+<li>Puts your runes and summoner spells in with one click, or on lock-in too if you turn that on. Flash stays on the key you use.</li>
 </ul>
 
 <h2>What it doesn't do</h2>
 <ul>
-<li>It never edits or deletes your own rune pages or item sets. When all your rune pages are in use, it tells you instead of overwriting one. Your item sets are backed up before every import and can be restored from the settings.</li>
-<li>No in-game overlay and no information during the game.</li>
-<li>Nothing about other players: no names, ranks or match histories of teammates or opponents.</li>
+<li>It never edits or deletes your own rune pages or item sets. If all your rune pages are in use, it tells you instead of overwriting one. Your item sets are backed up before every write, and you can restore them from the settings.</li>
+<li>No in-game overlay, and nothing during the game.</li>
+<li>Nothing about other players: no names, ranks or match histories of teammates or opponents. All it reads about them is which champions they picked.</li>
 <li>No account, no ads, no telemetry.</li>
 </ul>
 </main>
