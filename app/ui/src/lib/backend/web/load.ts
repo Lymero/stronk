@@ -11,5 +11,6 @@ export async function loadCore(): Promise<WebCore> {
     open: (key, patch, manifest, signature) => new core.Data(key, patch, manifest, signature),
     file: (champion, role, bracket) => core.Data.file(champion, role, bracket),
     gameNames: (...docs) => core.game_names(...docs),
+    abilityIcons: (champion, document) => core.ability_icons(BigInt(champion), document),
   };
 }

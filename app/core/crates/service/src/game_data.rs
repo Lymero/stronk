@@ -155,6 +155,60 @@ impl PerkStyles {
     }
 }
 
+/// `GET /lol-game-data/assets/v1/champions/{id}.json`, one champion's own document: here only
+/// its abilities.
+#[derive(Debug, Deserialize, Default)]
+#[serde(default)]
+pub struct ChampionDetail {
+    pub spells: Vec<Ability>,
+}
+
+/// One of a champion's Q, W, E and R.
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Ability {
+    /// `q`, `w`, `e` or `r`.
+    pub spell_key: String,
+    /// Where the client serves its icon, under `/lol-game-data/assets/`.
+    pub ability_icon_path: String,
+}
+
+impl ChampionDetail {
+    /// Where the client serves the document of `champion` (its numeric id).
+    pub fn path(champion: i64) -> String {
+        format!("{ASSETS}v1/champions/{champion}.json")
+    }
+
+    /// Icon paths by slot, Q 1 to R 4 (as `skills::id` numbers keys), checked as every icon is.
+    pub fn ability_icons(&self) -> BTreeMap<i64, String> {
+        icons_by_id(self.spells.iter().filter_map(|a| {
+            let slot = match a.spell_key.as_str() {
+                "q" => 1,
+                "w" => 2,
+                "e" => 3,
+                "r" => 4,
+                _ => return None,
+            };
+            Some((slot, a.ability_icon_path.as_str()))
+        }))
+    }
+}
+
+/// An ability's id in `icons.get` (ADR-085): its champion's id times ten plus its slot, Q 1 to
+/// R 4, so Lee Sin's (64) Q is 641. None for a slot outside 1 to 4 or an id too large.
+pub fn ability_id(champion: i64, slot: i64) -> Option<i64> {
+    let valid = champion > 0 && (1..=4).contains(&slot);
+    valid
+        .then(|| champion.checked_mul(10)?.checked_add(slot))
+        .flatten()
+}
+
+/// The champion and slot an ability id stands for ([`ability_id`] reversed).
+pub fn ability_of(id: i64) -> Option<(i64, i64)> {
+    let (champion, slot) = (id.div_euclid(10), id.rem_euclid(10));
+    (champion > 0 && (1..=4).contains(&slot)).then_some((champion, slot))
+}
+
 /// Id to name, leaving out entries without a name.
 pub fn by_id<'a>(entries: impl IntoIterator<Item = &'a Named>) -> BTreeMap<i64, String> {
     entries
@@ -226,6 +280,44 @@ mod tests {
         ];
         let kept: Vec<_> = icons_by_id(paths).into_keys().collect();
         assert_eq!(kept, [1, 2]);
+    }
+
+    #[test]
+    fn a_champions_abilities_give_their_icons_by_slot() {
+        let lee: ChampionDetail = serde_json::from_str(
+            r#"{"id": 64, "passive": {"abilityIconPath": "/lol-game-data/assets/P.png"},
+                "spells": [
+                  {"spellKey": "r", "abilityIconPath": "/lol-game-data/assets/ASSETS/LeeSinR.png"},
+                  {"spellKey": "q", "abilityIconPath": "/lol-game-data/assets/ASSETS/LeeSinQ1.png"},
+                  {"spellKey": "w", "abilityIconPath": "https://elsewhere.test/w.png"},
+                  {"spellKey": "x", "abilityIconPath": "/lol-game-data/assets/X.png"},
+                  {"name": "no key"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            lee.ability_icons(),
+            BTreeMap::from([
+                (1, "/lol-game-data/assets/ASSETS/LeeSinQ1.png".to_owned()),
+                (4, "/lol-game-data/assets/ASSETS/LeeSinR.png".to_owned()),
+            ])
+        );
+        assert_eq!(
+            ChampionDetail::path(64),
+            "/lol-game-data/assets/v1/champions/64.json"
+        );
+    }
+
+    #[test]
+    fn an_ability_id_is_its_champion_and_slot() {
+        assert_eq!(ability_id(64, 1), Some(641));
+        assert_eq!(ability_of(641), Some((64, 1)));
+        assert_eq!(ability_of(ability_id(901, 4).unwrap()), Some((901, 4)));
+        for (champion, slot) in [(64, 0), (64, 5), (0, 1), (-3, 1), (i64::MAX, 1)] {
+            assert_eq!(ability_id(champion, slot), None, "{champion} {slot}");
+        }
+        for id in [640, 645, 4, -641, 0] {
+            assert_eq!(ability_of(id), None, "{id}");
+        }
     }
 
     #[test]

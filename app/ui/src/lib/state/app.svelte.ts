@@ -8,8 +8,8 @@ import type {
   ChampSelectState,
   CommandError,
   DataStatus,
-  GameKind,
   GameNames,
+  IconKind,
   IconParams,
   Imported,
   ImportParams,
@@ -18,6 +18,7 @@ import type {
   Restored,
   Role,
 } from "../backend/backend.ts";
+import { ABILITY_KEYS, abilityId } from "../backend/backend.ts";
 import {
   asItems,
   browserPicks,
@@ -56,7 +57,7 @@ export interface AppState {
   names: GameNames | null;
   /** Icons for the ids on screen, as `data:` URLs from the client; `null` for an id the client
    * has none for. Stand-ins show until they load. */
-  icons: Record<GameKind, Record<string, string | null>>;
+  icons: Record<IconKind, Record<string, string | null>>;
   /** What an import would write for the champion picked or hovered, and each slot's
    * alternatives; loaded as soon as known. */
   /** The plan for `key` (champion/role), asked with these enemy picks (sorted ids, ADR-074) in
@@ -130,7 +131,7 @@ export function createApp(
     data: null,
     champSelect: null,
     names: null,
-    icons: { champions: {}, rune_styles: {}, runes: {}, spells: {}, items: {} },
+    icons: { champions: {}, rune_styles: {}, runes: {}, spells: {}, items: {}, abilities: {} },
     plan: null,
     picks: null,
     imported: null,
@@ -181,13 +182,14 @@ export function createApp(
   }
 
   /** Every id on screen: the champion, and each option of the plan. */
-  function shownIds(): Record<GameKind, number[]> {
-    const ids: Record<GameKind, Set<number>> = {
+  function shownIds(): Record<IconKind, number[]> {
+    const ids: Record<IconKind, Set<number>> = {
       champions: new Set(),
       rune_styles: new Set(),
       runes: new Set(),
       spells: new Set(),
       items: new Set(),
+      abilities: new Set(),
     };
     const championId = state.champSelect?.session?.champion_id ?? 0;
     if (championId > 0) ids.champions.add(championId);
@@ -195,6 +197,8 @@ export function createApp(
     const plan = state.plan?.value;
     if (plan) {
       const { runes, spells, items } = plan.alternatives;
+      // The skill order's abilities (ADR-085).
+      if (championId > 0) for (const key of ABILITY_KEYS) ids.abilities.add(abilityId(championId, key));
       for (const page of [...runes.rows.map((r) => r.value), ...(plan.runes ? [plan.runes.value] : [])]) {
         ids.rune_styles.add(page.primary_style).add(page.sub_style);
         for (const perk of page.perks) ids.runes.add(perk);
@@ -222,14 +226,14 @@ export function createApp(
         }
       }
     }
-    return Object.fromEntries(Object.entries(ids).map(([k, v]) => [k, [...v]])) as Record<GameKind, number[]>;
+    return Object.fromEntries(Object.entries(ids).map(([k, v]) => [k, [...v]])) as Record<IconKind, number[]>;
   }
 
   /** Fetches the icons of every option not asked for yet, at most `ICONS_PER_CALL` ids per
    * call. Cosmetic like names: on failure the stand-ins stay and the next refresh asks again. */
   async function loadIcons(): Promise<void> {
     const shown = shownIds();
-    const missing = (Object.keys(shown) as GameKind[]).flatMap((kind) =>
+    const missing = (Object.keys(shown) as IconKind[]).flatMap((kind) =>
       shown[kind].filter((id) => !(String(id) in state.icons[kind])).map((id) => [kind, id] as const),
     );
     for (let start = 0; start < missing.length; start += ICONS_PER_CALL) {
@@ -237,7 +241,7 @@ export function createApp(
       for (const [kind, id] of missing.slice(start, start + ICONS_PER_CALL)) (wanted[kind] ??= []).push(id);
       const icons = await backend.run("icons.get", wanted);
       if (!icons.ok) return;
-      for (const kind of Object.keys(wanted) as GameKind[]) {
+      for (const kind of Object.keys(wanted) as IconKind[]) {
         const known = { ...state.icons[kind] };
         for (const id of wanted[kind] ?? []) known[String(id)] = icons.value[kind][String(id)] ?? null;
         state.icons[kind] = known;

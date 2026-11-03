@@ -5,10 +5,10 @@
 The fake client serves placeholders at the paths its game data names. For the screenshot, this
 fetches the real images for the same ids from CommunityDragon, the public mirror of the League
 client's game data, and saves each under the path the fake client serves, so lcu-mock can serve
-it instead (`STRONK_LCU_ASSETS`). Fetched: the session's champions, every rune, shard and rune
-tree, every summoner spell, and the items, starts, first components and boots of the picks'
-builds. Kept in `runs/`, never committed; already fetched files are kept. Network: this is a
-tool, not a test.
+it instead (`STRONK_LCU_ASSETS`). Fetched: the session's champions and their abilities, every
+rune, shard and rune tree, every summoner spell, and the items, starts, first components and
+boots of the picks' builds. Kept in `runs/`, never committed; already fetched files are kept.
+Network: this is a tool, not a test.
 """
 
 from __future__ import annotations
@@ -24,6 +24,8 @@ from lcu_mock import Replay
 
 BASE = "https://raw.communitydragon.org/{patch}/plugins/rcp-be-lol-game-data/global/default/"
 PREFIX = "/lol-game-data/assets/"
+type Id = int | str
+"""An icon's id in its kind: a number, or `<champion id>/<key>` for an ability."""
 
 
 def fetch(url: str) -> bytes:
@@ -51,9 +53,9 @@ def ids_in_builds(session: dict[str, Any], data: Path) -> set[int]:
     return items
 
 
-def wanted(replay: Replay, session: dict[str, Any], data: Path) -> dict[str, tuple[str, int]]:
+def wanted(replay: Replay, session: dict[str, Any], data: Path) -> dict[str, tuple[str, Id]]:
     """Each path the fake client serves that the screenshot can show: its kind and id."""
-    out: dict[str, tuple[str, int]] = {}
+    out: dict[str, tuple[str, Id]] = {}
     game = replay.game_data
     for perk in game[PREFIX + "v1/perks.json"]:  # type: ignore[union-attr]
         out[perk["iconPath"]] = ("perks", perk["id"])
@@ -68,10 +70,24 @@ def wanted(replay: Replay, session: dict[str, Any], data: Path) -> dict[str, tup
     for champion in replay.champions:
         if champion["id"] > 0:
             out[champion["squarePortraitPath"]] = ("champions", champion["id"])
+            document = game.get(f"{PREFIX}v1/champions/{champion['id']}.json", {})
+            for ability in document.get("spells", []):  # type: ignore[union-attr]
+                key = f"{champion['id']}/{ability['spellKey']}"
+                out[ability["abilityIconPath"]] = ("abilities", key)
     return out
 
 
-def real_paths(base: str) -> dict[str, dict[int, str]]:
+def ability_paths(base: str, champions: set[int]) -> dict[Id, str]:
+    """The client's own icon path of each ability (`<champion id>/<key>`), from the champions'
+    documents on CommunityDragon."""
+    out: dict[Id, str] = {}
+    for champion in champions:
+        for ability in json.loads(fetch(f"{base}v1/champions/{champion}.json"))["spells"]:
+            out[f"{champion}/{ability['spellKey']}"] = ability["abilityIconPath"]
+    return out
+
+
+def real_paths(base: str) -> dict[str, dict[Id, str]]:
     """The client's own icon path for each id, by kind, from CommunityDragon's game data."""
     styles = json.loads(fetch(base + "v1/perkstyles.json"))["styles"]
     return {
@@ -99,8 +115,10 @@ def main(argv: list[str]) -> int:
     except OSError:
         base = BASE.format(patch="latest")
         real = real_paths(base)
+    paths = wanted(replay, session, args.data)
+    real["abilities"] = ability_paths(base, {c["id"] for c in replay.champions if c["id"] > 0})
     fetched = missing = 0
-    for path, (kind, id_) in wanted(replay, session, args.data).items():
+    for path, (kind, id_) in paths.items():
         target = args.out / path.lstrip("/")
         if target.exists():
             continue

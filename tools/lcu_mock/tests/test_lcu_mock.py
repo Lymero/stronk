@@ -91,6 +91,9 @@ def test_serves_a_placeholder_at_every_icon_path(mock: Mock) -> None:
     assert champion[0] == 200
     assert champion[2] != png  # a colour per path
     assert get_bytes(mock, "/lol-game-data/assets/v1/champion-icons/99999.png")[0] == 404
+    _, lee = call(mock, "/lol-game-data/assets/v1/champions/64.json")
+    assert [s["spellKey"] for s in lee["spells"]] == ["q", "w", "e", "r"]
+    assert get_bytes(mock, lee["spells"][0]["abilityIconPath"])[:2] == (200, "image/png")
     # The real client refuses any narrower Accept than `*/*` for its images.
     for narrower in ("image/*", "image/png"):
         assert get_bytes(mock, "/lol-game-data/assets/v1/champion-icons/64.png", narrower)[0] == 406

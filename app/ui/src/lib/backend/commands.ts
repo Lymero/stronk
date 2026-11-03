@@ -468,7 +468,7 @@ export interface Commands {
     result: DataStatus;
   };
   /**
-   * Icons for champions, runes, spells and items, from the League client
+   * Icons for champions, runes, spells, items and abilities, from the League client
    */
   "icons.get": {
     params: IconsParams;
@@ -1079,6 +1079,10 @@ export interface DataStatus {
  * via the `definition` "IconsParams".
  */
 export interface IconsParams {
+  /**
+   * A champion's Q, W, E and R: its id times ten plus the slot, Q 1 to R 4 (Lee Sin's Q is 641).
+   */
+  abilities?: number[];
   champions?: number[];
   items?: number[];
   rune_styles?: number[];
@@ -1092,6 +1096,13 @@ export interface IconsParams {
  * via the `definition` "Icons".
  */
 export interface Icons {
+  abilities: {
+    /**
+     * This interface was referenced by `undefined`'s JSON-Schema definition
+     * via the `patternProperty` "^-?\d+$".
+     */
+    [k: string]: string;
+  };
   champions: {
     /**
      * This interface was referenced by `undefined`'s JSON-Schema definition

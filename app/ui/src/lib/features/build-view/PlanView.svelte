@@ -8,7 +8,7 @@
   // pick first, then the most played others, as the import lists them. The skill order (ADR-085),
   // the first four levels and the max order, follows the spells: the client can't import it, so
   // the item set's first block names it.
-  import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
+  import { abilityId, type GameNames, type Imported, type Outcome, type Page, type Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
   import { asItems, type Pick, type Picks, SECTIONS, type Section, SKILLS, type SkillPart } from "../../state/picks.ts";
@@ -31,6 +31,7 @@
 
   let {
     plan,
+    champion,
     wanted,
     names,
     icons,
@@ -40,6 +41,8 @@
     onpick,
   }: {
     plan: Plan;
+    /** The champion's id, for its abilities' icons; 0 when unknown (lettered stand-ins show). */
+    champion: number;
     /** The bracket the player chose; the plan's own is Master+'s when that one has no build (ADR-078). */
     wanted: string;
     names: GameNames | null;
@@ -131,7 +134,8 @@
     skill_levels: { name: "First levels", about: "The first four level-ups", read: (o) => o.join(" ") },
     skill_max: { name: "Max order", about: "The order the abilities are maxed in", read: (o) => o.join(" > ") },
   };
-  const keyIcon = (o: string[]) => (o[0] ? [{ src: null, name: o[0] }] : []);
+  /** A skill order's first ability, its icon from the client (ADR-085), else its letter. */
+  const keyIcon = (o: string[]) => (o[0] ? [{ src: icon(icons, "abilities", abilityId(champion, o[0])), name: o[0] }] : []);
   /** What a skill order row shows: the player's pick, else Stronk's. */
   const order = (key: SkillPart): string[] | null => picks.skills?.[key] ?? plan[key]?.value ?? null;
   /** A section's option, its items by name and icon. */

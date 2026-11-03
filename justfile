@@ -361,7 +361,7 @@ e2e-real picks="" data="runs/real/data" key="runs/real/data.pub":
 
 # The product site's screenshots (ADR-066): Lee Sin jungle on the real data, the app's own look,
 # with the real icons fetched from CommunityDragon (network): the rune page and an item slot, each
-# wide and for phones, into site/public/img/.
+# wide and for phones, into site/public/img/ as lossless WebP (Playwright's PNGs in runs/site-shot/).
 # Needs the real data (`just data-real`).
 [unix]
 site-shot data="runs/real/data" key="runs/real/data.pub":
@@ -373,7 +373,7 @@ site-shot data="runs/real/data" key="runs/real/data.pub":
     uv run python tools/lcu_mock/site_icons.py --session runs/e2e-real/session.json --data "{{ data }}" --out runs/site-icons
     STRONK_LCU_ASSETS="$PWD/runs/site-icons" STRONK_SITE_SHOT=1 STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" STRONK_REAL_DATA="{{ data }}" STRONK_REAL_KEY="{{ key }}" \
         pnpm --filter @stronk/ui exec playwright test --config playwright.real.config.ts
-    uv run python tools/lcu_mock/site_png.py site/public/img/runes.png site/public/img/items.png site/public/img/runes-phone.png site/public/img/items-phone.png
+    uv run python tools/lcu_mock/site_webp.py site/public/img runs/site-shot/runes.png runs/site-shot/items.png runs/site-shot/runes-phone.png runs/site-shot/items-phone.png
 
 # Fake League client replaying a session: just lcu-mock tools/lcu_mock/sessions/<file>.json
 lcu-mock session="tools/lcu_mock/sessions/ranked-jungle-leesin.json":

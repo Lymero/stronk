@@ -27,6 +27,11 @@ function fakeCore(calls: string[], fail?: string): WebCore {
         names: { champions: { 64: "Lee Sin" } },
         icons: { champions: { 64: "/lol-game-data/assets/v1/Champion-Icons/64.png" }, items: { 1: "https://elsewhere.test/x.png" } },
       }),
+    abilityIcons: (champion, document) => {
+      calls.push(`abilities ${champion}`);
+      const spells = (JSON.parse(document) as { spells: { abilityIconPath: string }[] }).spells;
+      return JSON.stringify(Object.fromEntries(spells.map((s, i) => [champion * 10 + i + 1, s.abilityIconPath])));
+    },
   };
 }
 
@@ -61,6 +66,9 @@ const PUBLISHED = {
   [`${DOCS}perks.json`]: "[]",
   [`${DOCS}summoner-spells.json`]: "[]",
   [`${DOCS}items.json`]: "[]",
+  [`${DOCS}champions/64.json`]: JSON.stringify({
+    spells: [{ abilityIconPath: "/lol-game-data/assets/ASSETS/LeeSinQ1.png" }, { abilityIconPath: "https://elsewhere.test/w.png" }],
+  }),
 };
 
 describe("HttpBackend", () => {
@@ -122,7 +130,17 @@ describe("HttpBackend", () => {
       runes: {},
       spells: {},
       items: {},
+      abilities: {},
     });
+  });
+
+  it("gives a champion's ability icons from its own document, read once", async () => {
+    const { http, calls, fetched } = backend(PUBLISHED);
+    const icons = await http.run("icons.get", { abilities: [641, 642, 643, 651] });
+    expect(icons.ok && icons.value.abilities).toEqual({ 641: `${GAME}16.21/plugins/rcp-be-lol-game-data/global/default/assets/leesinq1.png` });
+    await http.run("icons.get", { abilities: [644] });
+    expect(calls.filter((c) => c.startsWith("abilities"))).toEqual(["abilities 64"]); // 65 has no document
+    expect(fetched.filter((u) => u.includes("/champions/"))).toEqual([`${DOCS}champions/64.json`, `${DOCS}champions/65.json`]);
   });
 
   it("writes nothing: imports and settings belong to the app", async () => {

@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use stronk_domain::Role;
-use stronk_web::{Data, Listed, names_of};
+use stronk_web::{Data, Listed, abilities_of, names_of};
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..")
@@ -116,4 +116,16 @@ fn names_and_icon_paths_come_from_the_game_data_documents() {
         "/lol-game-data/assets/v1/champion-icons/64.png"
     );
     assert!(names_of("{", "{}", "[]", "[]", "[]").is_err());
+}
+
+#[test]
+fn ability_icon_paths_come_from_the_champions_document() {
+    let lee = r#"{"id": 64, "spells": [
+        {"spellKey": "q", "abilityIconPath": "/lol-game-data/assets/ASSETS/Characters/LeeSin/HUD/Icons2D/LeeSinQ1.png"},
+        {"spellKey": "r", "abilityIconPath": "/lol-game-data/assets/ASSETS/Characters/LeeSin/HUD/Icons2D/LeeSinR.png"},
+        {"spellKey": "e", "abilityIconPath": "../../etc/passwd"}]}"#;
+    let icons = abilities_of(64, lee).unwrap();
+    assert_eq!(icons.keys().copied().collect::<Vec<_>>(), [641, 644]);
+    assert!(icons[&641].ends_with("LeeSinQ1.png"));
+    assert!(abilities_of(64, "[").is_err());
 }

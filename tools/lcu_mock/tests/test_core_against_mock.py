@@ -88,14 +88,16 @@ def test_names_come_from_the_clients_game_data(mock: Mock) -> None:
 
 def test_icons_come_from_the_clients_game_data(mock: Mock) -> None:
     params = {"champions": [64], "runes": [8010], "rune_styles": [8000], "spells": [4],
-              "items": [6692, 999999]}  # fmt: skip
+              "items": [6692, 999999], "abilities": [641, 644, 645, 99991]}  # fmt: skip
     status, icons = core(mock, "icons.get", params)
     assert status == 0, icons
     png = "data:image/png;base64,iVBORw0KGgo"  # the PNG signature
     for kind, id_ in [("champions", 64), ("runes", 8010), ("rune_styles", 8000), ("spells", 4),
-                      ("items", 6692)]:  # fmt: skip
+                      ("items", 6692), ("abilities", 641), ("abilities", 644)]:  # fmt: skip
         assert icons[kind][str(id_)].startswith(png), kind
     assert "999999" not in icons["items"]  # unknown to the client: left out
+    assert icons["abilities"][str(641)] != icons["abilities"][str(644)]  # Q and R: each its own
+    assert sorted(icons["abilities"]) == ["641", "644"]  # no fifth slot, no such champion
 
 
 def test_a_wrong_password_is_an_error_not_a_crash(mock: Mock) -> None:

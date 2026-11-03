@@ -33,6 +33,19 @@ export type Build = Commands["build.get"]["result"];
 
 /** What a name or icon is of (the rest of `GameNames` is the rune trees' layout). */
 export type GameKind = Exclude<keyof GameNames, "rune_trees" | "shard_rows">;
+/** What an icon is of: a named kind, or a champion's ability (ADR-085), which has no name. */
+export type IconKind = keyof GameIcons;
+
+const SLOTS: Record<string, number> = { Q: 1, W: 2, E: 3, R: 4 };
+/** The keys of a champion's abilities, in their slots' order. */
+export const ABILITY_KEYS = ["Q", "W", "E", "R"] as const;
+
+/** An ability's id in `icons.get`: its champion's id times ten plus its slot, Q 1 to R 4, so Lee
+ * Sin's (64) Q is 641; 0, which no ability has, when the champion or the key is unknown. */
+export function abilityId(champion: number, key: string): number {
+  const slot = SLOTS[key];
+  return champion > 0 && slot ? champion * 10 + slot : 0;
+}
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 

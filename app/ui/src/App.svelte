@@ -66,6 +66,7 @@
   {#if state.plan && showPlan}
     <PlanView
       plan={state.plan.value}
+      champion={state.champSelect?.session?.champion_id ?? 0}
       wanted={state.plan.elo}
       names={state.names}
       icons={state.icons}

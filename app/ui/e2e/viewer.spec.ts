@@ -1,7 +1,8 @@
 // The web viewer (ADR-086) in Chromium: its WebAssembly core (`just web-core`) on the signed
 // fixture data, served as the CDN would. CommunityDragon is stubbed: the client's game data from
 // lcu-mock's subset (tools/lcu_mock/game_data.json), a champion summary naming the fixture's
-// champions by their keys and Lee Sin by name, and no images (stand-ins show).
+// champions by their keys and Lee Sin by name, each champion's abilities, and no images
+// (stand-ins show).
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -27,7 +28,18 @@ async function stubGameData(page: Page): Promise<string[]> {
     const url = route.request().url();
     asked.push(url);
     const doc = url.match(/\/global\/default\/v1\/([a-z-]+\.json)$/)?.[1];
-    const body = doc === "champion-summary.json" ? champions : doc ? gameData[`/lol-game-data/assets/v1/${doc}`] : undefined;
+    const champion = Number(url.match(/\/v1\/champions\/(\d+)\.json$/)?.[1] ?? 0);
+    const abilities = (id: number) => ({
+      id,
+      spells: [..."qwer"].map((k) => ({ spellKey: k, abilityIconPath: `/lol-game-data/assets/v1/abilities/${id}${k}.png` })),
+    });
+    const body = champion
+      ? abilities(champion)
+      : doc === "champion-summary.json"
+        ? champions
+        : doc
+          ? gameData[`/lol-game-data/assets/v1/${doc}`]
+          : undefined;
     return body === undefined ? route.fulfill({ status: 404 }) : route.fulfill({ json: body });
   });
   return asked;
@@ -47,6 +59,9 @@ test("lists the builds by role and shows the one picked, read-only", async ({ pa
   await expect(page).toHaveURL(/\?champion=LeeSin&role=JUNGLE$/);
   // Names and icons came from the patch's game data on CommunityDragon.
   expect(asked.some((u) => u.startsWith(`${VIEWER_GAME_DATA}16.20/plugins/rcp-be-lol-game-data/global/default/v1/`))).toBe(true);
+  // Lee Sin's abilities, for the skill order, from his own document.
+  await expect.poll(() => asked.filter((u) => u.endsWith("/v1/champions/64.json")).length).toBe(1);
+  await expect.poll(() => asked.some((u) => u.endsWith("/global/default/v1/abilities/64q.png"))).toBe(true);
   await screenshot(page, "viewer-board");
 });
 

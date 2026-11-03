@@ -14,7 +14,8 @@ files: rune pages (two of the player's, room for one more), the page inventory, 
 summoner, item sets (one of the player's), and the spell selection, which is laid over the
 local player in the session. The client's game data (rune, spell and item names and icon
 paths) comes from `game_data.json` next to this file, the same for every session; champions
-get the client's `squarePortraitPath`. Every icon path in the game data serves a generated
+get the client's `squarePortraitPath`, and each its own document (`champions/{id}.json`) with
+its Q, W, E and R and their icons. Every icon path in the game data serves a generated
 placeholder PNG, a square in a colour taken from the path, so no Riot artwork is needed.
 
 The client's websocket is there too: a `[5, "<topic>"]` message subscribes, and every step the
@@ -73,14 +74,32 @@ def with_portraits(champions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{"squarePortraitPath": path.format(c.get("id")), **c} for c in champions]
 
 
+def champion_documents(champions: list[dict[str, Any]]) -> dict[str, object]:
+    """Each champion's own document, as the client serves it: here its four abilities, each
+    with an icon at a path of its own."""
+    icon = "/lol-game-data/assets/v1/champion-abilities/{}/{}.png"
+    return {
+        f"/lol-game-data/assets/v1/champions/{c['id']}.json": {
+            "id": c["id"],
+            "alias": c.get("alias"),
+            "spells": [{"spellKey": k, "abilityIconPath": icon.format(c["id"], k)} for k in "qwer"],
+        }
+        for c in champions
+        if isinstance(c.get("id"), int) and c["id"] > 0
+    }
+
+
+ICON_KEYS = ("iconPath", "squarePortraitPath", "abilityIconPath")
+
+
 def icon_paths(documents: dict[str, object]) -> set[str]:
-    """Every `iconPath` and `squarePortraitPath` in the game data documents."""
+    """Every icon path (`ICON_KEYS`) in the game data documents."""
     paths: set[str] = set()
 
     def walk(node: object) -> None:
         if isinstance(node, dict):
             for key, value in cast(dict[str, object], node).items():
-                if key in ("iconPath", "squarePortraitPath") and isinstance(value, str):
+                if key in ICON_KEYS and isinstance(value, str):
                     paths.add(value)
                 else:
                     walk(value)
@@ -226,7 +245,9 @@ class Replay:
         # A session may replace game data documents by path (`e2e-real` gives every item).
         extra: dict[str, object] = data.get("game_data", {})
         return cls(
-            steps=steps, champions=with_portraits(champions), game_data={**game_data(), **extra}
+            steps=steps,
+            champions=with_portraits(champions),
+            game_data={**game_data(), **champion_documents(champions), **extra},
         )
 
     def icons(self) -> set[str]:

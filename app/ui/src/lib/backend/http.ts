@@ -26,6 +26,8 @@ export interface WebCore {
   file(champion: string, role: string, bracket: string): string;
   /** `{names, icons}` as JSON, from the five game data documents. */
   gameNames(champions: string, perkStyles: string, perks: string, spells: string, items: string): string;
+  /** A champion's ability icon paths by ability id (`abilityId`), as JSON, from its own document. */
+  abilityIcons(champion: number, document: string): string;
 }
 
 export interface Listed {
@@ -60,6 +62,8 @@ export class HttpBackend implements Backend {
   private patch: Promise<{ patch: string; data: CoreData; status: DataStatus }> | null = null;
   private game: Promise<{ names: GameNames; icons: Icons; ids: Map<string, number> }> | null = null;
   private selected: Listed | null = null;
+  /** Each champion's ability icon paths, from its document; loaded once per champion. */
+  private abilities = new Map<number, Promise<Record<string, string>>>();
 
   constructor(options: HttpOptions) {
     this.options = {
@@ -171,14 +175,39 @@ export class HttpBackend implements Backend {
     if (!game.ok) return game;
     const { patch } = await this.data();
     const root = `${this.options.gameData}${patch}/plugins/rcp-be-lol-game-data/global/default/`;
-    const out = { champions: {}, rune_styles: {}, runes: {}, spells: {}, items: {} } as Commands["icons.get"]["result"];
-    for (const kind of Object.keys(out) as (keyof typeof out)[]) {
+    const out: Commands["icons.get"]["result"] = { champions: {}, rune_styles: {}, runes: {}, spells: {}, items: {}, abilities: {} };
+    const url = (path: string | undefined) => (path?.startsWith(ASSETS) ? root + path.slice(ASSETS.length).toLowerCase() : null);
+    for (const kind of ["champions", "rune_styles", "runes", "spells", "items"] as const) {
       for (const id of params[kind] ?? []) {
-        const path = game.value.icons[kind]?.[String(id)];
-        if (path?.startsWith(ASSETS)) out[kind][String(id)] = root + path.slice(ASSETS.length).toLowerCase();
+        const icon = url(game.value.icons[kind]?.[String(id)]);
+        if (icon) out[kind][String(id)] = icon;
       }
     }
+    for (const id of params.abilities ?? []) {
+      const icon = url((await this.abilityPaths(Math.floor(id / 10)))[String(id)]);
+      if (icon) out.abilities[String(id)] = icon;
+    }
     return ok(out);
+  }
+
+  /** A champion's ability icon paths by ability id, from its document on CommunityDragon; none
+   * when it can't be read (the lettered stand-ins show). */
+  private abilityPaths(champion: number): Promise<Record<string, string>> {
+    let paths = this.abilities.get(champion);
+    if (!paths) {
+      paths = (async () => {
+        if (champion <= 0) return {};
+        const { patch } = await this.data();
+        const url = `${this.options.gameData}${patch}/plugins/rcp-be-lol-game-data/global/default/v1/champions/${champion}.json`;
+        const document = new TextDecoder().decode(await this.bytes(url));
+        return JSON.parse((await this.loadedCore()).abilityIcons(champion, document)) as Record<string, string>;
+      })().catch(() => {
+        this.abilities.delete(champion); // asked again next time
+        return {};
+      });
+      this.abilities.set(champion, paths);
+    }
+    return paths;
   }
 
   /** The build of the bracket the app would read, checked against the manifest and planned by the core. */

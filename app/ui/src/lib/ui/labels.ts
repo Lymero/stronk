@@ -3,7 +3,7 @@
 // name (no client yet, or one it doesn't know) shows as the id. Icons (`icons.get`) are looked
 // up the same way; without one, a stand-in shows.
 
-import type { GameNames, Page, Role } from "../backend/backend.ts";
+import type { GameNames, IconKind, Page, Role } from "../backend/backend.ts";
 
 const PHASES: Record<string, string> = {
   PLANNING: "Declaring picks",
@@ -37,11 +37,12 @@ export const name = (names: GameNames | null, kind: Kind, id: number): string =>
   names?.[kind][String(id)] ?? String(id);
 
 /** Icons by kind and id, as the app state keeps them (`null`: the client has none). */
-export type Icons = Record<Kind, Record<string, string | null>>;
+export type Icons = Record<IconKind, Record<string, string | null>>;
 
 /** The icon of `id` in `kind`, if loaded. */
-export const icon = (icons: Icons | null, kind: Kind, id: number): string | null =>
+export const icon = (icons: Icons | null, kind: IconKind, id: number): string | null =>
   icons?.[kind][String(id)] ?? null;
+
 
 /** A rune page as three lines: the primary tree and its four runes, the secondary tree and
  * its two, then the three stat shards. */

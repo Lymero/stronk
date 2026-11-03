@@ -112,6 +112,8 @@ pub enum IconKind {
     Rune,
     Spell,
     Item,
+    /// A champion's Q, W, E or R, by [`crate::game_data::ability_id`].
+    Ability,
 }
 
 /// An image from the client's game data, checked to be one: PNG, JPEG or WebP, and small.

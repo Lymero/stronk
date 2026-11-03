@@ -13,7 +13,9 @@ use serde::Serialize;
 use stronk_data::{TrustedKey, VerifiedManifest};
 use stronk_domain::{BuildKey, Patch, Role, elo};
 use stronk_service::commands::build_plan::{Plan, plan};
-use stronk_service::game_data::{ChampionSummary, GameData, Named, PerkStyles};
+use stronk_service::game_data::{
+    ChampionDetail, ChampionSummary, GameData, Named, PerkStyles, ability_id,
+};
 use stronk_service::ports::{GameNames, IconKind};
 use wasm_bindgen::prelude::*;
 
@@ -211,6 +213,25 @@ pub fn game_names(
     serde_json::to_string(&names).map_err(|e| JsError::new(&e.to_string()))
 }
 
+/// A champion's ability icon paths by ability id ([`ability_id`]), from its own game data
+/// document (`champions/{id}.json`).
+pub fn abilities_of(champion: i64, document: &str) -> Result<BTreeMap<i64, String>, String> {
+    let detail: ChampionDetail =
+        serde_json::from_str(document).map_err(|e| format!("champions/{champion}.json: {e}"))?;
+    Ok(detail
+        .ability_icons()
+        .into_iter()
+        .filter_map(|(slot, path)| Some((ability_id(champion, slot)?, path)))
+        .collect())
+}
+
+/// [`abilities_of`] as JSON.
+#[wasm_bindgen]
+pub fn ability_icons(champion: i64, document: &str) -> Result<String, JsError> {
+    let paths = abilities_of(champion, document).map_err(|e| JsError::new(&e))?;
+    serde_json::to_string(&paths).map_err(|e| JsError::new(&e.to_string()))
+}
+
 /// What the UI calls each kind (`GameIcons`'s keys).
 fn kind_name(kind: IconKind) -> &'static str {
     match kind {
@@ -219,6 +240,7 @@ fn kind_name(kind: IconKind) -> &'static str {
         IconKind::Rune => "runes",
         IconKind::Spell => "spells",
         IconKind::Item => "items",
+        IconKind::Ability => "abilities",
     }
 }
 

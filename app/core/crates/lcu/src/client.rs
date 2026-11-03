@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error as _;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -10,7 +10,9 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use stronk_domain::owned::PageInfo;
-use stronk_service::game_data::{ChampionSummary, GameData, Named, PerkStyles};
+use stronk_service::game_data::{
+    ChampionDetail, ChampionSummary, GameData, Named, PerkStyles, ability_of,
+};
 use stronk_service::ports::{
     ChampSelect, GameNames, Icon, IconKind, LeagueClient, NewRunePage, PortError,
 };
@@ -40,6 +42,8 @@ pub struct LcuClient {
     auth: String,
     champions: Mutex<Option<HashMap<i64, String>>>,
     game_data: Mutex<Option<GameData>>,
+    /// Each champion's ability icon paths by slot, read from its document on first use.
+    abilities: Mutex<HashMap<i64, BTreeMap<i64, String>>>,
 }
 
 impl LcuClient {
@@ -62,6 +66,7 @@ impl LcuClient {
             auth: format!("Basic {token}"),
             champions: Mutex::new(None),
             game_data: Mutex::new(None),
+            abilities: Mutex::new(HashMap::new()),
         })
     }
 
@@ -157,6 +162,34 @@ impl LcuClient {
         Ok(data)
     }
 
+    /// Where the client serves an ability's icon ([`ability_of`]), from its champion's document,
+    /// read once per champion; `None` for an id that is no ability or a champion without one.
+    fn ability_icon_path(&self, id: i64) -> Result<Option<String>, PortError> {
+        let Some((champion, slot)) = ability_of(id) else {
+            return Ok(None);
+        };
+        let poisoned = || PortError::Unavailable("ability icon cache poisoned".into());
+        if let Some(paths) = self
+            .abilities
+            .lock()
+            .map_err(|_| poisoned())?
+            .get(&champion)
+        {
+            return Ok(paths.get(&slot).cloned());
+        }
+        // Read outside the lock: a slow client would hold up every other champion's icons.
+        let paths = self
+            .get::<ChampionDetail>(&ChampionDetail::path(champion))?
+            .map(|detail| detail.ability_icons())
+            .unwrap_or_default();
+        let path = paths.get(&slot).cloned();
+        self.abilities
+            .lock()
+            .map_err(|_| poisoned())?
+            .insert(champion, paths);
+        Ok(path)
+    }
+
     /// An image the client serves at `path`, `None` on 404; anything else than a small PNG,
     /// JPEG or WebP is refused.
     fn image(&self, path: &str) -> Result<Option<Icon>, PortError> {
@@ -242,6 +275,12 @@ impl LeagueClient for LcuClient {
     }
 
     fn icon(&self, kind: IconKind, id: i64) -> Result<Option<Icon>, PortError> {
+        if kind == IconKind::Ability {
+            return match self.ability_icon_path(id)? {
+                Some(path) => self.image(&path),
+                None => Ok(None),
+            };
+        }
         let data = self.game_data_cached()?;
         match data.icons.get(&kind).and_then(|paths| paths.get(&id)) {
             Some(path) => self.image(path),

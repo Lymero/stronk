@@ -11,7 +11,8 @@ import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
-const IMG = resolve(ROOT, "site/public/img");
+/** Playwright's PNGs; `just site-shot` turns them into the site's WebP pictures (site_webp.py). */
+const IMG = resolve(ROOT, "runs/site-shot");
 
 /** Each view: how to open it, once the champion is locked in. */
 const VIEWS: Record<string, (page: Page) => Promise<void>> = {
@@ -41,9 +42,8 @@ async function open(page: Page, view: string): Promise<void> {
   expect((await page.request.post("/core/mock/step")).ok()).toBe(true);
   await expect(page.getByRole("heading", { name: "Lee Sin" })).toBeVisible();
   await VIEWS[view]?.(page);
-  // Every icon on screen loaded, none a stand-in letter, but the skill order's key tiles, which
-  // have no icon yet (ADR-085).
-  await expect(page.locator("main .stand-in:not(#slot-tab-skill_levels *, #slot-tab-skill_max *)")).toHaveCount(0);
+  // Every icon on screen loaded, none a stand-in letter, the skill order's abilities included.
+  await expect(page.locator("main .stand-in")).toHaveCount(0);
   // The import's status line too: the site's text says what lock-in imports, and the wide
   // runes picture stays under the 512 KB file limit without it.
   await page.addStyleTag({ content: "main > header, .legend, .how, .plan > .result { display: none !important; }" });

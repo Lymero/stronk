@@ -181,13 +181,15 @@ impl LeagueClient for FakeClient {
         })
     }
 
-    /// Icons for Viego and Eclipse; item 1's "icon" is not an image.
+    /// Icons for Viego, his Q and Eclipse; item 1's "icon" is not an image.
     fn icon(&self, kind: IconKind, id: i64) -> Result<Option<Icon>, PortError> {
         match (kind, id) {
-            (IconKind::Champion, 234) | (IconKind::Item, 6692) => Ok(Some(Icon {
-                mime: "image/png",
-                bytes: b"png".to_vec(),
-            })),
+            (IconKind::Champion, 234) | (IconKind::Ability, 2341) | (IconKind::Item, 6692) => {
+                Ok(Some(Icon {
+                    mime: "image/png",
+                    bytes: b"png".to_vec(),
+                }))
+            }
             (IconKind::Item, 1) => Err(PortError::Invalid("items/1.png: not an image".into())),
             _ => Ok(None),
         }

@@ -1,4 +1,4 @@
-//! `icons.get`: icons for champions, runes, spells and items, from the League client's own game
+//! `icons.get`: icons for champions, runes, spells, items and abilities, from the League client's own game
 //! data, as `data:` URLs the UI can show without reaching the client itself (ADR-051).
 
 use std::collections::BTreeMap;
@@ -23,6 +23,8 @@ pub struct Params {
     pub runes: Vec<i64>,
     pub spells: Vec<i64>,
     pub items: Vec<i64>,
+    /// A champion's Q, W, E and R: its id times ten plus the slot, Q 1 to R 4 (Lee Sin's Q is 641).
+    pub abilities: Vec<i64>,
 }
 
 /// `data:` URLs by id, by kind; ids the client has no icon for are left out.
@@ -33,12 +35,13 @@ pub struct Icons {
     pub runes: BTreeMap<i64, String>,
     pub spells: BTreeMap<i64, String>,
     pub items: BTreeMap<i64, String>,
+    pub abilities: BTreeMap<i64, String>,
 }
 
 pub fn command() -> Command {
     Command::new(
         "icons.get",
-        "Icons for champions, runes, spells and items, from the League client",
+        "Icons for champions, runes, spells, items and abilities, from the League client",
         run,
     )
 }
@@ -48,7 +51,8 @@ fn run(ctx: &Context, params: Params) -> Result<Icons, CommandError> {
         + params.rune_styles.len()
         + params.runes.len()
         + params.spells.len()
-        + params.items.len();
+        + params.items.len()
+        + params.abilities.len();
     if total > MAX_IDS {
         return Err(CommandError::new(
             ErrorCode::InvalidParams,
@@ -66,6 +70,7 @@ fn run(ctx: &Context, params: Params) -> Result<Icons, CommandError> {
         (IconKind::Rune, &params.runes, &mut icons.runes),
         (IconKind::Spell, &params.spells, &mut icons.spells),
         (IconKind::Item, &params.items, &mut icons.items),
+        (IconKind::Ability, &params.abilities, &mut icons.abilities),
     ] {
         for &id in ids {
             if out.contains_key(&id) {

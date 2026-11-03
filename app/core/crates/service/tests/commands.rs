@@ -205,7 +205,7 @@ fn icons_get_returns_data_urls_and_leaves_out_what_has_none() {
     let out = run(
         &ctx(FakeClient::new(None)),
         "icons.get",
-        json!({"champions": [234, 234], "items": [6692, 1, 3071], "runes": [8010]}),
+        json!({"champions": [234, 234], "items": [6692, 1, 3071], "runes": [8010], "abilities": [2341, 2342]}),
     )
     .unwrap();
     assert_eq!(
@@ -216,6 +216,7 @@ fn icons_get_returns_data_urls_and_leaves_out_what_has_none() {
             "runes": {},
             "spells": {},
             "items": {"6692": "data:image/png;base64,cG5n"},
+            "abilities": {"2341": "data:image/png;base64,cG5n"},
         })
     );
 }

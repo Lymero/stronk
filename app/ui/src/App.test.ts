@@ -375,6 +375,9 @@ describe("App with MockBackend", () => {
     const levels = await open("First levels");
     expect(screen.getByRole("tabpanel", { name: "First levels" })).toHaveTextContent("The first four level-ups");
     expect(option(levels, "Q W E Q")).toHaveTextContent("baseline");
+    // Each order shows its first ability's icon, from the client (Lee Sin is 64, Q his first slot).
+    expect(app.state.icons.abilities).toHaveProperty("641");
+    expect(tab("First levels").querySelector("img")?.getAttribute("src")).toBe(app.state.icons.abilities["641"]);
     const max = await open("Max order");
     expect(option(max, "Q > E > W")).toHaveTextContent("baseline");
     expect(option(max, "Q > W > E").querySelector(".num")).toHaveTextContent("+0.4");

@@ -3,6 +3,7 @@
 // what the core's `build.plan` gives for the signed fixture data (fixtures/data).
 
 import {
+  ABILITY_KEYS,
   type Alternatives,
   type Backend,
   type Backup,
@@ -15,6 +16,7 @@ import {
   type GameIcons,
   type GameKind,
   type GameNames,
+  type IconKind,
   type Imported,
   type Part,
   ok,
@@ -28,7 +30,7 @@ import {
 const KINDS: GameKind[] = ["champions", "rune_styles", "runes", "spells", "items"];
 
 /** A stand-in icon: a square in a colour taken from the id, with the name's initials. */
-export function placeholderIcon(kind: GameKind, id: number, name: string): string {
+export function placeholderIcon(kind: IconKind, id: number, name: string): string {
   let hash = 0;
   for (const c of `${kind}/${id}`) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
   const initials = name
@@ -584,12 +586,17 @@ export class MockBackend implements Backend {
           return err("unavailable", "no icons") as Out;
         }
         const asked = params as Commands["icons.get"]["params"];
-        const icons: GameIcons = { champions: {}, rune_styles: {}, runes: {}, spells: {}, items: {} };
+        const icons: GameIcons = { champions: {}, rune_styles: {}, runes: {}, spells: {}, items: {}, abilities: {} };
         for (const kind of KINDS) {
           for (const id of asked[kind] ?? []) {
             const name = names[kind][String(id)];
             if (name) icons[kind][String(id)] = placeholderIcon(kind, id, name);
           }
+        }
+        // A named champion's four abilities, lettered.
+        for (const id of asked.abilities ?? []) {
+          const key = ABILITY_KEYS[(id % 10) - 1];
+          if (key && names.champions[String(Math.floor(id / 10))]) icons.abilities[String(id)] = placeholderIcon("abilities", id, key);
         }
         return ok(icons) as Out;
       }

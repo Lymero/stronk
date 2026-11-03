@@ -84,5 +84,4 @@ Build a thin version end to end first, then improve each part. Structure is set 
 
 - `wpa` v3 if tests show a gain: situation buckets, top build paths (popular champions)
 - Matchup-adjusted builds
-- Ability icons for the skill order from the client's champion data (lettered stand-ins today, ADR-085)
 - MCP server over the command registry
