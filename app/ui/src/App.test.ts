@@ -119,6 +119,8 @@ describe("App with MockBackend", () => {
     expect(screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"))).toEqual([
       "Runes: Conqueror",
       "Spells: Smite + Flash",
+      "First levels: Q W E Q",
+      "Max order: Q > E > W",
       "Start: Scorchclaw Pup",
       "First back: Long Sword",
       "Item 1: Eclipse",
@@ -365,6 +367,27 @@ describe("App with MockBackend", () => {
     expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ boots: 3111 });
   });
 
+  it("shows the skill order after the spells, and imports the one picked into the item set", async () => {
+    const { backend, app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await next();
+    const levels = await open("First levels");
+    expect(screen.getByRole("tabpanel", { name: "First levels" })).toHaveTextContent("The first four level-ups");
+    expect(option(levels, "Q W E Q")).toHaveTextContent("baseline");
+    const max = await open("Max order");
+    expect(option(max, "Q > E > W")).toHaveTextContent("baseline");
+    expect(option(max, "Q > W > E").querySelector(".num")).toHaveTextContent("+0.4");
+    await fireEvent.click(option(max, "Q > W > E"));
+    expect(tab("Max order")).toHaveTextContent("Your pick");
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ skill_max: ["Q", "W", "E"] });
+    // Stronk's order again drops the pick.
+    await fireEvent.click(option(max, "Q > E > W"));
+    expect(tab("Max order")).not.toHaveTextContent("Your pick");
+    expect(app.state.picks?.value.skills).toBeUndefined();
+  });
+
   it("asks for the plan again as the enemies pick, and chooses the boots against them", async () => {
     const { backend, app, next } = setup("ranked-jungle");
     await app.refresh();
@@ -425,14 +448,17 @@ describe("App with MockBackend", () => {
     const first = await lockIn(saved);
     first.app.pick({ slot: 1, item: 6676 });
     first.app.pick({ spells: [14, 11] });
-    expect(saved.saved).toEqual({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: { 1: 6676 }, spells: [14, 11], sections: {} } } });
+    first.app.pick({ skills: "skill_levels", order: ["Q", "E", "W", "Q"] });
+    const skills = { skill_levels: ["Q", "E", "W", "Q"] };
+    expect(saved.saved).toEqual({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: { 1: 6676 }, spells: [14, 11], sections: {}, skills } } });
 
     // A restart: the same picks, and the import sends them.
     const second = await lockIn(saved);
-    expect(second.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 1: 6676 }, spells: [14, 11], sections: {} } });
+    expect(second.app.state.picks).toEqual({ key: "LeeSin/JUNGLE", value: { items: { 1: 6676 }, spells: [14, 11], sections: {}, skills } });
     await second.app.importBuild();
     expect(byHand(second.backend)[0]).toEqual({
       spells: [14, 11],
+      skill_levels: ["Q", "E", "W", "Q"],
       items: [{ slot: 1, item: 6676 }],
     });
     second.app.resetPicks();
@@ -584,6 +610,11 @@ describe("App with MockBackend", () => {
     await app.refresh();
     expect(imported(backend).at(-1)).toMatchObject({ parts: ["item_set"], items: [{ slot: 2, item: 3071 }] });
     expect(imports(backend)).toBe(4);
+    // The item set names the skill order (ADR-085): a pick writes it again.
+    app.pick({ skills: "skill_max", order: ["Q", "W", "E"] });
+    await app.refresh();
+    expect(imported(backend).at(-1)).toMatchObject({ parts: ["item_set"], skill_max: ["Q", "W", "E"] });
+    expect(imports(backend)).toBe(5);
   });
 
   it("imports runes and spells on lock-in too when asked, nothing when both are off, and remembers it", async () => {

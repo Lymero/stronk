@@ -1,6 +1,6 @@
 [package]
 name = "stronk-domain"
-description = "Pure app logic: the selection rule, rune pages, item set blocks, spells, roles, patches"
+description = "Pure app logic: the selection rule, rune pages, item set blocks, spells, skill order, roles, patches"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -33,7 +33,9 @@
       "description": "The boots (ADR-073): the first upgraded boots each player bought, estimated among the others."
     },
     "lateSlot": { "type": "integer", "minimum": 1, "maximum": 6, "description": "The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own." },
-    "skillOrder": { "type": "array", "items": { "$ref": "#/$defs/SkillOrderOption" } },
+    "skillOrder": { "type": "array", "items": { "$ref": "#/$defs/SkillOrderOption" }, "description": "Unused, never published: the skill order is `skillLevels` and `skillMax` (ADR-085)." },
+    "skillLevels": { "type": "array", "items": { "$ref": "#/$defs/SkillOption" }, "description": "The first four level-ups (ADR-085), each sequence estimated among the others." },
+    "skillMax": { "type": "array", "items": { "$ref": "#/$defs/SkillOption" }, "description": "The max order (ADR-085): the basic abilities by their points at the eleventh level-up (the twelfth or thirteenth to settle a tie), the order players max them in." },
     "runeChoices": {
       "type": "array",
       "items": { "$ref": "#/$defs/RuneChoice" },
@@ -204,6 +206,34 @@
         "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
         "games": { "type": "integer", "minimum": 0, "description": "Games played with this pair, whichever key each spell was on." },
         "comparison": { "$ref": "#/$defs/SpellComparison" }
+      }
+    },
+    "Skill": { "type": "string", "enum": ["Q", "W", "E", "R"] },
+    "SkillComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["versus", "wpa", "q"],
+      "description": "The skill order head to head with the most played one (ADR-085).",
+      "properties": {
+        "versus": { "type": "array", "items": { "$ref": "#/$defs/Skill" }, "minItems": 1, "maxItems": 4, "description": "The most played order." },
+        "wpa": { "type": "number", "description": "Win probability added by this order against `versus`." },
+        "q": { "type": "number", "minimum": 0, "maximum": 1, "description": "False-discovery-adjusted p-value of no difference, across the patch." },
+        "ci": { "$ref": "#/$defs/Interval", "description": "95% interval of `wpa`." }
+      }
+    },
+    "SkillOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skills", "games", "wpa", "ci", "n", "flags"],
+      "description": "A skill order measured as one choice: the first four level-ups, or the max order (ADR-085).",
+      "properties": {
+        "skills": { "type": "array", "items": { "$ref": "#/$defs/Skill" }, "minItems": 1, "maxItems": 4, "description": "The abilities in order: levels 1 to 4, or maxed first to last." },
+        "games": { "type": "integer", "minimum": 0, "description": "Games with this order." },
+        "wpa": { "type": ["number", "null"], "description": "Win probability added against the other orders; null when not estimated." },
+        "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
+        "n": { "type": "integer", "minimum": 0, "description": "Decisions behind the estimate." },
+        "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
+        "comparison": { "$ref": "#/$defs/SkillComparison" }
       }
     },
     "SkillOrderOption": {

@@ -2,9 +2,9 @@
 
 One file per champion and role (contracts/schemas/build.v1.schema.json): rune options from the
 keystone estimates, each with the page most played with that keystone, item options per slot,
-and spell pairs from theirs (ADR-083). Every file is validated against the contract, listed with
-its sha256 and size in the patch manifest, and the manifest is signed (contracts/README.md).
-Skill order has no estimates yet and is published empty.
+spell pairs from theirs (ADR-083), and the skill order, the first levels and the max order
+(ADR-085). Every file is validated against the contract, listed with its sha256 and size in the
+patch manifest, and the manifest is signed (contracts/README.md).
 """
 
 from __future__ import annotations
@@ -29,6 +29,8 @@ from stronk_pipeline.domain.extract.decision_points import (
     BOOTS_SLOT,
     COMPONENTS_SLOT,
     LATE_SLOT,
+    SKILL_LEVELS_SLOT,
+    SKILL_MAX_SLOT,
     SPELLS_SLOT,
     START_SLOT,
     is_rune_slot,
@@ -321,11 +323,15 @@ def _builds(
                 "lateSlot": LATE_SLOT,
                 "spells": spells,
                 "runeChoices": choices,
+                "skillLevels": _skills(options, SKILL_LEVELS_SLOT),
+                "skillMax": _skills(options, SKILL_MAX_SLOT),
             }
         )
-        data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order"})
+        skills = {k for k in ("skill_levels", "skill_max") if not getattr(build, k)}
+        data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order", *skills})
         every = (*data["runes"], *data["items"], *data["runeChoices"], *data["spells"])
-        for option in (*every, *data["starts"], *data["firstComponents"], *data["boots"]):
+        orders = (*data.get("skillLevels", []), *data.get("skillMax", []))
+        for option in (*every, *data["starts"], *data["firstComponents"], *data["boots"], *orders):
             for key in ("style", "row", "against"):  # optional: absent, not null
                 if option.get(key, 0) is None:
                     option.pop(key)
@@ -367,6 +373,23 @@ def _spells(
         pair, games = usual.get(frozenset(ids), (tuple(ids), e.chosen))
         out.append({"spells": list(pair), "games": games, **_numbers(e, versus=_perks)})
     return out
+
+
+SKILL_KEYS = "QWER"
+"""Skill slots 1 to 4 as players name them."""
+
+
+def _letters(option: str) -> list[str]:
+    """A skill order's option, `"1,3,2"`, as its keys: `["Q", "E", "W"]`."""
+    return [SKILL_KEYS[int(s) - 1] for s in option.split(",")]
+
+
+def _skills(options: list[OptionEstimate], slot: int) -> list[dict[str, object]]:
+    """The first levels or the max order (ADR-085): every order estimated, best first."""
+    return [
+        {"skills": _letters(e.option), "games": e.chosen, **_numbers(e, versus=_letters)}
+        for e in _ranked(o for o in options if o.slot == slot)
+    ]
 
 
 def _against(slot: int) -> dict[str, str]:

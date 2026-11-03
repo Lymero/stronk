@@ -4,19 +4,21 @@
 //! player can pick other published options instead of Stronk's (ADR-050), and build any rune
 //! page the client's own trees allow (ADR-059). An import can write only some parts: on
 //! lock-in the app writes the item set alone unless the player asked for everything (ADR-082).
+//! The skill order, which the client can't import, names the item set's first block (ADR-085).
 
 use serde::{Deserialize, Serialize};
-use stronk_contracts::build_v1::{Build, PurchaseOption};
+use stronk_contracts::build_v1::{Build, PurchaseOption, SkillOption};
 use stronk_domain::Role;
 use stronk_domain::item_set::purchase_items;
 use stronk_domain::owned::{PREFIX, plan_rune_page};
 use stronk_domain::runes::{Page, valid_page};
 use stronk_domain::select::{Choice, Label};
+use stronk_domain::skills;
 use stronk_domain::spells::arrange_spells;
 
 use crate::commands::build_get;
 use crate::commands::build_plan::{
-    BootsChoice, Plan, PurchaseChoice, SlotChoice, against_for, plan, purchase_buy,
+    BootsChoice, Plan, PurchaseChoice, SlotChoice, against_for, keys, plan, purchase_buy,
     with_alternatives,
 };
 use crate::item_sets::{Block, Document, ItemSet};
@@ -46,6 +48,12 @@ pub struct Params {
     /// Published upgraded boots (ADR-073).
     #[serde(default)]
     pub boots: Option<i64>,
+    /// Published first levels, keys "Q" to "R" (ADR-085).
+    #[serde(default)]
+    pub skill_levels: Option<Vec<String>>,
+    /// A published max order, the same way (ADR-085).
+    #[serde(default)]
+    pub skill_max: Option<Vec<String>>,
     /// The elo bracket of the plan shown (ADR-078); the closest one with a build when it has
     /// none (ADR-079).
     #[serde(default)]
@@ -182,6 +190,17 @@ fn with_picks(
     }
     if let Some(boots) = params.boots {
         pick_boots(&mut plan, build, boots)?;
+    }
+    if let Some(order) = &params.skill_levels {
+        pick_skills(
+            &mut plan.skill_levels,
+            &build.skill_levels,
+            order,
+            "first levels",
+        )?;
+    }
+    if let Some(order) = &params.skill_max {
+        pick_skills(&mut plan.skill_max, &build.skill_max, order, "max order")?;
     }
     with_alternatives(&mut plan);
     Ok(plan)
@@ -320,6 +339,22 @@ fn pick_boots(plan: &mut Plan, build: &Build, boots: i64) -> Result<(), CommandE
     Ok(())
 }
 
+/// A published first levels or max order (ADR-085), its keys in order.
+fn pick_skills(
+    choice: &mut Option<Choice<Vec<String>>>,
+    options: &[SkillOption],
+    order: &[String],
+    what: &str,
+) -> Result<(), CommandError> {
+    if !options.iter().any(|o| keys(&o.skills) == order) {
+        return Err(invalid(format!("{what}: {order:?} is not published")));
+    }
+    if choice.as_ref().map(|c| c.value.as_slice()) != Some(order) {
+        *choice = Some(picked(order.to_vec()));
+    }
+    Ok(())
+}
+
 fn picked<T>(value: T) -> Choice<T> {
     Choice {
         value,
@@ -437,7 +472,8 @@ fn item_set_title(ctx: &Context, plan: &Plan, champion_id: i64) -> String {
 /// supplies included (ADR-071, ADR-072), then one block per slot (boots after the first item,
 /// when they're usually bought, ADR-073), named with the slot and why the item was chosen, its
 /// choice first and then the slot's other items (ADR-069); the late slot's block is "Items 4+"
-/// (ADR-067).
+/// (ADR-067). The first block's name ends with the skill order (ADR-085): "Start: Popular ·
+/// Q W E Q · max Q > E > W".
 fn item_set_of(plan: &Plan, title: String, champion_id: i64) -> ItemSet {
     let named = |name: &str, label: Label, items: Vec<i64>| Block {
         name: format!("{name}: {}", why(label)),
@@ -470,6 +506,12 @@ fn item_set_of(plan: &Plan, title: String, champion_id: i64) -> ItemSet {
             named("Boots", b.choice.label, items.collect()),
         );
     }
+    let mut blocks: Vec<Block> = start.into_iter().chain(components).chain(slots).collect();
+    let levels = plan.skill_levels.as_ref().map(|c| c.value.as_slice());
+    let max = plan.skill_max.as_ref().map(|c| c.value.as_slice());
+    if let (Some(first), Some(note)) = (blocks.first_mut(), skills::note(levels, max)) {
+        first.name = format!("{} · {note}", first.name);
+    }
     ItemSet {
         title,
         uid: format!(
@@ -478,7 +520,7 @@ fn item_set_of(plan: &Plan, title: String, champion_id: i64) -> ItemSet {
             plan.role.as_str().to_lowercase()
         ),
         champion_id,
-        blocks: start.into_iter().chain(components).chain(slots).collect(),
+        blocks,
     }
 }
 
@@ -503,7 +545,7 @@ fn spells(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::build_plan::tests::with_items;
+    use crate::commands::build_plan::tests::{with_items, with_skills};
 
     #[test]
     fn the_late_slots_block_names_it_and_lists_its_items() {
@@ -517,5 +559,60 @@ mod tests {
         assert_eq!(set.blocks[0].name, "Item 1: Popular");
         assert_eq!(set.blocks[1].name, "Items 4+: Popular");
         assert_eq!(set.blocks[1].items, [3026, 3156]);
+    }
+
+    #[test]
+    fn the_first_block_names_the_skill_order() {
+        // The client can't import a skill order: the shop shows it this way (ADR-085).
+        let mut build = with_items(&[(1, 6698, 90)]);
+        let skills = with_skills(&[("Q W E Q", 90)], &[("Q E W", 80, None, false)]);
+        build.skill_levels = skills.skill_levels;
+        build.skill_max = skills.skill_max;
+        let set = item_set_of(&plan(&build, Role::Jungle, None), "Stronk".into(), 64);
+        assert_eq!(
+            set.blocks[0].name,
+            "Item 1: Popular · Q W E Q · max Q > E > W"
+        );
+        assert_eq!(set.blocks[0].items, [6698]);
+    }
+
+    #[test]
+    fn only_a_published_skill_order_can_be_picked() {
+        let build = with_skills(
+            &[("Q W E Q", 90)],
+            &[("Q E W", 80, None, false), ("Q W E", 20, None, false)],
+        );
+        let mut plan = plan(&build, Role::Jungle, None);
+        let keys = |s: &str| s.split(' ').map(str::to_owned).collect::<Vec<_>>();
+        pick_skills(
+            &mut plan.skill_max,
+            &build.skill_max,
+            &keys("Q W E"),
+            "max order",
+        )
+        .unwrap();
+        let max = plan.skill_max.clone().unwrap();
+        assert_eq!((max.value, max.label), (keys("Q W E"), Label::Picked));
+        let refused = pick_skills(
+            &mut plan.skill_max,
+            &build.skill_max,
+            &keys("W Q E"),
+            "max order",
+        );
+        assert!(refused.is_err());
+        // Picking Stronk's choice again keeps its label.
+        let mut again = plan_for(&build);
+        pick_skills(
+            &mut again.skill_levels,
+            &build.skill_levels,
+            &keys("Q W E Q"),
+            "first levels",
+        )
+        .unwrap();
+        assert_eq!(again.skill_levels.unwrap().label, Label::Popular);
+    }
+
+    fn plan_for(build: &Build) -> Plan {
+        plan(build, Role::Jungle, None)
     }
 }

@@ -5,14 +5,15 @@
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{
     BootsOption, BootsOptionAgainst, Build, Comparison, Flag, Interval, PurchaseComparison,
-    PurchaseOption, RuneChoice, RuneChoiceComparison, RuneChoiceKind, SpellComparison,
+    PurchaseOption, RuneChoice, RuneChoiceComparison, RuneChoiceKind, Skill, SkillComparison,
+    SkillOption, SpellComparison,
 };
 use stronk_domain::Role;
 use stronk_domain::damage::{self, Against};
 use stronk_domain::item_set::{block_order, block_others, block_size, purchase_id, purchase_items};
 use stronk_domain::runes::{Page, RowKey, RowKind, in_page, perks_id, with_row_bets};
 use stronk_domain::select::{self, Candidate, Choice, Ranked, choose, choose_items, rank};
-use stronk_domain::spells;
+use stronk_domain::{skills, spells};
 
 use crate::commands::build_get;
 use crate::registry::Command;
@@ -74,6 +75,10 @@ pub struct Alternatives {
     pub items: Vec<SlotRanked>,
     /// Each rune row on its own, for information (ADR-057): imports write whole pages.
     pub rune_rows: Vec<RuneRow>,
+    /// The first four level-ups (ADR-085).
+    pub skill_levels: Ranked<Vec<String>>,
+    /// The max order (ADR-085).
+    pub skill_max: Ranked<Vec<String>>,
 }
 
 /// The choices of one rune row: a primary tree's row, a secondary tree's pair, or a shard row.
@@ -128,6 +133,11 @@ pub struct Plan {
     /// The upgraded boots (ADR-073).
     pub boots: Option<BootsChoice>,
     pub items: Vec<SlotChoice>,
+    /// The first four level-ups, keys "Q" to "R" (ADR-085). The client can't import them: the
+    /// item set's first block names them.
+    pub skill_levels: Option<Choice<Vec<String>>>,
+    /// The max order, the basic abilities from maxed first to last (ADR-085), named the same way.
+    pub skill_max: Option<Choice<Vec<String>>>,
     /// The slot of the late items: the item completed there and every later one, as one
     /// decision (ADR-067). None for data from before it, where every slot is its own.
     pub late_slot: Option<u64>,
@@ -193,6 +203,8 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
     let starts = purchase_candidates(&build.starts);
     let components = purchase_candidates(&build.first_components);
     let (boots, boots_against) = boots_candidates(build, against);
+    let skill_levels = skill_candidates(&build.skill_levels);
+    let skill_max = skill_candidates(&build.skill_max);
     let items: Vec<SlotChoice> = choose_items(&candidates)
         .into_iter()
         .map(|(slot, choice)| SlotChoice {
@@ -212,6 +224,8 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
     let start_choice = choose(&starts);
     let components_choice = choose(&components);
     let boots_choice = choose(&boots);
+    let skill_levels_choice = choose(&skill_levels);
+    let skill_max_choice = choose(&skill_max);
     let alternatives = Alternatives {
         runes: rank(&runes, chosen(&keystone_choice)),
         spells: rank(&spells, chosen(&spells_choice)),
@@ -229,6 +243,8 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
             })
             .collect(),
         rune_rows: rune_rows(rows, chosen(&runes_choice)),
+        skill_levels: rank(&skill_levels, chosen(&skill_levels_choice)),
+        skill_max: rank(&skill_max, chosen(&skill_max_choice)),
     };
     let purchase = |options: &[PurchaseOption], choice: Option<Choice<Vec<i64>>>| {
         choice.map(|c| PurchaseChoice {
@@ -253,6 +269,8 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
             against: boots_against,
         }),
         items,
+        skill_levels: skill_levels_choice,
+        skill_max: skill_max_choice,
         late_slot: build.late_slot.map(|s| s.get()),
         alternatives,
     };
@@ -315,6 +333,40 @@ fn page_candidates(build: &Build) -> Vec<Candidate<Page>> {
             )
         })
         .collect()
+}
+
+/// A skill order's keys as players read them.
+pub fn keys(skills: &[Skill]) -> Vec<String> {
+    skills.iter().map(ToString::to_string).collect()
+}
+
+/// The published first levels or max orders (ADR-085), each compared with the most played.
+fn skill_candidates(options: &[SkillOption]) -> Vec<Candidate<Vec<String>>> {
+    options
+        .iter()
+        .map(|o| {
+            let value = keys(&o.skills);
+            let id = skills::id(&value);
+            let comparison = o.comparison.as_ref().map(skill_compared);
+            candidate(
+                value,
+                id,
+                o.games,
+                o.wpa,
+                o.ci.as_ref(),
+                &o.flags,
+                comparison,
+            )
+        })
+        .collect()
+}
+
+fn skill_compared(c: &SkillComparison) -> select::Comparison {
+    select::Comparison {
+        versus: skills::id(&keys(&c.versus)),
+        wpa: c.wpa,
+        ci: c.ci.as_ref().map(interval),
+    }
 }
 
 /// The published spell pairs, each compared with the most played pair when the data has their
@@ -583,6 +635,7 @@ fn to_i64(v: u64) -> i64 {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use stronk_domain::select::Label;
 
     fn choices(json: serde_json::Value) -> Vec<RuneChoice> {
         serde_json::from_value(json).unwrap()
@@ -603,6 +656,78 @@ pub(crate) mod tests {
             "items": items, "lateSlot": 4
         }))
         .unwrap()
+    }
+
+    /// A max order in a test build: keys, games, comparison with the most played as (wpa, low,
+    /// high), clear.
+    pub(crate) type MaxOrder<'a> = (&'a str, u64, Option<(f64, f64, f64)>, bool);
+
+    /// A build with these first levels (keys, games) and max orders.
+    pub(crate) fn with_skills(levels: &[(&str, u64)], max: &[MaxOrder]) -> Build {
+        fn order(keys: &str) -> Vec<&str> {
+            keys.split(' ').collect()
+        }
+        let levels: Vec<serde_json::Value> = levels
+            .iter()
+            .map(|(keys, games)| {
+                serde_json::json!({"skills": order(keys), "games": games,
+                "n": games, "wpa": 0.0, "ci": [-0.01, 0.01], "flags": []})
+            })
+            .collect();
+        let popular = max.first().map(|m| order(m.0)).unwrap_or_default();
+        let max: Vec<serde_json::Value> = max
+            .iter()
+            .map(|(keys, games, vs, clear)| {
+                let flags: &[&str] = if *clear {
+                    &[]
+                } else {
+                    &["no_clear_difference"]
+                };
+                let mut o = serde_json::json!({"skills": order(keys), "games": games, "n": games,
+                    "wpa": 0.0, "ci": [-0.01, 0.01], "flags": flags});
+                if let Some((wpa, low, high)) = vs {
+                    o["comparison"] = serde_json::json!({"versus": popular, "wpa": wpa,
+                        "ci": [low, high], "q": 0.01});
+                }
+                o
+            })
+            .collect();
+        serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1, "patch": "16.21", "region": "all", "elo": "master_plus",
+            "champion": "LeeSin", "role": "JUNGLE", "games": 3000, "runes": [], "items": [],
+            "spells": [], "skillLevels": levels, "skillMax": max
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn the_skill_order_is_the_most_played_unless_another_is_ahead_of_it() {
+        // Q W E Q first; Q > E > W maxed most, Q > W > E a best bet against it (ADR-085).
+        let keys = |s: &str| s.split(' ').map(str::to_owned).collect::<Vec<_>>();
+        let build = with_skills(
+            &[("Q W E Q", 2000), ("W Q E Q", 600)],
+            &[
+                ("Q E W", 1800, None, false),
+                ("Q W E", 900, Some((0.02, 0.012, 0.028)), false),
+                ("E Q W", 100, Some((-0.03, -0.06, 0.0)), false),
+            ],
+        );
+        let plan = plan(&build, Role::Jungle, None);
+        let levels = plan.skill_levels.unwrap();
+        assert_eq!(
+            (levels.value, levels.label),
+            (keys("Q W E Q"), Label::Popular)
+        );
+        let max = plan.skill_max.unwrap();
+        assert_eq!(max.value, keys("Q W E"));
+        assert!(matches!(max.label, Label::BestBet { .. }));
+        assert_eq!(plan.alternatives.skill_max.rows.len(), 3);
+        let none = plan_of_nothing();
+        assert!(none.skill_levels.is_none() && none.skill_max.is_none());
+    }
+
+    fn plan_of_nothing() -> Plan {
+        plan(&with_items(&[]), Role::Jungle, None)
     }
 
     #[test]

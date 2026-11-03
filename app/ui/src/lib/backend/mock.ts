@@ -401,6 +401,22 @@ const leeSinAlternatives: Alternatives = {
     more: 0,
   },
   rune_rows: leeSinRuneRows,
+  // The skill order (ADR-085): Q W E Q first; Q > E > W maxed most, Q > W > E no clear difference.
+  skill_levels: {
+    rows: [
+      row(["Q", "W", "E", "Q"], 1210, 1840, { wpa: 0.001, ci: [-0.008, 0.01], confidence: "most_played", chosen: true }),
+      row(["Q", "E", "W", "Q"], 480, 1840, { wpa: -0.003, ci: [-0.016, 0.01], versus: "most_played" }),
+      row(["E", "Q", "W", "Q"], 90, 1840, { confidence: "too_few_games" }),
+    ],
+    more: 0,
+  },
+  skill_max: {
+    rows: [
+      row(["Q", "E", "W"], 1100, 1840, { wpa: 0.002, ci: [-0.006, 0.01], confidence: "most_played", chosen: true }),
+      row(["Q", "W", "E"], 420, 1840, { wpa: 0.004, ci: [-0.006, 0.014], versus: "most_played" }),
+    ],
+    more: 0,
+  },
 };
 
 /** Graves: a small build file where nothing has enough games to compare. */
@@ -415,6 +431,8 @@ const gravesAlternatives: Alternatives = {
   components: { rows: [], more: 0 },
   boots: { rows: [], more: 0 },
   rune_rows: [],
+  skill_levels: { rows: [], more: 0 },
+  skill_max: { rows: [], more: 0 },
 };
 
 const leeSin: Plan = {
@@ -444,6 +462,8 @@ const leeSin: Plan = {
     { slot: 4, value: 3053, label: "popular", then: [3156, 6694, 3071, 6333], order: [3053, 3156, 3026, 6694, 3071, 6333], block: 6 },
   ],
   late_slot: 4,
+  skill_levels: { value: ["Q", "W", "E", "Q"], label: "popular" },
+  skill_max: { value: ["Q", "E", "W"], label: "popular" },
   alternatives: leeSinAlternatives,
 };
 
@@ -469,6 +489,8 @@ const graves: Plan = {
   start: null,
   components: null,
   boots: null,
+  skill_levels: null,
+  skill_max: null,
 };
 
 export const scenarios = {

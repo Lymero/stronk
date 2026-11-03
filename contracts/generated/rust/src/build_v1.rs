@@ -122,6 +122,21 @@ pub struct Build {
     #[doc = "Contract major version. A breaking change publishes a new version alongside this one."]
     #[serde(rename = "schemaVersion")]
     pub schema_version: BuildSchemaVersion,
+    #[doc = "The first four level-ups (ADR-085), each sequence estimated among the others."]
+    #[serde(
+        rename = "skillLevels",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub skill_levels: ::std::vec::Vec<SkillOption>,
+    #[doc = "The max order (ADR-085): the basic abilities by their points at the eleventh level-up (the twelfth or thirteenth to settle a tie), the order players max them in."]
+    #[serde(
+        rename = "skillMax",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub skill_max: ::std::vec::Vec<SkillOption>,
+    #[doc = "Unused, never published: the skill order is `skillLevels` and `skillMax` (ADR-085)."]
     #[serde(
         rename = "skillOrder",
         default,
@@ -713,6 +728,94 @@ pub struct RunePage {
     pub primary_style: u64,
     #[serde(rename = "subStyle")]
     pub sub_style: u64,
+}
+#[doc = "`Skill`"]
+#[derive(
+    :: serde :: Deserialize,
+    :: serde :: Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum Skill {
+    Q,
+    W,
+    E,
+    R,
+}
+impl ::std::fmt::Display for Skill {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Q => f.write_str("Q"),
+            Self::W => f.write_str("W"),
+            Self::E => f.write_str("E"),
+            Self::R => f.write_str("R"),
+        }
+    }
+}
+impl ::std::str::FromStr for Skill {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "Q" => Ok(Self::Q),
+            "W" => Ok(Self::W),
+            "E" => Ok(Self::E),
+            "R" => Ok(Self::R),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for Skill {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for Skill {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+#[doc = "The skill order head to head with the most played one (ADR-085)."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SkillComparison {
+    #[doc = "95% interval of `wpa`."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ci: ::std::option::Option<Interval>,
+    #[doc = "False-discovery-adjusted p-value of no difference, across the patch."]
+    pub q: f64,
+    #[doc = "The most played order."]
+    pub versus: ::std::vec::Vec<Skill>,
+    #[doc = "Win probability added by this order against `versus`."]
+    pub wpa: f64,
+}
+#[doc = "A skill order measured as one choice: the first four level-ups, or the max order (ADR-085)."]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SkillOption {
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub ci: ::std::option::Option<Interval>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub comparison: ::std::option::Option<SkillComparison>,
+    pub flags: ::std::vec::Vec<Flag>,
+    #[doc = "Games with this order."]
+    pub games: u64,
+    #[doc = "Decisions behind the estimate."]
+    pub n: u64,
+    #[doc = "The abilities in order: levels 1 to 4, or maxed first to last."]
+    pub skills: ::std::vec::Vec<Skill>,
+    #[doc = "Win probability added against the other orders; null when not estimated."]
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub wpa: ::std::option::Option<f64>,
 }
 #[doc = "`SkillOrderOption`"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]

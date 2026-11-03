@@ -27,6 +27,10 @@ describe("published", () => {
     const picks = { items: {}, sections: { start: [1102], boots: [3111], components: [1055] } };
     expect(published(plan, picks).sections).toEqual({ start: [1102], boots: [3111] });
   });
+  it("keeps a skill order the plan still lists, and drops one it doesn't (ADR-085)", () => {
+    const picks = { items: {}, sections: {}, skills: { skill_levels: ["Q", "E", "W", "Q"], skill_max: ["W", "Q", "E"] } };
+    expect(published(plan, picks).skills).toEqual({ skill_levels: ["Q", "E", "W", "Q"] });
+  });
 });
 
 describe("browserPicks", () => {
@@ -37,6 +41,16 @@ describe("browserPicks", () => {
       items: { 1: 6692 },
       sections: { start: [1102], components: [1036, 1037], boots: [3111] },
     });
+    localStorage.removeItem("stronk.picks");
+  });
+
+  it("reads a saved skill order, and refuses picks with keys that aren't abilities", () => {
+    const save = (skills: unknown) =>
+      localStorage.setItem("stronk.picks", JSON.stringify({ "LeeSin/JUNGLE": { patch: "16.20", picks: { items: {}, skills } } }));
+    save({ skill_max: ["Q", "E", "W"] });
+    expect(browserPicks.load()["LeeSin/JUNGLE"]?.picks.skills).toEqual({ skill_max: ["Q", "E", "W"] });
+    save({ skill_max: ["Q", "X"] });
+    expect(browserPicks.load()["LeeSin/JUNGLE"]).toBeUndefined();
     localStorage.removeItem("stronk.picks");
   });
 });

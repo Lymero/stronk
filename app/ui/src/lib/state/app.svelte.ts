@@ -26,6 +26,7 @@ import {
   type Picks,
   type PicksStore,
   published,
+  sameOrder,
   samePage,
   samePair,
 } from "./picks.ts";
@@ -141,6 +142,8 @@ export function createApp(
       ...(picks.sections.start ? { start: picks.sections.start } : {}),
       ...(picks.sections.components ? { components: picks.sections.components } : {}),
       ...(picks.sections.boots ? { boots: picks.sections.boots[0] } : {}),
+      ...(picks.skills?.skill_levels ? { skill_levels: picks.skills.skill_levels } : {}),
+      ...(picks.skills?.skill_max ? { skill_max: picks.skills.skill_max } : {}),
       ...(Object.keys(picks.items).length
         ? { items: Object.entries(picks.items).map(([slot, item]) => ({ slot: Number(slot), item })) }
         : {}),
@@ -155,7 +158,7 @@ export function createApp(
       if (before && !asked("spells")) [value.spells, kept.spells] = [before.value.spells, before.picks.spells];
       if (before && !asked("item_set")) {
         [value.item_set, value.item_set_backup] = [before.value.item_set, before.value.item_set_backup];
-        [kept.items, kept.sections] = [before.picks.items, before.picks.sections];
+        [kept.items, kept.sections, kept.skills] = [before.picks.items, before.picks.sections, before.picks.skills];
       }
       const itemSet = asked("item_set") ? itemSetOf() : (before?.itemSet ?? null);
       state.imported = { key, value, picks: kept, elo, itemSet };
@@ -300,13 +303,14 @@ export function createApp(
     }
   }
 
-  /** What the item set is written from: the plan's items and the player's item picks. */
+  /** What the item set is written from: the plan's items and skill order (its first block
+   * names it, ADR-085), and the player's picks of them. */
   function itemSetOf(): string | null {
     const plan = state.plan?.value;
     if (!plan) return null;
-    const { items, sections } = currentPicks();
-    const { start, components, boots } = plan;
-    return JSON.stringify([plan.elo, plan.items, start, components, boots, items, sections]);
+    const { items, sections, skills } = currentPicks();
+    const { start, components, boots, skill_levels, skill_max } = plan;
+    return JSON.stringify([plan.elo, plan.items, start, components, boots, skill_levels, skill_max, items, sections, skills ?? {}]);
   }
 
   /** The picks for the champion and role on screen; none for any other. */
@@ -334,7 +338,8 @@ export function createApp(
   function pick(choice: Pick): void {
     const plan = state.plan;
     if (!plan) return;
-    const picks: Picks = { ...currentPicks(), items: { ...currentPicks().items }, sections: { ...currentPicks().sections } };
+    const current = currentPicks();
+    const picks: Picks = { ...current, items: { ...current.items }, sections: { ...current.sections } };
     if ("runes" in choice) {
       const stronk = plan.value.runes?.value;
       picks.runes = stronk && samePage(stronk, choice.runes) ? undefined : choice.runes;
@@ -345,6 +350,13 @@ export function createApp(
       const stronk = plan.value[choice.section]?.value;
       if (stronk !== undefined && samePair(asItems(stronk), choice.items)) delete picks.sections[choice.section];
       else picks.sections[choice.section] = choice.items;
+    } else if ("skills" in choice) {
+      const stronk = plan.value[choice.skills]?.value;
+      const skills = { ...picks.skills };
+      if (stronk && sameOrder(stronk, choice.order)) delete skills[choice.skills];
+      else skills[choice.skills] = choice.order;
+      if (Object.keys(skills).length) picks.skills = skills;
+      else delete picks.skills;
     } else {
       const stronk = plan.value.items.find((i) => i.slot === choice.slot)?.value;
       if (stronk === choice.item) delete picks.items[choice.slot];

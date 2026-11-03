@@ -17,7 +17,13 @@ from stronk_pipeline.adapters.match_store import FileMatchStore
 from stronk_pipeline.adapters.minisign import MinisignKeys
 from stronk_pipeline.application.publish import PublishParams, PublishResult, publish_command
 from stronk_pipeline.application.registry import CommandError
-from stronk_pipeline.domain.extract.decision_points import BOOTS_SLOT, SPELLS_SLOT, START_SLOT
+from stronk_pipeline.domain.extract.decision_points import (
+    BOOTS_SLOT,
+    SKILL_LEVELS_SLOT,
+    SKILL_MAX_SLOT,
+    SPELLS_SLOT,
+    START_SLOT,
+)
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.wpa.types import Flag, OptionEstimate
 
@@ -100,6 +106,37 @@ ESTIMATES = [
         contrast=0.007,
         contrast_ci=(-0.01, 0.024),
         chosen=350,
+    ),
+    # Skill order (ADR-085): Q W E Q first, and Q then E then W maxed against Q then W then E.
+    OptionEstimate(
+        "Champ1",
+        "fighter",
+        "TOP",
+        SKILL_LEVELS_SLOT,
+        "1,2,3,1",
+        0.001,
+        (-0.01, 0.012),
+        900,
+        chosen=900,
+    ),
+    OptionEstimate(
+        "Champ1", "fighter", "TOP", SKILL_MAX_SLOT, "1,2,3", -0.002, (-0.02, 0.016), 300, chosen=300
+    ),
+    OptionEstimate(
+        "Champ1",
+        "fighter",
+        "TOP",
+        SKILL_MAX_SLOT,
+        "1,3,2",
+        0.004,
+        (-0.006, 0.014),
+        500,
+        frozenset({Flag.NO_CLEAR_DIFFERENCE}),
+        q=0.6,
+        versus="1,2,3",
+        contrast=0.006,
+        contrast_ci=(-0.012, 0.024),
+        chosen=500,
     ),
     # Boots (ADR-073): Berserker's Greaves, in every game and against magic teams (ADR-074).
     OptionEstimate("Champ1", "fighter", "TOP", BOOTS_SLOT, "3006", None, None, 40, chosen=40),
@@ -212,6 +249,58 @@ def test_publishes_the_most_played_spell_pairs_without_estimates(tmp_path: Path)
     assert json.loads(path.read_text())["spells"] == [
         {"spells": [4, 14], "games": 1, "wpa": None, "ci": None, "n": 1, "flags": []}
     ]
+
+
+def test_publishes_the_skill_order_with_its_keys(tmp_path: Path) -> None:
+    """The first levels and the max order (ADR-085), best first, as Q W E R."""
+    assert isinstance(publish(setup(tmp_path)), Ok)
+    path = tmp_path / "dist" / "16.20" / "all" / "master_plus" / "Champ1" / "TOP.json"
+    build = json.loads(path.read_text())
+    assert build["skillLevels"] == [
+        {
+            "skills": ["Q", "W", "E", "Q"],
+            "games": 900,
+            "wpa": 0.001,
+            "ci": [-0.01, 0.012],
+            "n": 900,
+            "flags": [],
+        }
+    ]
+    assert build["skillMax"] == [
+        {
+            "skills": ["Q", "E", "W"],
+            "games": 500,
+            "wpa": 0.004,
+            "ci": [-0.006, 0.014],
+            "n": 500,
+            "flags": ["no_clear_difference"],
+            "comparison": {
+                "versus": ["Q", "W", "E"],
+                "wpa": 0.006,
+                "q": 0.6,
+                "ci": [-0.012, 0.024],
+            },
+        },
+        {
+            "skills": ["Q", "W", "E"],
+            "games": 300,
+            "wpa": -0.002,
+            "ci": [-0.02, 0.016],
+            "n": 300,
+            "flags": [],
+        },
+    ]
+
+
+def test_estimates_without_a_skill_order_publish_none(tmp_path: Path) -> None:
+    setup(tmp_path)
+    rows = [e for e in ESTIMATES if e.slot not in (SKILL_LEVELS_SLOT, SKILL_MAX_SLOT)]
+    JsonEstimateStore().write_estimates("v1-reference", rows, tmp_path / "estimates.json")
+    assert isinstance(publish(tmp_path), Ok)
+    path = tmp_path / "dist" / "16.20" / "all" / "master_plus" / "Champ1" / "TOP.json"
+    build = json.loads(path.read_text())
+    assert "skillLevels" not in build
+    assert "skillMax" not in build
 
 
 def test_publishes_starts_with_what_is_bought_with_them(tmp_path: Path) -> None:

@@ -4,7 +4,7 @@
 // the core's short list and the player's pick, and the rest on request (ADR-051).
 
 import type { Choice, Page, Plan, Ranked, Row } from "../../backend/backend.ts";
-import { asItems, noPicks, type Picks, type Section, samePage, samePair } from "../../state/picks.ts";
+import { asItems, noPicks, type Picks, type Section, type SkillPart, sameOrder, samePage, samePair } from "../../state/picks.ts";
 
 export interface Shown<T> extends Row<T> {
   key: string;
@@ -30,6 +30,9 @@ export interface Options {
   /** The upgraded boots (ADR-073). */
   boots: Slot<number>;
   items: ({ slot: number } & Slot<number>)[];
+  /** The first levels and the max order (ADR-085): each its keys in order. */
+  skill_levels: Slot<string[]>;
+  skill_max: Slot<string[]>;
 }
 
 function slot<T>(ranked: Ranked<T>, key: (value: T) => string, picked: ((value: T) => boolean) | null): Slot<T> {
@@ -47,6 +50,11 @@ export function options(plan: Plan, picks: Picks = noPicks()): Options {
   const section = <T extends number | number[]>(key: Section, ranked: Ranked<T>): Slot<T> => {
     const items = picks.sections[key];
     return slot(ranked, (v) => asItems(v).join(","), items ? (v) => samePair(asItems(v), items) : null);
+  };
+  /** A skill order's options, the player's order picked (ADR-085). */
+  const skills = (key: SkillPart): Slot<string[]> => {
+    const order = picks.skills?.[key];
+    return slot(plan.alternatives[key], (v) => v.join(""), order ? (v) => sameOrder(v, order) : null);
   };
   return {
     runes: slot(
@@ -66,6 +74,8 @@ export function options(plan: Plan, picks: Picks = noPicks()): Options {
       const pick = picks.items[s.slot];
       return { slot: s.slot, ...slot(s, String, pick === undefined ? null : (item) => item === pick) };
     }),
+    skill_levels: skills("skill_levels"),
+    skill_max: skills("skill_max"),
   };
 }
 
@@ -74,7 +84,9 @@ export const wins = (v: number): string => `${v >= 0 ? "+" : "−"}${Math.abs(v 
 
 /** True when every choice is the most played one: nothing beat it clearly. */
 export const allPopular = (plan: Plan): boolean =>
-  [plan.runes, plan.spells, plan.start, plan.components, plan.boots, ...plan.items].every((c: Choice<unknown> | null) => c === null || c.label === "popular");
+  [plan.runes, plan.spells, plan.start, plan.components, plan.boots, plan.skill_levels, plan.skill_max, ...plan.items].every(
+    (c: Choice<unknown> | null) => c === null || c.label === "popular",
+  );
 
 /** The option the others are compared with: the slot's most played. */
 export const mostPlayed = <T>(slot: Slot<T>): Shown<T> | undefined =>
@@ -137,7 +149,7 @@ export function verdict(row: Row<unknown>): { text: string; tone: "positive" | "
  * Stronk's best bet against it, with the option it beats (ADR-060, ADR-065). A rune row's change
  * (`"rune"`) has the row's runes as its value. */
 export interface Change<T> {
-  part: "runes" | "rune" | "spells" | Section | number;
+  part: "runes" | "rune" | "spells" | Section | SkillPart | number;
   row: Shown<T>;
   base: Shown<T> | undefined;
 }
@@ -160,6 +172,8 @@ export function changes(options: Options, runeRows: Plan["alternatives"]["rune_r
     ...of("runes", options.runes),
     ...rows,
     ...of("spells", options.spells),
+    ...of("skill_levels", options.skill_levels),
+    ...of("skill_max", options.skill_max),
     ...of("start", options.start),
     ...of("components", options.components),
     ...of("boots", options.boots),

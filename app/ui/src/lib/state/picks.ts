@@ -12,6 +12,8 @@ export interface Picks {
   items: Record<number, number>;
   /** Each section's items (`SECTIONS`), smallest id first. */
   sections: Partial<Record<Section, number[]>>;
+  /** The first levels and the max order (ADR-085), keys in order: ["Q", "E", "W"]. */
+  skills?: Partial<Record<SkillPart, string[]>>;
 }
 
 /** A pick for one slot; picking Stronk's choice again drops it. */
@@ -19,6 +21,7 @@ export type Pick =
   | { runes: Page }
   | { spells: [number, number] }
   | { section: Section; items: number[] }
+  | { skills: SkillPart; order: string[] }
   | { slot: number; item: number };
 
 export const noPicks = (): Picks => ({ items: {}, sections: {} });
@@ -27,6 +30,16 @@ export const noPicks = (): Picks => ({ items: {}, sections: {} });
  * ADR-072), and the boots, one item (ADR-073). */
 export const SECTIONS = ["start", "components", "boots"] as const;
 export type Section = (typeof SECTIONS)[number];
+
+/** The skill order's two choices (ADR-085): the item set's first block names them, as the
+ * client can't import them. */
+export const SKILLS = ["skill_levels", "skill_max"] as const;
+export type SkillPart = (typeof SKILLS)[number];
+
+/** The same skill order: the same keys in the same order. */
+export const sameOrder = (a: readonly string[], b: readonly string[]): boolean => a.join() === b.join();
+
+const KEYS = new Set(["Q", "W", "E", "R"]);
 
 /** A section's option as its items: boots are one item, the others a set. */
 export const asItems = (value: number | number[]): number[] => (Array.isArray(value) ? value : [value]);
@@ -61,6 +74,12 @@ export function published(plan: Plan, picks: Picks): Picks {
       kept.items[Number(slot)] = item;
     }
   }
+  for (const key of SKILLS) {
+    const order = picks.skills?.[key];
+    if (order && plan.alternatives[key].rows.some((r) => sameOrder(r.value, order))) {
+      kept.skills = { ...kept.skills, [key]: order };
+    }
+  }
   return kept;
 }
 
@@ -68,6 +87,7 @@ export const isEmpty = (picks: Picks): boolean =>
   picks.runes === undefined &&
   picks.spells === undefined &&
   Object.keys(picks.sections).length === 0 &&
+  Object.keys(picks.skills ?? {}).length === 0 &&
   Object.keys(picks.items).length === 0;
 
 /** Picks by champion and role (`LeeSin/JUNGLE`), each for the patch it was made on. */
@@ -118,6 +138,13 @@ function parsePicks(v: unknown): Picks | null {
     const items = Number.isInteger(s) ? [s as number] : s;
     if (!Array.isArray(items) || items.length === 0 || !items.every(Number.isInteger)) return null;
     picks.sections[key] = items as number[];
+  }
+  const skills = "skills" in v && v.skills && typeof v.skills === "object" ? (v.skills as Record<string, unknown>) : {};
+  for (const key of SKILLS) {
+    const order = skills[key];
+    if (order === undefined) continue;
+    if (!Array.isArray(order) || order.length === 0 || !order.every((k) => typeof k === "string" && KEYS.has(k))) return null;
+    picks.skills = { ...picks.skills, [key]: order as string[] };
   }
   return picks;
 }

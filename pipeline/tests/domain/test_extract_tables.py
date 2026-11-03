@@ -51,7 +51,12 @@ def test_matches_without_static_data_or_with_unknown_champions_are_dropped() -> 
     old_patch = replace(domain_match("EUW1_4"), patch="16.19")
     extracted = extract([*matches(), unknown, old_patch], {"16.20": STATIC})
     assert extracted.stats.matches == 2
-    assert extracted.stats.dropped == {"unknown_champion": 1, "no_static_data": 1}
+    # The builder's games have no level-ups, so no max order either (ADR-085).
+    assert extracted.stats.dropped == {
+        "unknown_champion": 1,
+        "no_static_data": 1,
+        "skill_max_short_game": 20,
+    }
 
 
 def test_input_order_does_not_change_the_tables() -> None:

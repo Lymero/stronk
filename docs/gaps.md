@@ -19,7 +19,7 @@ Status: **missing** · **partial** · **done**
 | First back | u.gg, Blitz | done: the first components, what is bought on the first trip back without supplies, boots or completed items, as one choice (Dark Seal + Amplifying Tome), imported as the second block (ADR-072) |
 | Boots | u.gg, Blitz | done: the first upgraded boots, estimated and ranked like a slot, shown and imported after the first item (ADR-073), chosen against the enemy team's damage once three enemies are picked (ADR-074) |
 | Situational items | Coachless, Mobalytics (matchup builds) | partial: boots follow the enemy team's damage (ADR-074); other items are averaged over every game, the first three showing no measurable dependence on it; lane matchups are too thin in one patch |
-| Skill order | u.gg, Blitz | missing |
+| Skill order | u.gg, Blitz | done: the first four level-ups and the max order (read at the eleventh level-up) estimated and ranked like a slot, shown on the board and named on the item set's first block, as the client can't import them (ADR-085); no max order for champions whose evolutions read as level-ups |
 
 ## Champion select
 

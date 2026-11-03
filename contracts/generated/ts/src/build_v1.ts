@@ -37,6 +37,7 @@ export type Interval2 = [number, number];
  * @maxItems 2
  */
 export type Interval3 = [number, number];
+export type Skill = "Q" | "W" | "E" | "R";
 /**
  * 95% interval [low, high] of the WPA estimate.
  *
@@ -44,6 +45,13 @@ export type Interval3 = [number, number];
  * @maxItems 2
  */
 export type Interval4 = [number, number];
+/**
+ * 95% interval [low, high] of the WPA estimate.
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Interval5 = [number, number];
 
 /**
  * Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json.
@@ -90,7 +98,18 @@ export interface Build {
    * The item slot of the late items: the item completed at this slot and every later one, as one decision (ADR-067). Absent: every slot is its own.
    */
   lateSlot?: number;
+  /**
+   * Unused, never published: the skill order is `skillLevels` and `skillMax` (ADR-085).
+   */
   skillOrder?: SkillOrderOption[];
+  /**
+   * The first four level-ups (ADR-085), each sequence estimated among the others.
+   */
+  skillLevels?: SkillOption[];
+  /**
+   * The max order (ADR-085): the basic abilities by their points at the eleventh level-up (the twelfth or thirteenth to settle a tie), the order players max them in.
+   */
+  skillMax?: SkillOption[];
   /**
    * Each rune row on its own, for information: every primary row, the secondary pair and every stat shard row (ADR-057). Imports still write a whole page from `runes`.
    */
@@ -480,6 +499,54 @@ export interface SkillOrderOption {
   n: number;
 }
 /**
+ * A skill order measured as one choice: the first four level-ups, or the max order (ADR-085).
+ */
+export interface SkillOption {
+  /**
+   * The abilities in order: levels 1 to 4, or maxed first to last.
+   *
+   * @minItems 1
+   * @maxItems 4
+   */
+  skills: [Skill] | [Skill, Skill] | [Skill, Skill, Skill] | [Skill, Skill, Skill, Skill];
+  /**
+   * Games with this order.
+   */
+  games: number;
+  /**
+   * Win probability added against the other orders; null when not estimated.
+   */
+  wpa: number | null;
+  ci: Interval | null;
+  /**
+   * Decisions behind the estimate.
+   */
+  n: number;
+  flags: Flag[];
+  comparison?: SkillComparison;
+}
+/**
+ * The skill order head to head with the most played one (ADR-085).
+ */
+export interface SkillComparison {
+  /**
+   * The most played order.
+   *
+   * @minItems 1
+   * @maxItems 4
+   */
+  versus: [Skill] | [Skill, Skill] | [Skill, Skill, Skill] | [Skill, Skill, Skill, Skill];
+  /**
+   * Win probability added by this order against `versus`.
+   */
+  wpa: number;
+  /**
+   * False-discovery-adjusted p-value of no difference, across the patch.
+   */
+  q: number;
+  ci?: Interval4;
+}
+/**
  * One choice of one rune row, estimated among the choices of that row.
  */
 export interface RuneChoice {
@@ -537,5 +604,5 @@ export interface RuneChoiceComparison {
    * False-discovery-adjusted p-value of no difference, across the patch.
    */
   q: number;
-  ci?: Interval4;
+  ci?: Interval5;
 }

@@ -5,11 +5,13 @@
   // slot Stronk changes, else the runes. The start and the first components sit before the items
   // (ADR-071, ADR-072), each a set of items without potions and wards (and boots); boots are
   // their own slot after the first item (ADR-073). The late items are one slot, "Items 4+" (ADR-067): its
-  // pick first, then the most played others, as the import lists them.
+  // pick first, then the most played others, as the import lists them. The skill order (ADR-085),
+  // the first four levels and the max order, follows the spells: the client can't import it, so
+  // the item set's first block names it.
   import type { GameNames, Imported, Outcome, Page, Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
   import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
-  import { asItems, type Pick, type Picks, SECTIONS, type Section } from "../../state/picks.ts";
+  import { asItems, type Pick, type Picks, SECTIONS, type Section, SKILLS, type SkillPart } from "../../state/picks.ts";
   import Loadout, { type LoadoutSlot } from "./Loadout.svelte";
   import OptionTable from "./OptionTable.svelte";
   import RunePage from "./RunePage.svelte";
@@ -102,7 +104,7 @@
     return (late.order ?? []).filter((v) => !taken.has(v)).slice(0, late.block - 1);
   });
 
-  const changedKey = (part: "runes" | "rune" | "spells" | Section | number) =>
+  const changedKey = (part: "runes" | "rune" | "spells" | Section | SkillPart | number) =>
     typeof part === "number" ? `item-${part}` : part === "rune" ? "runes" : part;
   const changedKeys = $derived(new Set(stronkChanges.map((c) => changedKey(c.part))));
   const spellPair = $derived(picks.spells ?? plan.spells?.value ?? null);
@@ -122,6 +124,16 @@
     },
   });
   const isSection = (key: string): key is Section => (SECTIONS as readonly string[]).includes(key);
+  const isSkills = (key: string): key is SkillPart => (SKILLS as readonly string[]).includes(key);
+  /** The skill order's two rows (ADR-085), named in the sheet and the panel, read as players
+   * write them: "Q W E Q", "Q > E > W". */
+  const SKILL: Record<SkillPart, { name: string; about: string; read: (order: string[]) => string }> = {
+    skill_levels: { name: "First levels", about: "The first four level-ups", read: (o) => o.join(" ") },
+    skill_max: { name: "Max order", about: "The order the abilities are maxed in", read: (o) => o.join(" > ") },
+  };
+  const keyIcon = (o: string[]) => (o[0] ? [{ src: null, name: o[0] }] : []);
+  /** What a skill order row shows: the player's pick, else Stronk's. */
+  const order = (key: SkillPart): string[] | null => picks.skills?.[key] ?? plan[key]?.value ?? null;
   /** A section's option, its items by name and icon. */
   const set = (value: number | number[]) => asItems(value).map(item).join(" + ");
   const setIcons = (value: number | number[]) => asItems(value).map((id) => shown("items", id));
@@ -158,6 +170,11 @@
       out.push(row("runes", "Runes", picks.runes !== undefined, name(names, "runes", keystone), [shown("runes", keystone)], trees));
     }
     if (spellPair) out.push(row("spells", "Spells", picks.spells !== undefined, spells(spellPair), spellIcons(spellPair)));
+    for (const key of SKILLS) {
+      const o = order(key);
+      // A lettered stand-in where other rows have an icon: the first key (the first maxed for the max order).
+      if (o) out.push(row(key, SKILL[key].name, picks.skills?.[key] !== undefined, SKILL[key].read(o), keyIcon(o)));
+    }
     const section = (key: Section) => {
       const items = bought(key);
       if (items) out.push(row(key, SECTION[key].name, picks.sections[key] !== undefined, set(items), setIcons(items)));
@@ -206,6 +223,7 @@
   const panel = $derived.by(() => {
     if (focus === "runes") return { title: "Runes", note: laidOut ? null : note(options.runes, page), extra: "" };
     if (focus === "spells") return { title: "Summoner spells", note: note(options.spells, spells), extra: "" };
+    if (isSkills(focus)) return { title: SKILL[focus].name, note: note(options[focus], SKILL[focus].read), extra: SKILL[focus].about };
     if (isSection(focus)) {
       const slot = options[focus] as Slot<number | number[]>;
       return { title: SECTION[focus].title, note: note(slot, set), extra: SECTION[focus].about };
@@ -280,6 +298,11 @@
       {/key}
     {:else if focus === "spells"}
       <OptionTable slot={options.spells} label={spells} icons={spellIcons} onpick={(pair) => onpick({ spells: pair })} />
+    {:else if isSkills(focus)}
+      {@const key = focus}
+      {#key key}
+        <OptionTable slot={options[key]} label={SKILL[key].read} icons={keyIcon} onpick={(o) => onpick({ skills: key, order: o })} />
+      {/key}
     {:else if itemSlot}
       {#key itemSlot.slot}
         <OptionTable

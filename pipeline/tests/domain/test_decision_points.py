@@ -8,17 +8,22 @@ from stronk_pipeline.domain.extract.decision_points import (
     COMPONENTS_SLOT,
     LATE_SLOT,
     MAX_ITEMS,
+    SKILL_LEVELS_SLOT,
+    SKILL_MAX_SLOT,
     SPELLS_SLOT,
     START_SLOT,
     DecisionPoint,
     decision_points,
     first_components,
     is_rune_slot,
+    is_tree,
     kept_purchases,
+    skill_levels,
+    skill_max,
     starting_items,
 )
 from stronk_pipeline.domain.extract.situation import damage_profile, enemy_magic_share
-from stronk_pipeline.domain.match import ItemEvent
+from stronk_pipeline.domain.match import ItemEvent, SkillEvent
 
 STATIC = domain_static()
 MIN = 60_000
@@ -29,9 +34,10 @@ def items_of(
 ) -> tuple[list[DecisionPoint], Counter[str]]:
     dropped: Counter[str] = Counter()
     points = decision_points(domain_match(events=events), STATIC, dropped)
+    items = Counter({k: n for k, n in dropped.items() if not k.startswith("skill_")})
     return [
         p for p in points if p.participant_id == participant_id and 1 <= p.slot <= LATE_SLOT
-    ], dropped
+    ], items
 
 
 def test_every_player_has_a_keystone_decision_in_champion_select() -> None:
@@ -265,3 +271,72 @@ def test_boots_are_also_measured_against_the_enemy_teams_damage() -> None:
 
 def test_an_enemy_team_is_physical_mixed_or_magic_by_its_magic_share() -> None:
     assert [damage_profile(s) for s in (0.0, 0.42, 0.43, 0.49, 0.5, 1.0)] == [0, 0, 1, 1, 2, 2]
+
+
+def ups(*slots: int) -> list[tuple[int, int]]:
+    """Level-ups a minute apart, as (timestamp, skill slot)."""
+    return [(i * MIN, s) for i, s in enumerate(slots)]
+
+
+def test_the_first_levels_are_the_first_four_level_ups() -> None:
+    assert skill_levels([1, 3, 2, 1, 1, 4]) == "1,3,2,1"
+    assert skill_levels([1, 3, 2]) is None
+
+
+def test_the_max_order_is_read_from_the_points_after_eleven_level_ups() -> None:
+    # Q maxed at level 9, E ahead of W at level 11 (Q 5, E 3, W 1, R 2): anchored there.
+    zed = ups(1, 2, 3, 1, 1, 4, 1, 3, 1, 3, 4, 3, 3, 2, 2, 4)
+    assert skill_max(zed) == ("1,3,2", 10 * MIN)
+
+
+def test_a_tie_is_settled_by_the_thirteenth_level_up_or_is_no_order() -> None:
+    """Read later, the order would wait for late level-ups, which come with fights won."""
+    # Zeri: Q and E even at 4 after eleven level-ups, E maxed at the twelfth.
+    zeri = ups(3, 2, 1, 1, 4, 1, 3, 1, 3, 3, 4, 3, 2, 2, 2)
+    assert skill_max(zeri) == ("3,1,2", 11 * MIN)
+    assert skill_max(ups(1, 2, 3, 1, 1, 4, 1, 2, 1, 3, 4, 4, 1)) is None  # W 2, E 2 throughout
+    assert skill_max(ups(1, 2, 3, 1, 1, 4, 1, 3, 1, 3)) is None  # a short game
+
+
+def test_udyrs_r_is_a_basic_ability() -> None:
+    udyr = ups(4, 1, 2, 4, 4, 4, 4, 3, 1, 1, 2)
+    assert skill_max(udyr, r_is_basic=True) == ("4,1,2,3", 10 * MIN)
+
+
+def with_skills(
+    slots: list[int], participant_id: int = 1, champion_id: int | None = None
+) -> tuple[list[DecisionPoint], Counter[str]]:
+    match = domain_match()
+    events = tuple(SkillEvent(i * MIN, participant_id, s) for i, s in enumerate(slots))
+    match = replace(match, skills=events)
+    if champion_id is not None:
+        p = replace(match.participants[participant_id - 1], champion_id=champion_id)
+        others = [q for q in match.participants if q.participant_id != participant_id]
+        players = sorted([p, *others], key=lambda q: q.participant_id)
+        match = replace(match, participants=tuple(players))
+    dropped: Counter[str] = Counter()
+    points = decision_points(match, STATIC, dropped)
+    return [q for q in points if q.slot in (SKILL_LEVELS_SLOT, SKILL_MAX_SLOT)], dropped
+
+
+def test_each_player_has_a_first_levels_and_a_max_order_decision() -> None:
+    points, _ = with_skills([1, 2, 3, 1, 1, 4, 1, 3, 1, 3, 4, 3, 3, 2, 2])
+    assert points == [
+        DecisionPoint(1, SKILL_LEVELS_SLOT, 0, "1,2,3,1"),
+        DecisionPoint(1, SKILL_MAX_SLOT, 10 * MIN, "1,3,2"),
+    ]
+    assert not is_rune_slot(SKILL_LEVELS_SLOT)
+    assert not is_rune_slot(SKILL_MAX_SLOT)
+    assert not is_tree(SKILL_LEVELS_SLOT // 10)
+
+
+def test_an_evolving_champion_keeps_its_first_levels_only() -> None:
+    """Kha'Zix's evolutions come as level-ups the stored games don't tell apart (ADR-085)."""
+    points, _ = with_skills([1, 2, 3, 1, 1, 4, 1, 3, 1, 3, 4, 3, 3, 2, 2], champion_id=121)
+    assert [p.slot for p in points] == [SKILL_LEVELS_SLOT]
+
+
+def test_a_max_order_a_short_game_doesnt_show_is_dropped_and_counted() -> None:
+    points, dropped = with_skills([1, 2, 3, 1, 2, 4])
+    assert [p.slot for p in points] == [SKILL_LEVELS_SLOT]
+    assert dropped["skill_max_short_game"] >= 1

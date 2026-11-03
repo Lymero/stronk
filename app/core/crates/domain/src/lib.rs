@@ -9,6 +9,7 @@ pub mod patch;
 pub mod role;
 pub mod runes;
 pub mod select;
+pub mod skills;
 pub mod spells;
 
 pub use build_key::{BuildKey, InvalidKey};

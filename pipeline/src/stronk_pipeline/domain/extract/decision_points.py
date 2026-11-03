@@ -3,6 +3,10 @@
 - Slot 0, champion select: the keystone rune.
 - Champion select, the summoner spells (slot `SPELLS_SLOT`, ADR-083): the pair as one option
   `"a,b"` (ids sorted), whichever key each spell is on.
+- The skill order (ADR-085): the first four level-ups (slot `SKILL_LEVELS_SLOT`, option the
+  skill slots as `"1,2,3,1"`, Q W E Q) at minute 0, and the max order (slot `SKILL_MAX_SLOT`,
+  `"1,3,2"`, Q then E then W): the basic abilities by their points at the eleventh level-up, or
+  the twelfth or thirteenth to settle a tie, anchored there (`skill_max`).
 - The start (slot `START_SLOT`, ADR-071): the items bought before `STARTING_PURCHASES_MS`,
   without supplies (consumables and trinkets: potions, wards), as one option `"a,b"` (ids
   sorted, each once): a jungle pet, a Doran's item, Cull, Dark Seal... Anchored at the first of
@@ -65,6 +69,23 @@ PURCHASE_SLOTS = range(START_SLOT, START_SLOT + 10)
 """The slots of purchases outside the item slots: the start, the first components, boots."""
 SPELLS_SLOT = 70_000
 """The summoner spells' slot (ADR-083)."""
+SKILL_LEVELS_SLOT = 90_000
+"""The first four level-ups' slot (ADR-085)."""
+SKILL_MAX_SLOT = 90_001
+"""The max order's slot (ADR-085)."""
+SKILL_SLOTS = (SKILL_LEVELS_SLOT, SKILL_MAX_SLOT)
+FIRST_LEVELS = 4
+"""Level-ups in the first levels' option."""
+MAX_ORDER_UPS = 11
+"""The level-up from which the max order is read (ADR-085)..."""
+MAX_ORDER_LAST = 13
+"""...to this one at the latest, when two abilities are even until then."""
+UDYR = 77
+"""His R is a basic ability, levelled like Q, W and E."""
+EVOLVING = frozenset({112, 121, 145, 523})
+"""Viktor, Kha'Zix, Kai'Sa and Aphelios: the timeline gives their evolutions (or Aphelios's
+weapon upgrades) as level-ups, which no stored game tells apart, from level 5 on. Their first
+levels are kept; their max order isn't measured (ADR-085)."""
 TRIP_MS = 30_000
 """Purchases within this of a trip's first one are bought on the same trip back."""
 
@@ -73,7 +94,12 @@ def is_tree(tree: int) -> bool:
     """A rune tree id (8000 to 8400 today). The API sometimes sends 0 for a tree, which would
     encode as an item slot, so such a tree's rows are left out; so is one that would land on
     the shard slots."""
-    return tree >= 1_000 and tree not in (SHARD_SLOTS // 10, START_SLOT // 10, SPELLS_SLOT // 10)
+    return tree >= 1_000 and tree not in (
+        SHARD_SLOTS // 10,
+        START_SLOT // 10,
+        SPELLS_SLOT // 10,
+        SKILL_LEVELS_SLOT // 10,
+    )
 
 
 def spell_pair(spells: tuple[int, int]) -> str:
@@ -88,7 +114,12 @@ def rune_slot(tree: int, row: int) -> int:
 
 def is_rune_slot(slot: int) -> bool:
     """Champion select's rune choices besides the keystone: rune rows, secondary pairs, shards."""
-    return slot > LATE_SLOT and slot not in PURCHASE_SLOTS and slot != SPELLS_SLOT
+    return (
+        slot > LATE_SLOT
+        and slot not in PURCHASE_SLOTS
+        and slot != SPELLS_SLOT
+        and slot not in SKILL_SLOTS
+    )
 
 
 def rune_row(slot: int) -> tuple[str, int | None, int | None]:
@@ -120,6 +151,8 @@ def decision_points(match: Match, static: StaticData, dropped: Counter[str]) -> 
         points.extend(
             _rune_rows(p.participant_id, p.primary_style, p.sub_style, p.perks, p.stat_perks)
         )
+    for p in match.participants:
+        points.extend(_skills(match, p.participant_id, p.champion_id, dropped))
     for participant in match.participants:
         purchases = kept_purchases(match.items, participant.participant_id)
         deaths = deaths_of(match, participant.participant_id)
@@ -298,3 +331,51 @@ def _item_slots(
 def _slot(completed: int) -> int:
     """The slot of the item completed after `completed` others: 1 to 3, then the late slot."""
     return min(completed + 1, LATE_SLOT)
+
+
+def _skills(
+    match: Match, participant_id: int, champion_id: int, dropped: Counter[str]
+) -> list[DecisionPoint]:
+    """The first levels and the max order of one player (ADR-085)."""
+    ups = sorted(
+        (e.timestamp, e.skill_slot) for e in match.skills if e.participant_id == participant_id
+    )
+    out: list[DecisionPoint] = []
+    levels = skill_levels([s for _, s in ups])
+    if levels is not None:
+        out.append(DecisionPoint(participant_id, SKILL_LEVELS_SLOT, 0, levels))
+    if champion_id in EVOLVING:
+        return out
+    maxed = skill_max(ups, r_is_basic=champion_id == UDYR)
+    if maxed is None:
+        dropped["skill_max_short_game" if len(ups) < MAX_ORDER_UPS else "skill_max_tie"] += 1
+    else:
+        out.append(DecisionPoint(participant_id, SKILL_MAX_SLOT, maxed[1], maxed[0]))
+    return out
+
+
+def skill_levels(slots: Sequence[int]) -> str | None:
+    """The first `FIRST_LEVELS` level-ups as one option, `"1,2,3,1"`; None before then."""
+    if len(slots) < FIRST_LEVELS:
+        return None
+    return ",".join(str(s) for s in slots[:FIRST_LEVELS])
+
+
+def skill_max(ups: Sequence[tuple[int, int]], r_is_basic: bool = False) -> tuple[str, int] | None:
+    """The max order as one option, `"1,3,2"`, and when it shows: the basic abilities by their
+    points at the first level-up from the `MAX_ORDER_UPS`th to the `MAX_ORDER_LAST`th where no
+    two of them have as many, anchored there. None without one.
+
+    The basic abilities are Q, W and E, and R for Udyr (`r_is_basic`). By then the first is
+    maxed or nearly and the second has its lead, while the game is still young; a tie (Zeri's
+    free Q point leaves her Q and E even at the eleventh) is settled a level or two later. An
+    order read later, when the other abilities are maxed, would wait for late level-ups, which
+    come with the XP of fights won: it would carry how the game went (ADR-085)."""
+    basics = [1, 2, 3, 4] if r_is_basic else [1, 2, 3]
+    points = Counter(s for _, s in ups[: MAX_ORDER_UPS - 1])
+    for at, slot in ups[MAX_ORDER_UPS - 1 : MAX_ORDER_LAST]:
+        points[slot] += 1
+        if len({points[s] for s in basics}) == len(basics):
+            order = sorted(basics, key=lambda s: -points[s])
+            return ",".join(str(s) for s in order), at
+    return None

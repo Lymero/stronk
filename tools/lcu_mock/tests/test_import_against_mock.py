@@ -100,6 +100,15 @@ def test_passes_the_players_item_sets_through_byte_for_byte(mock: Mock) -> None:
     ]
 
 
+def test_names_the_skill_order_on_the_item_sets_first_block(mock: Mock) -> None:
+    """The client can't import a skill order, so the shop shows it (ADR-085)."""
+    import_build(mock)
+    stronk = json.loads(str(mock.replay.item_sets))["itemSets"][0]
+    levels = " ".join(BUILD["skillLevels"][0]["skills"])  # the fixture has one of each
+    maxed = " > ".join(BUILD["skillMax"][0]["skills"])
+    assert stronk["blocks"][0]["type"].endswith(f": Popular · {levels} · max {maxed}")
+
+
 def test_backs_up_the_players_item_sets_before_writing(mock: Mock, tmp_path: Path) -> None:
     original = str(mock.replay.item_sets)
     result = import_build(mock, backups=tmp_path / "backups")

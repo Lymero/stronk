@@ -325,6 +325,53 @@ export type PageChoice = {
  * Why an option was chosen; shown next to it in the UI.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_stringChoice".
+ */
+export type ArrayOfStringChoice = {
+  value: string[];
+} & (
+  | {
+      label: "popular";
+    }
+  | {
+      /**
+       * Its 95% interval, when published.
+       *
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      /**
+       * Games (or picks) with this option.
+       */
+      games: number;
+      label: "clearly_better";
+      /**
+       * Win probability added against the popular option.
+       */
+      wpa: number;
+    }
+  | {
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      ci: [number, number] | null;
+      games: number;
+      label: "best_bet";
+      /**
+       * Win probability added against the popular option, as published (not shrunk).
+       */
+      wpa: number;
+    }
+  | {
+      label: "picked";
+    }
+);
+/**
+ * Why an option was chosen; shown next to it in the UI.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
  * via the `definition` "Tuple_of_int64_and_int64Choice".
  */
 export type TupleOfInt64AndInt64Choice = {
@@ -491,6 +538,14 @@ export interface ImportParams {
   parts?: Part[] | null;
   runes?: Page | null;
   /**
+   * Published first levels, keys "Q" to "R" (ADR-085).
+   */
+  skill_levels?: string[] | null;
+  /**
+   * A published max order, the same way (ADR-085).
+   */
+  skill_max?: string[] | null;
+  /**
    * The pair in any order; Flash still goes on the player's key.
    *
    * @minItems 2
@@ -588,6 +643,15 @@ export interface Plan {
   role: Role;
   runes: PageChoice | null;
   /**
+   * The first four level-ups, keys "Q" to "R" (ADR-085). The client can't import them: the
+   * item set's first block names them.
+   */
+  skill_levels: ArrayOfStringChoice | null;
+  /**
+   * The max order, the basic abilities from maxed first to last (ADR-085), named the same way.
+   */
+  skill_max: ArrayOfStringChoice | null;
+  /**
    * D then F, in the pair's usual order; the import moves Flash to the player's key.
    */
   spells: TupleOfInt64AndInt64Choice | null;
@@ -618,6 +682,14 @@ export interface Alternatives {
    */
   rune_rows: RuneRow[];
   runes: PageRanked;
+  /**
+   * The first four level-ups (ADR-085).
+   */
+  skill_levels: ArrayOfStringRanked;
+  /**
+   * The max order (ADR-085).
+   */
+  skill_max: ArrayOfStringRanked;
   spells: TupleOfInt64AndInt64Ranked;
   /**
    * The starts (ADR-071): each the items bought before leaving base, without supplies.
@@ -818,6 +890,62 @@ export interface PageRow {
    */
   share: number;
   value: Page;
+  versus: Versus;
+  /**
+   * Win probability added, against what `versus` says.
+   */
+  wpa: number | null;
+}
+/**
+ * Every option of a slot, and how many of them are left out of the short list.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_stringRanked".
+ */
+export interface ArrayOfStringRanked {
+  /**
+   * Options played less, not listed until the player asks for every option.
+   */
+  more: number;
+  rows: ArrayOfStringRow[];
+}
+/**
+ * One option of a slot, as the champion select view shows it (ADR-049).
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Array_of_stringRow".
+ */
+export interface ArrayOfStringRow {
+  /**
+   * Stronk's choice for the slot.
+   */
+  chosen: boolean;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  ci: [number, number] | null;
+  confidence: Confidence;
+  fragile: boolean;
+  /**
+   * Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
+   * best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
+   */
+  judged: number;
+  /**
+   * Listed before the player asks for every option: one of the [`SHOWN`] most played, or
+   * Stronk's choice.
+   */
+  listed: boolean;
+  /**
+   * Games (or picks) with this option.
+   */
+  played: number;
+  /**
+   * Its share of the slot's games, 0 to 1.
+   */
+  share: number;
+  value: string[];
   versus: Versus;
   /**
    * Win probability added, against what `versus` says.

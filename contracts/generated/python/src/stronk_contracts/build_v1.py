@@ -345,6 +345,65 @@ class SpellOption(BaseModel):
     comparison: SpellComparison | None = None
 
 
+class Skill(RootModel[Literal["Q", "W", "E", "R"]]):
+    root: Literal["Q", "W", "E", "R"]
+
+
+class SkillComparison(BaseModel):
+    """
+    The skill order head to head with the most played one (ADR-085).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    versus: Annotated[list[Skill], Field(max_length=4, min_length=1)]
+    """
+    The most played order.
+    """
+    wpa: float
+    """
+    Win probability added by this order against `versus`.
+    """
+    q: Annotated[float, Field(ge=0.0, le=1.0)]
+    """
+    False-discovery-adjusted p-value of no difference, across the patch.
+    """
+    ci: Interval | None = None
+    """
+    95% interval of `wpa`.
+    """
+
+
+class SkillOption(BaseModel):
+    """
+    A skill order measured as one choice: the first four level-ups, or the max order (ADR-085).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    skills: Annotated[list[Skill], Field(max_length=4, min_length=1)]
+    """
+    The abilities in order: levels 1 to 4, or maxed first to last.
+    """
+    games: Annotated[int, Field(ge=0)]
+    """
+    Games with this order.
+    """
+    wpa: float | None
+    """
+    Win probability added against the other orders; null when not estimated.
+    """
+    ci: Interval | None
+    n: Annotated[int, Field(ge=0)]
+    """
+    Decisions behind the estimate.
+    """
+    flags: list[Flag]
+    comparison: SkillComparison | None = None
+
+
 class SkillOrderOption(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -407,6 +466,17 @@ class Build(BaseModel):
     skill_order: Annotated[list[SkillOrderOption] | None, Field(alias="skillOrder")] = (
         None
     )
+    """
+    Unused, never published: the skill order is `skillLevels` and `skillMax` (ADR-085).
+    """
+    skill_levels: Annotated[list[SkillOption] | None, Field(alias="skillLevels")] = None
+    """
+    The first four level-ups (ADR-085), each sequence estimated among the others.
+    """
+    skill_max: Annotated[list[SkillOption] | None, Field(alias="skillMax")] = None
+    """
+    The max order (ADR-085): the basic abilities by their points at the eleventh level-up (the twelfth or thirteenth to settle a tie), the order players max them in.
+    """
     rune_choices: Annotated[list[RuneChoice] | None, Field(alias="runeChoices")] = None
     """
     Each rune row on its own, for information: every primary row, the secondary pair and every stat shard row (ADR-057). Imports still write a whole page from `runes`.
