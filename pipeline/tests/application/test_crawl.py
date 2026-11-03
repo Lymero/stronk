@@ -7,7 +7,12 @@ from pydantic import ValidationError
 from riot_builders import domain_match, domain_static, puuid
 
 from stronk_pipeline.adapters.match_store import FileMatchStore
-from stronk_pipeline.application.crawl import CrawlParams, CrawlResult, crawl_command
+from stronk_pipeline.application.crawl import (
+    FAILED_PAGES_IN_A_ROW,
+    CrawlParams,
+    CrawlResult,
+    crawl_command,
+)
 from stronk_pipeline.application.registry import CommandError
 from stronk_pipeline.domain.match import Match
 from stronk_pipeline.domain.result import Err, Ok, Result
@@ -48,11 +53,15 @@ class FakeSource:
         self.divided: dict[str, dict[str, list[list[str]]]] = {}
         """Diamond and Emerald ladder pages by tier and division; their players' games are in
         `histories`."""
+        self.ladder_down: set[tuple[str, str, int]] = set()
+        """Ladder pages (tier, division, page) that fail as unavailable."""
 
     async def players(
         self, tier: Tier, division: Division, page: int
     ) -> Result[list[str], SourceError]:
         self.ladder.append((tier, division, page))
+        if (tier, division, page) in self.ladder_down:
+            return Err(SourceError("unavailable", "HTTP 503, gave up after 6 tries"))
         if tier == "CHALLENGER" and page == 1:
             return Ok(list(self.histories))
         pages = self.divided.get(tier, {}).get(division, [])
@@ -236,6 +245,32 @@ def test_a_divided_tier_crawl_pages_through_every_division_and_says_so(
     pages = [(d, p) for t, d, p in source.ladder if t == tier]
     assert pages == [("I", 1), ("I", 2), ("II", 1), ("II", 2), ("III", 1), ("IV", 1)]
     assert FileMatchStore(tmp_path / band).bracket() == Ok(band)
+
+
+def test_a_failed_ladder_page_skips_only_that_page(tmp_path: Path) -> None:
+    # Regression: a league-v4 503 on one page skipped the rest of the division (KR, 2026-11-03).
+    source = FakeSource({puuid(i): [game(f"EUW1_{i}")] for i in (1, 2, 3)})
+    source.divided = {"DIAMOND": {"I": [[puuid(1)], [], [puuid(2)]], "II": [[puuid(3)]]}}
+    source.ladder_down = {("DIAMOND", "I", 2), ("DIAMOND", "II", 1)}
+    result = crawl(source, tmp_path, tiers=["DIAMOND"])
+    assert isinstance(result, Ok)
+    assert (result.value.stored, result.value.errors) == (2, 2)
+    pages = [(d, p) for _, d, p in source.ladder]
+    assert pages[:5] == [("I", 1), ("I", 2), ("I", 3), ("I", 4), ("II", 1)]
+    assert ("II", 2) in pages  # past the failed first page: empty, so division II ends there
+
+
+def test_failed_ladder_pages_in_a_row_end_the_division(tmp_path: Path) -> None:
+    source = FakeSource({puuid(1): [game("EUW1_1")], puuid(2): [game("EUW1_2")]})
+    pages_i = [[puuid(1)]] + [[]] * FAILED_PAGES_IN_A_ROW + [[puuid(2)]]
+    source.divided = {"DIAMOND": {"I": pages_i}}
+    source.ladder_down = {("DIAMOND", "I", p) for p in range(2, 2 + FAILED_PAGES_IN_A_ROW)}
+    result = crawl(source, tmp_path, tiers=["DIAMOND"])
+    assert isinstance(result, Ok)
+    assert (result.value.stored, result.value.errors) == (1, FAILED_PAGES_IN_A_ROW)
+    division_i = [p for _, d, p in source.ladder if d == "I"]
+    assert division_i == list(range(1, 2 + FAILED_PAGES_IN_A_ROW))  # never reaches puuid(2)
+    assert [d for _, d, p in source.ladder if p == 1] == ["I", "II", "III", "IV"]
 
 
 def test_a_crawl_holds_one_bracket(tmp_path: Path) -> None:

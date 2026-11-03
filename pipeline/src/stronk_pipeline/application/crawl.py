@@ -45,6 +45,11 @@ SUMMONERS_RIFT = 11
 PROGRESS_EVERY = 25
 DIVISIONS = ("I", "II", "III", "IV")
 """Diamond's and Emerald's divisions, best first."""
+FAILED_PAGES_IN_A_ROW = 5
+"""Ladder pages that may fail one after another before the rest of a division is given up: each
+has already been retried with backoff by the source (about a minute), so a few minutes of
+league-v4 outage costs only those pages, not the division (a KR outage on 2026-11-03 ended an
+Emerald crawl at 4,056 of 10,000 games)."""
 
 
 class CrawlParams(BaseModel):
@@ -167,20 +172,28 @@ class _Crawl:
     async def _ladder(self, tier: Tier) -> AsyncIterator[list[str] | CommandError]:
         """A tier's players, a page at a time: an apex league whole, Diamond and Emerald by
         division and page until a page comes back empty. A rejected key ends the crawl; another
-        error skips the rest of that division."""
+        error skips that page, and `FAILED_PAGES_IN_A_ROW` of them the rest of the division."""
         for division in DIVISIONS if tier in DIVIDED else ("I",):
+            failed = 0
             for page in itertools.count(1):
                 match await self.source.players(tier, division, page):
                     case Err(error=e) if e.kind == "unauthorized":
                         yield self._stopped(e)
                         return
                     case Err(error=e):
-                        log.warning("skipping %s %s page %d: %s", tier, division, page, e.message)
                         self.errors += 1
-                        break
+                        failed += 1
+                        if failed >= FAILED_PAGES_IN_A_ROW:
+                            log.warning(
+                                "skipping the rest of %s %s after page %d: %s",
+                                tier, division, page, e.message,
+                            )  # fmt: skip
+                            break
+                        log.warning("skipping %s %s page %d: %s", tier, division, page, e.message)
                     case Ok(value=players):
                         if not players:
                             break
+                        failed = 0
                         yield players
 
     def _check_bracket(self) -> CommandError | None:
