@@ -119,3 +119,24 @@ def test_decisions_read_a_few_picks_at_a_time(tmp_path: Path, table_factory: Tab
     none = store.read_decisions(path, [("Zed", "TOP")])
     assert isinstance(none, Ok)
     assert len(none.value) == 0
+
+
+def test_tables_are_never_read_with_prefiltered_decoding(
+    tmp_path: Path, table_factory: TableFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Regression: Polars 2.0's pre-filtered decode, its default when a filter drops rows, now and
+    # then misread a value or corrupted memory under load (runs/polars-prefilter). Not
+    # reproducible in a test, so the scan's option is checked instead.
+    store, path = ParquetDecisionStore(), tmp_path / "d.parquet"
+    assert isinstance(store.write_decisions(table_factory(["A", "B"], [1, 0]), path, 0), Ok)
+    asked: list[object] = []
+    scan = pl.scan_parquet
+
+    def recording(source: Path, **options: object) -> pl.LazyFrame:
+        asked.append(options.get("parallel", "auto"))
+        return scan(source, **options)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pl, "scan_parquet", recording)
+    assert isinstance(store.read_decisions(path, [("Zed", "MIDDLE")]), Ok)
+    assert isinstance(store.picks(path), Ok)
+    assert asked == ["row_groups", "row_groups"]  # both scans

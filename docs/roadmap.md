@@ -78,7 +78,7 @@ Build a thin version end to end first, then improve each part. Structure is set 
   - Lane matchups (a champion against its lane opponent), once there is data for champion pairs.
   - Win probability models (ADR-084): rerun `tools/experiments/winprob/` on the larger 16.21 crawl; switch only if the slot choices stop moving between the richer models.
   - Skill order (ADR-085): do the eight Emerald+ first-levels claims hold on 16.22, or were they lane matchups?
-- [ ] Intermittent Polars reader error on WPA's decision parts ("Dictionary Index is out-of-bounds", passed on rerun): pin it down before the pipeline runs unattended
+- [x] Intermittent Polars reader error on WPA's decision parts ("Dictionary Index is out-of-bounds"): Polars' pre-filtered decode, which can also misread values silently; tables are read without it (ADR-087)
 
 ## Later
 

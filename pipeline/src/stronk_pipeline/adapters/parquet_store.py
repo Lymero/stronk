@@ -165,7 +165,11 @@ def _scan(
     if not path.exists():
         return Err(StoreError("not_found", f"no {what} at {path}"))
     try:
-        lazy = pl.scan_parquet(path)
+        # Each row group decoded whole, then filtered: Polars 2.0's pre-filtered decode (its
+        # default when a filter drops rows) now and then decodes a column of the wrong length
+        # under load, raising "Dictionary Index is out-of-bounds" or panicking, on files any
+        # reader reads; WPA's batched reads hit it (2026-11-03, `runs/polars-prefilter`).
+        lazy = pl.scan_parquet(path, parallel="row_groups")
         names = lazy.collect_schema().names()
     except (pl.exceptions.PolarsError, OSError) as e:
         return Err(StoreError("invalid", f"{path} is not a readable Parquet file: {e}"))
