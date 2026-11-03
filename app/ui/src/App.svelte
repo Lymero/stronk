@@ -3,11 +3,14 @@
   import PlanView from "./lib/features/build-view/PlanView.svelte";
   import ChampSelect from "./lib/features/champ-select/ChampSelect.svelte";
   import Settings from "./lib/features/settings/Settings.svelte";
+  import Picker from "./lib/features/viewer/Picker.svelte";
   import type { App } from "./lib/state/app.svelte.ts";
   import { noPicks } from "./lib/state/picks.ts";
   import { clientMissing } from "./lib/ui/labels.ts";
 
-  let { app, onstep }: { app: App; onstep?: () => void } = $props();
+  /** `viewer`: the web build viewer (ADR-086), read-only: the player picks a champion and role
+   * instead of champion select, and nothing is imported. */
+  let { app, onstep, viewer = false }: { app: App; onstep?: () => void; viewer?: boolean } = $props();
   const state = $derived(app.state);
   const imported = $derived(
     state.imported && state.imported.key === state.plan?.key ? state.imported.value : null,
@@ -36,7 +39,17 @@
     <p class="error" role="alert">{state.error.message}</p>
   {/if}
 
+  {#if viewer && state.builds}
+    <Picker
+      builds={state.builds}
+      names={state.names}
+      icons={state.icons}
+      selected={state.champSelect?.champion && state.champSelect.role ? { champion: state.champSelect.champion, role: state.champSelect.role } : null}
+      onchoose={(champion, role) => void app.choose(champion, role)}
+    />
+  {/if}
   <ChampSelect
+    {viewer}
     select={state.champSelect}
     names={state.names}
     icons={state.icons}
@@ -47,7 +60,7 @@
   {#snippet actions()}
     {#if elos.length > 1}<BracketSwitch {elos} value={state.settings.elo} onelo={(elo) => void app.setElo(elo)} />{/if}
     {#if picked}<button type="button" class="quiet" onclick={() => app.resetPicks()}>Use Stronk's picks</button>{/if}
-    <button type="button" class="primary" onclick={() => void app.importBuild()}>Import</button>
+    {#if !viewer}<button type="button" class="primary" onclick={() => void app.importBuild()}>Import</button>{/if}
   {/snippet}
 
   {#if state.plan && showPlan}
@@ -63,14 +76,14 @@
     />
   {/if}
 
-  <Settings
+  {#if !viewer}<Settings
     settings={state.settings}
     restore={state.restore}
     onautoimport={(on) => app.setAutoImport(on)}
     onautoitemset={(on) => app.setAutoItemSet(on)}
     onopen={() => void app.loadBackups()}
     onrestore={(location) => void app.restoreItemSets(location)}
-  />
+  />{/if}
 
   <footer>
     Stronk isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone

@@ -8,6 +8,8 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 contracts_rs := "--manifest-path contracts/generated/rust/Cargo.toml"
 core_rs := "--manifest-path app/core/Cargo.toml"
+# wasm-bindgen's CLI must match the crate's version (app/core/crates/web/Cargo.toml)
+wasm_bindgen := "0.2.130"
 ci_corpus := "crawl-ci-16.20"
 full_corpus := "crawl-all-16.20"
 next_corpus := "crawl-all-16.21"
@@ -23,6 +25,8 @@ setup:
     pnpm install --frozen-lockfile
     cargo fetch {{ contracts_rs }} --locked
     cargo fetch {{ core_rs }} --locked
+    rustup target add wasm32-unknown-unknown
+    cargo install wasm-bindgen-cli --version {{ wasm_bindgen }} --locked
     if git rev-parse --git-dir >/dev/null 2>&1; then uv run pre-commit install --hook-type pre-commit --hook-type commit-msg; fi
 
 # Install dependencies and git hooks (Windows: uv for lcu-mock, pnpm, cargo)
@@ -33,6 +37,25 @@ setup:
     cargo fetch {{ contracts_rs }} --locked
     cargo fetch {{ core_rs }} --locked
     if (git rev-parse --git-dir 2>$null) { uv run pre-commit install --hook-type pre-commit --hook-type commit-msg }
+
+# The web viewer's core (ADR-086): `stronk-web` to WebAssembly, with its JavaScript bindings,
+# into app/ui/src/lib/backend/web/core/ (not committed)
+web-core:
+    cargo build {{ core_rs }} -p stronk-web --target wasm32-unknown-unknown --profile web --locked --quiet
+    wasm-bindgen --target web --out-dir app/ui/src/lib/backend/web/core app/core/target/wasm32-unknown-unknown/web/stronk_web.wasm
+
+# The web build viewer (ADR-086) on http://127.0.0.1:5174/viewer.html: the data folder served as
+# the CDN would (`serve-data`, on `data_port`), checked against `key`; names and icons from
+# CommunityDragon. Default: the app's real data
+[unix]
+viewer data="runs/real/data" key="runs/real/data.pub" data_port="8787":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just web-core
+    uv run python tools/serve_data/serve_data.py --root {{ data }} --port {{ data_port }} &
+    trap 'kill $!' EXIT
+    cd app/ui
+    VITE_STRONK_DATA="http://127.0.0.1:{{ data_port }}/" VITE_STRONK_DATA_KEY="$(cat ../../{{ key }})" pnpm exec vite --config vite.viewer.config.ts
 
 # Format, lint, typecheck, architecture rules, tests, codegen drift, floors, budgets
 check: fmt-check lint typecheck arch test core-e2e e2e gen-check floors bench budgets
@@ -55,7 +78,7 @@ lint:
     cargo clippy {{ contracts_rs }} --all-targets --locked --quiet -- -D warnings
     cargo clippy {{ core_rs }} --all-targets --locked --quiet -- -D warnings
 
-typecheck:
+typecheck: web-core
     pnpm exec pyright
     pnpm exec tsc -p contracts/generated/ts
     pnpm --filter @stronk/ui check
@@ -67,7 +90,7 @@ arch:
 
 # All tests
 [unix]
-test:
+test: web-core
     uv run pytest
     cargo test {{ contracts_rs }} --locked --quiet
     cargo test {{ core_rs }} --locked --quiet
@@ -75,7 +98,7 @@ test:
 
 # Rust and UI tests (Windows; the Python tests run in WSL)
 [windows]
-test:
+test: web-core
     cargo test {{ contracts_rs }} --locked --quiet
     cargo test {{ core_rs }} --locked --quiet
     pnpm --filter @stronk/ui test
@@ -292,14 +315,14 @@ core-e2e:
 # (tools/lcu_mock/core_bridge.py); screenshots in runs/e2e/screenshots/. Needs a Chromium:
 # `pnpm --filter @stronk/ui exec playwright install chromium`, or STRONK_CHROMIUM=<path>
 [unix]
-e2e *args:
+e2e *args: web-core
     cargo build {{ core_rs }} --locked --quiet -p stronk-cli
     rm -rf runs/e2e
     STRONK_CORE_BIN="$PWD/app/core/target/debug/stronk-core" pnpm --filter @stronk/ui exec playwright test {{ args }}
 
 # Playwright end to end (Windows PowerShell)
 [windows]
-e2e *args:
+e2e *args: web-core
     cargo build {{ core_rs }} --locked --quiet -p stronk-cli
     if (Test-Path runs/e2e) { Remove-Item -Recurse -Force runs/e2e }
     $env:STRONK_CORE_BIN = "$PWD/app/core/target/debug/stronk-core.exe"; pnpm --filter @stronk/ui exec playwright test {{ args }}

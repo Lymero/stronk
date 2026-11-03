@@ -61,6 +61,13 @@ export interface Backend {
   /** Calls `onChange` when champion select may have changed (the core's websocket watcher,
    * ADR-044); returns the unsubscribe function. Backends without it are polled. */
   subscribe?(onChange: () => void): () => void;
+  /** The web viewer's backend (ADR-086): no champion select, so the player picks what to see. */
+  viewer?: {
+    /** Every champion and role the data has a build for, the champion's id from the game data (0 without). */
+    builds(): Promise<Result<{ champion: string; role: Role; id: number }[]>>;
+    /** What `champselect.state` reports from now on. */
+    select(champion: string, role: Role): void;
+  };
 }
 
 export const ok = <T>(value: T): Result<T> => ({ ok: true, value });

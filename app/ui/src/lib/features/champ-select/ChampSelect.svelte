@@ -14,6 +14,7 @@
     patch = null,
     noClient = null,
     actions,
+    viewer = false,
   }: {
     select: ChampSelectState | null;
     names: GameNames | null;
@@ -24,6 +25,8 @@
     noClient?: string | null;
     /** The build's buttons, next to the champion. */
     actions?: Snippet;
+    /** The web viewer (ADR-086): a champion the player chose, no champion select. */
+    viewer?: boolean;
   } = $props();
 
   /** The champion's name in the client's language, else its key in the data (`LeeSin`). */
@@ -32,14 +35,16 @@
   );
 </script>
 
-<section class="champ-select" class:locked={select?.session?.locked} aria-label="Champion select">
+<section class="champ-select" class:locked={select?.session?.locked} aria-label={viewer ? "Champion" : "Champion select"}>
   {#if select?.session}
     <Icon src={icon(icons, "champions", select.session.champion_id)} name={champion ?? "?"} size="lg" round />
     <div class="who">
       <h2>{champion ?? "No champion yet"}</h2>
       <p class="meta">
         <Facts
-          facts={[select.role ? role(select.role) : "No role", select.session.locked ? "Locked in" : "Hovering", phase(select.session.phase)]}
+          facts={viewer
+            ? [select.role ? role(select.role) : "No role", ...(patch ? [`Patch ${patch}`] : [])]
+            : [select.role ? role(select.role) : "No role", select.session.locked ? "Locked in" : "Hovering", phase(select.session.phase)]}
         />
       </p>
     </div>
@@ -47,7 +52,10 @@
   {:else}
     <span class="avatar idle" class:pulse={!noClient} aria-hidden="true"></span>
     <div class="who">
-      {#if noClient}
+      {#if viewer}
+        <p class="waiting">Choose a champion and a role</p>
+        {#if patch}<p class="meta">Stronk's builds for patch {patch}, as the app would import them.</p>{/if}
+      {:else if noClient}
         <p class="waiting" role="status" title={noClient}>League of Legends isn't open</p>
         <p class="meta">Start it and Stronk connects on its own.</p>
       {:else}

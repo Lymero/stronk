@@ -74,10 +74,11 @@ stronk/
 │   │   ├── crates/lcu/          # LeagueClient adapter
 │   │   ├── crates/data/         # BuildSource adapters: directory, HTTP; cache; signature check
 │   │   ├── crates/cli/          # `stronk-core` dev CLI
+│   │   ├── crates/web/          # the web viewer's core, to WebAssembly: signature check and `build.plan`
 │   │   └── src-tauri/           # Tauri shell
 │   └── ui/                      # Svelte 5 + TypeScript
 │       └── src/lib/
-│           ├── backend/         # Backend port: TauriBackend, MockBackend, CoreBackend (tests); later HttpBackend
+│           ├── backend/         # Backend port: TauriBackend, MockBackend, CoreBackend (tests), HttpBackend (web viewer)
 │           ├── state/           # single serializable app state
 │           ├── features/        # champ-select, build-view, settings
 │           └── ui/              # design system: components and tokens
@@ -199,7 +200,7 @@ Data for the likely champions is loaded when champion select starts and on hover
 | `TauriBackend` | Desktop app, through `run` with the generated command types |
 | `MockBackend` | Scripted scenarios in a plain browser |
 | `CoreBackend` | The real core in a plain browser, through a local test bridge (Playwright, ADR-048) |
-| `HttpBackend` | Read-only web build viewer, reading the published data directly |
+| `HttpBackend` | Read-only web build viewer (`viewer.html`, `just viewer`, ADR-086): the published data over HTTP, checked and planned by `stronk-web` in WebAssembly; names and icons from CommunityDragon; the player picks the champion and role |
 
 ### League client mock
 

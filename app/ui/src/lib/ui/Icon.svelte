@@ -1,7 +1,7 @@
 <script lang="ts">
-  // A champion, rune, spell or item icon from the client (`icons.get`); until it loads, or when
-  // the client has none, a plain square with the name's first letter. Decorative: the name is
-  // always written next to it.
+  // A champion, rune, spell or item icon from the client (`icons.get`); until it loads, when
+  // the client has none, or when the image fails (the web viewer's are addresses, ADR-086), a
+  // plain square with the name's first letter. Decorative: the name is always written next to it.
   let {
     src,
     name,
@@ -13,10 +13,13 @@
     size?: "sm" | "md" | "lg";
     round?: boolean;
   } = $props();
+
+  /** The address that failed to load, so a new one is tried again. */
+  let failed = $state<string | null>(null);
 </script>
 
-{#if src}
-  <img class="icon {size}" class:round {src} alt="" aria-hidden="true" draggable="false" />
+{#if src && src !== failed}
+  <img class="icon {size}" class:round {src} alt="" aria-hidden="true" draggable="false" onerror={() => (failed = src ?? null)} />
 {:else}
   <span class="icon {size} stand-in" class:round aria-hidden="true">{name.charAt(0)}</span>
 {/if}

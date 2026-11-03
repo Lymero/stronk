@@ -44,6 +44,8 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just serve-data [root] [port]` | Serve `dist/data/` locally like the CDN: ETag and 304, CORS, on `127.0.0.1` only |
 | `just site [port]` | Preview the product site (`site/public/`) on `127.0.0.1:8788`, served as Cloudflare does |
 | `just app-mock` | UI in the browser against `MockBackend` |
+| `just viewer [data] [key]` | The web build viewer on `127.0.0.1:5174/viewer.html`: a data folder served as the CDN would (default `runs/real/data`), names and icons from CommunityDragon (ADR-086) |
+| `just web-core` | The viewer's WebAssembly core (`stronk-web`) and its bindings, into `app/ui/src/lib/backend/web/core/` (`typecheck`, `test` and `e2e` run it) |
 | `just lcu-mock [session]` | Fake League client replaying a session (`tools/lcu_mock/sessions/`) |
 | `just app` | Desktop app on the fixture data (pair with `just lcu-mock`; needs WebKitGTK on Linux) |
 | `just data-real [key] [out]` | Real data for the app from the full corpus, signed with your key (stops if it's missing: `just keygen` once), into `runs/real/data` (+ `data.pub`) |

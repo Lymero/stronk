@@ -1,12 +1,17 @@
 // Playwright end to end (`just e2e`, ADR-048): the UI in Chromium against MockBackend scenarios
 // (`mock.spec.ts`) and against the real core, lcu-mock and the signed fixture data through
-// tools/lcu_mock/core_bridge.py (`core.spec.ts`). Screenshots go to runs/e2e/screenshots/.
+// tools/lcu_mock/core_bridge.py (`core.spec.ts`), and the web viewer on the signed fixture data
+// served as the CDN would (`viewer.spec.ts`, ADR-086). Screenshots go to runs/e2e/screenshots/.
 
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "@playwright/test";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const core = resolve(process.env.STRONK_CORE_BIN ?? `${ROOT}/app/core/target/debug/stronk-core`);
+/** Where `viewer.spec.ts` finds the fixture data, and the game data it stubs (never fetched). */
+export const VIEWER_DATA = "http://127.0.0.1:8791/";
+export const VIEWER_GAME_DATA = "http://game-data.test/";
 
 export default defineConfig({
   testDir: "e2e",
@@ -28,6 +33,22 @@ export default defineConfig({
       command: "pnpm exec vite",
       url: "http://127.0.0.1:5173",
       reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: "pnpm exec vite --config vite.viewer.config.ts",
+      url: "http://127.0.0.1:5174/viewer.html",
+      reuseExistingServer: !process.env.CI,
+      env: {
+        VITE_STRONK_DATA: VIEWER_DATA,
+        VITE_STRONK_DATA_KEY: readFileSync(`${ROOT}/fixtures/data.pub`, "utf8"),
+        VITE_STRONK_GAME_DATA: VIEWER_GAME_DATA,
+      },
+    },
+    {
+      command: "uv run python tools/serve_data/serve_data.py --root fixtures/data --port 8791",
+      cwd: ROOT,
+      url: `${VIEWER_DATA}index.json`,
+      reuseExistingServer: false,
     },
     {
       command: `uv run python tools/lcu_mock/core_bridge.py tools/lcu_mock/sessions/ranked-jungle-leesin.json --core ${core} --dir runs/e2e/bridge`,

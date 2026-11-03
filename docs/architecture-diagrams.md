@@ -43,7 +43,8 @@ The same pipeline on a VPS timer, with the production key; the signing key lives
 
 The same UI with an `HttpBackend` reading the CDN (ADR-018), hosted with the site. Read-only: no League client in a browser.
 
-- Blockers: ranking runs in the Rust core (section 3); names and icons come from the client, so the viewer needs Data Dragon.
+- Built (ADR-086): `stronk-web` runs the signature check and `build.plan` in WebAssembly; names and icons come from CommunityDragon's mirror of the client's game data. `just viewer` runs it on a local data folder.
+- Waits on: the data on the CDN (step 2's `R2Publisher`), then the viewer joins the site.
 
 ### Step 4: public release (target)
 
@@ -75,13 +76,7 @@ The UI only calls `Backend.run(id, params)`; every core entry point dispatches t
 
 Commands reach the outside only through three ports, so the core runs against the real client or lcu-mock, and a folder or the CDN. src-tauri also runs lcu's `watch()` to push champion select changes to the UI. The UI's command types are generated from the registry (`stronk-core schema`, ADR-053).
 
-> **Open question for the web viewer.** The view renders `build.plan`, whose ranking lives in the Rust core (ADR-049). A browser has no core. Options:
->
-> - **Compile `domain` and the plan code to WebAssembly** (recommended): one rule, and `domain` has no I/O. The plan's rules (selection, rune rows, item set blocks) live in `domain`; `build.plan` itself only turns a build file into domain candidates and assembles the result.
-> - `publish` writes ranked plans: simpler, but the rule is duplicated in Python.
-> - Rewrite ranking in TypeScript: undoes ADR-049.
->
-> Same for names and icons, which come from the League client.
+> **The web viewer** renders `build.plan` too, whose ranking lives in the Rust core (ADR-049), and a browser has no core. `stronk-web` compiles the plan code (`service`, `domain`) and the data check (`data` without its HTTP and directory sources) to WebAssembly, so the viewer shows exactly what the app would import (ADR-086). Names and icons, which the app reads from the League client, come from CommunityDragon's copy of the same game data documents, read by the same code (`service::game_data`).
 
 ## 4. One champion select, end to end
 

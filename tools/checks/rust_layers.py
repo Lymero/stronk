@@ -2,7 +2,7 @@
 
 Cargo already refuses undeclared dependencies; this checks the declared ones point inward:
 domain depends on no app crate, service only on domain (and the contracts), adapters on service
-and domain, and only entry points (cli, src-tauri) on adapters.
+and domain, and only entry points (cli, src-tauri, web) on adapters.
 
 It also keeps TLS exceptions in one place (ADR-042): rustls' `.dangerous()` and reqwest's
 `danger_accept_invalid_*` may appear only in the LCU verifier, `crates/lcu/src/tls.rs`.
@@ -24,6 +24,7 @@ ALLOWED: dict[str, set[str]] = {
     "stronk-lcu": {"stronk-domain", "stronk-service"},
     "stronk-cli": {"stronk-service", "stronk-data", "stronk-lcu", "stronk-domain"},
     "stronk-app": {"stronk-service", "stronk-data", "stronk-lcu", "stronk-domain"},
+    "stronk-web": {"stronk-service", "stronk-data", "stronk-domain", "stronk-contracts"},
 }
 
 

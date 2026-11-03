@@ -43,5 +43,5 @@ Status: **missing** · **partial** · **done**
 |---|---|---|
 | Lightweight install and memory use | none (Electron competitors) | missing |
 | Works offline with cached data | none | done (ADR-046: verified disk cache, used when the data source can't be reached) |
-| Web build viewer for preparation | Coachless | missing (a static product site exists, ADR-054, without builds) |
+| Web build viewer for preparation | Coachless | partial: `viewer.html` on `HttpBackend` shows any champion and role's build as the app would import it, the data checked in the browser (ADR-086); runs locally, not yet hosted (the data isn't on R2) |
 | Auto-update (app and data) | Blitz | missing |

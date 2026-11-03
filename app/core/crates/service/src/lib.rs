@@ -5,6 +5,7 @@
 
 pub mod commands;
 pub mod error;
+pub mod game_data;
 pub mod item_sets;
 pub mod ports;
 pub mod registry;

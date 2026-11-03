@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::error::Error as _;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -10,15 +10,13 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use stronk_domain::owned::PageInfo;
+use stronk_service::game_data::{ChampionSummary, GameData, Named, PerkStyles};
 use stronk_service::ports::{
     ChampSelect, GameNames, Icon, IconKind, LeagueClient, NewRunePage, PortError,
 };
 
 use crate::lockfile::Lockfile;
-use crate::models::{
-    ChampionSummary, CurrentSummoner, Named, PerkInventory, PerkPage, PerkStyles, Session, by_id,
-    icons_by_id, image_type,
-};
+use crate::models::{CurrentSummoner, PerkInventory, PerkPage, Session, image_type};
 use crate::tls::{Trust, client_config};
 
 pub const SESSION: &str = "/lol-champ-select/v1/session";
@@ -32,15 +30,6 @@ const PAGES: &str = "/lol-perks/v1/pages";
 const TIMEOUT: Duration = Duration::from_secs(3);
 /// The largest icon read: the client's are a few kilobytes to a few tens.
 const MAX_ICON_BYTES: usize = 512 * 1024;
-
-/// What the client's game data says, read once per client: it changes only when the client
-/// updates.
-#[derive(Clone)]
-struct GameData {
-    names: GameNames,
-    /// Icon paths by kind, then id, each checked to stay under `/lol-game-data/assets/`.
-    icons: BTreeMap<IconKind, BTreeMap<i64, String>>,
-}
 
 /// HTTPS to the local client, accepting its certificate per [`Trust`] only. The address is
 /// always the `127.0.0.1` literal: the verifier skips the name check for that reason alone, so
@@ -160,44 +149,10 @@ impl LcuClient {
         }
         let champions: Vec<ChampionSummary> = self.game_data(CHAMPION_SUMMARY)?;
         let perk_styles = self.game_data::<PerkStyles>(PERK_STYLES)?;
-        let styles: Vec<&Named> = perk_styles.named().collect();
         let runes = self.game_data::<Vec<Named>>(PERKS)?;
         let spells = self.game_data::<Vec<Named>>(SPELLS)?;
         let items = self.game_data::<Vec<Named>>(ITEMS)?;
-        let paths =
-            |entries: &[Named]| icons_by_id(entries.iter().map(|e| (e.id, e.icon_path.as_str())));
-        let data = GameData {
-            names: GameNames {
-                champions: champions
-                    .iter()
-                    .filter(|c| !c.name.is_empty())
-                    .map(|c| (c.id, c.name.clone()))
-                    .collect(),
-                rune_styles: by_id(styles.iter().copied()),
-                rune_trees: perk_styles.trees(),
-                shard_rows: perk_styles.shard_rows(),
-                runes: by_id(&runes),
-                spells: by_id(&spells),
-                items: by_id(&items),
-            },
-            icons: BTreeMap::from([
-                (
-                    IconKind::Champion,
-                    icons_by_id(
-                        champions
-                            .iter()
-                            .map(|c| (c.id, c.square_portrait_path.as_str())),
-                    ),
-                ),
-                (
-                    IconKind::RuneStyle,
-                    icons_by_id(styles.iter().map(|e| (e.id, e.icon_path.as_str()))),
-                ),
-                (IconKind::Rune, paths(&runes)),
-                (IconKind::Spell, paths(&spells)),
-                (IconKind::Item, paths(&items)),
-            ]),
-        };
+        let data = GameData::from_documents(&champions, &perk_styles, &runes, &spells, &items);
         *cache = Some(data.clone());
         Ok(data)
     }

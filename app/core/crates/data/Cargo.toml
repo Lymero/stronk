@@ -7,11 +7,17 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+default = ["sources"]
+# The sources the app reads data through, a directory or HTTP. Without them only the
+# verification remains, which the web viewer builds for the browser (ADR-086).
+sources = ["dep:reqwest", "dep:rustls", "dep:rustls-platform-verifier"]
+
 [dependencies]
 minisign-verify = "0.3.0"
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls-no-provider"] }
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
-rustls-platform-verifier = "0.7"
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls-no-provider"], optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"], optional = true }
+rustls-platform-verifier = { version = "0.7", optional = true }
 serde_json = "1"
 sha2 = "0.10"
 stronk-contracts = { path = "../../../../contracts/generated/rust" }

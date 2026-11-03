@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["crates/domain", "crates/service", "crates/data", "crates/lcu", "crates/cli", "src-tauri"]
+members = ["crates/domain", "crates/service", "crates/data", "crates/lcu", "crates/cli", "crates/web", "src-tauri"]
 # The Tauri shell needs WebKitGTK to build on Linux; `just check` builds everything else, CI
 # builds the shell too (`just app-build`).
-default-members = ["crates/domain", "crates/service", "crates/data", "crates/lcu", "crates/cli"]
+default-members = ["crates/domain", "crates/service", "crates/data", "crates/lcu", "crates/cli", "crates/web"]
 
 [workspace.package]
 version = "0.1.0"
@@ -22,3 +22,10 @@ indexing_slicing = "deny"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+
+# The web viewer's WebAssembly (`just web-core`, ADR-086): small over fast, it downloads with the page.
+[profile.web]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1

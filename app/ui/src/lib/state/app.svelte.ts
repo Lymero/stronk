@@ -16,6 +16,7 @@ import type {
   Part,
   Plan,
   Restored,
+  Role,
 } from "../backend/backend.ts";
 import {
   asItems,
@@ -73,6 +74,16 @@ export interface AppState {
   restore: { backups: Backup[] | null; done: Restored | null; error: CommandError | null };
   /** Why something can't be shown or done; cleared when things work again. */
   error: CommandError | null;
+  /** The web viewer's champions and roles with a build (ADR-086), the champion's id from its
+   * names (0 until they load); `null` in the app, which follows champion select instead. */
+  builds: Viewable[] | null;
+}
+
+/** A champion and role the web viewer can show. */
+export interface Viewable {
+  champion: string;
+  role: Role;
+  id: number;
 }
 
 /** Where settings live between runs; any Storage, so tests can pass their own. */
@@ -126,6 +137,7 @@ export function createApp(
     settings: { ...defaults, ...store.load() },
     restore: { backups: null, done: null, error: null },
     error: null,
+    builds: null,
   });
 
   /** Imports the plan with the player's picks: every part, or only `parts` (ADR-082). */
@@ -179,6 +191,7 @@ export function createApp(
     };
     const championId = state.champSelect?.session?.champion_id ?? 0;
     if (championId > 0) ids.champions.add(championId);
+    for (const b of state.builds ?? []) if (b.id > 0) ids.champions.add(b.id); // the viewer's picker
     const plan = state.plan?.value;
     if (plan) {
       const { runes, spells, items } = plan.alternatives;
@@ -234,7 +247,7 @@ export function createApp(
 
   async function refresh(): Promise<void> {
     await refreshSelect();
-    if (state.champSelect?.session) await loadIcons(); // after any auto-import: icons never delay it
+    if (state.champSelect?.session || backend.viewer) await loadIcons(); // after any auto-import: icons never delay it
   }
 
   async function refreshSelect(): Promise<void> {
@@ -246,6 +259,14 @@ export function createApp(
       }
       state.data = data.value;
     }
+    if (backend.viewer && state.builds === null) {
+      const builds = await backend.viewer.builds();
+      if (!builds.ok) {
+        state.error = builds.error;
+        return;
+      }
+      state.builds = builds.value;
+    }
     const select = await backend.run("champselect.state", {});
     if (!select.ok) {
       state.champSelect = null;
@@ -253,7 +274,7 @@ export function createApp(
       return;
     }
     state.champSelect = select.value;
-    if (state.names === null && select.value.session) {
+    if (state.names === null && (select.value.session || backend.viewer)) {
       // Cosmetic: without names the ids show, so a failure is not an error to report.
       const names = await backend.run("names.get", {});
       if (names.ok) state.names = names.value;
@@ -287,7 +308,7 @@ export function createApp(
       state.error = null;
       if (fresh) restorePicks(key, plan.value);
     }
-    if (session?.locked) await autoImport(key);
+    if (session?.locked && !backend.viewer) await autoImport(key); // the viewer writes nothing
   }
 
   /** On lock-in, the parts the player wants without asking; then, until the game starts, the
@@ -405,7 +426,13 @@ export function createApp(
     if (restored.ok) await loadBackups(); // the replaced sets are now the newest backup
   }
 
-  return { state, refresh, importBuild, pick, resetPicks, setAutoImport, setAutoItemSet, setElo, loadBackups, restoreItemSets };
+  /** The web viewer's champion and role to show (ADR-086). */
+  async function choose(champion: string, role: Role): Promise<void> {
+    backend.viewer?.select(champion, role);
+    await refresh();
+  }
+
+  return { state, refresh, importBuild, pick, resetPicks, setAutoImport, setAutoItemSet, setElo, loadBackups, restoreItemSets, choose };
 }
 
 export type App = ReturnType<typeof createApp>;
