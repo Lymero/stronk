@@ -28,17 +28,6 @@ export interface WebCore {
   gameNames(champions: string, perkStyles: string, perks: string, spells: string, items: string): string;
 }
 
-/** The core built by `just web-core`, loaded on first use. */
-export async function loadCore(): Promise<WebCore> {
-  const core = await import("./web/core/stronk_web.js");
-  await core.default();
-  return {
-    open: (key, patch, manifest, signature) => new core.Data(key, patch, manifest, signature),
-    file: (champion, role, bracket) => core.Data.file(champion, role, bracket),
-    gameNames: (...docs) => core.game_names(...docs),
-  };
-}
-
 export interface Listed {
   champion: string;
   role: Role;
@@ -57,7 +46,8 @@ export interface HttpOptions {
   publicKey: string;
   /** CommunityDragon's root (`https://raw.communitydragon.org/`). */
   gameData: string;
-  core?: () => Promise<WebCore>;
+  /** Loads the core: `loadCore` (web/load.ts) in the viewer, a fake in tests. */
+  core: () => Promise<WebCore>;
   fetch?: typeof fetch;
 }
 
@@ -73,7 +63,6 @@ export class HttpBackend implements Backend {
 
   constructor(options: HttpOptions) {
     this.options = {
-      core: loadCore,
       fetch: (input, init) => globalThis.fetch(input, init),
       ...options,
       data: options.data.replace(/\/?$/, "/"),

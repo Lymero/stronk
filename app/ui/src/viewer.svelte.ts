@@ -8,6 +8,7 @@ import { mount } from "svelte";
 import App from "./App.svelte";
 import type { Role } from "./lib/backend/backend.ts";
 import { HttpBackend } from "./lib/backend/http.ts";
+import { loadCore } from "./lib/backend/web/load.ts";
 import { createApp } from "./lib/state/app.svelte.ts";
 import "./lib/ui/tokens.css";
 
@@ -16,6 +17,7 @@ const backend = new HttpBackend({
   data: env["VITE_STRONK_DATA"] ?? "/data/",
   publicKey: env["VITE_STRONK_DATA_KEY"] ?? "",
   gameData: env["VITE_STRONK_GAME_DATA"] ?? "https://raw.communitydragon.org/",
+  core: loadCore,
 });
 const app = createApp(backend);
 const target = document.getElementById("app");
