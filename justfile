@@ -41,10 +41,11 @@ setup:
     if (git rev-parse --git-dir 2>$null) { uv run pre-commit install --hook-type pre-commit --hook-type commit-msg }
 
 # The web viewer's core (ADR-086): `stronk-web` to WebAssembly, with its JavaScript bindings,
-# into app/ui/src/lib/backend/web/core/ (not committed)
+# into app/ui/src/lib/backend/web/core/ (not committed). Without the name section (a third of the
+# file, only for debugging); not through wasm-opt, which trims the file but grows it compressed
 web-core:
     cargo build {{ core_rs }} -p stronk-web --target wasm32-unknown-unknown --profile web --locked --quiet
-    wasm-bindgen --target web --out-dir app/ui/src/lib/backend/web/core app/core/target/wasm32-unknown-unknown/web/stronk_web.wasm
+    wasm-bindgen --target web --remove-name-section --remove-producers-section --out-dir app/ui/src/lib/backend/web/core app/core/target/wasm32-unknown-unknown/web/stronk_web.wasm
 
 # The web build viewer (ADR-086) on http://127.0.0.1:5174/viewer.html: the data folder served as
 # the CDN would (`serve-data`, on `data_port`), checked against `key`; names and icons from
