@@ -72,6 +72,7 @@ Methods are introduced in versions. Each version keeps the previous one availabl
    - Calibration matters more than accuracy: predicted 60% must win about 60% of the time.
    - Train, validation and test split **by match**, never by frame.
    - Candidates (logistic on leads, minute and lead × minute; LightGBM with every lead monotone) are fitted on the training matches; the lowest validation log loss is kept, and the test matches only report. Predictions are made symmetric, so both teams' probabilities of one moment add up to 1 (ADR-030).
+   - Richer models (splines on the minute and leads, LightGBM with linear trees) predict slightly better but change about one import in a thousand, in no consistent direction; logistic stays (ADR-084, rerun with `tools/experiments/winprob/`).
 2. **Event score** for a decision at minute t:
    `score = outcome − WP(state at t)`
    with outcome the final result, or WP at t + Δ (Δ about 5–8 minutes) for a less noisy, shorter-term measure. Both are computed and compared.

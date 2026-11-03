@@ -22,6 +22,7 @@ ignore = [
 "tools/corpus/*.py" = ["T20"]
 "tools/serve_data/*.py" = ["T20"]
 "tools/lcu_mock/*.py" = ["T20"]
+"tools/experiments/**/*.py" = ["T20"]
 "contracts/codegen.py" = ["T20", "S603"]
 "contracts/commands_codegen.py" = ["T20", "S603"]
 

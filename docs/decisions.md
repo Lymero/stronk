@@ -681,3 +681,33 @@ Architecture decision log. One entry per decision: context, decision, consequenc
   - The core reads the comparison, so the rule that picks runes and items picks spells too: the most played pair unless another is clearly better or the best bet (ADR-065). Flash stays on the player's key.
 - **Verification on 16.21** (the same games and win probability models as before, `runs/spells-16.21`): 3,021 spell rows for Master+ and 3,530 for Diamond+, of which 111 and 150 compared with the most played pair; none survives FDR. Every other estimate keeps its number, interval and sample (differences under 4e-18, the order of a sum). Adding the spell tests to the FDR family moves q by at most 0.018: in Master+ no flag changes; in Diamond+ two claims at the edge cross 0.05 (Xayah bottom's Gluttonous Greaves against Berserker's Greaves, q 0.0476 to 0.0508; Zed middle's Electrocute against First Strike, q 0.0494 to 0.0528) and become no clear difference. Nothing the app imports changes for them: Xayah's boots stay as the best bet, and Zed's keystone wasn't the one claimed. Over all 1,556 builds, nothing imported changes but the spells, which change in 66 (31 Master+, 35 Diamond+), each to a best bet, mostly bot laners trading Barrier for Exhaust or Cleanse.
 - **Consequences:** spells follow the data as runes do. A larger FDR family costs the other decisions a little power, as any new decision does; keeping one family keeps the rule that a claim survives the whole run's tests. Like a rune, a spell pair's estimate is adjusted for nothing about the game: picks made against particular enemy teams (Exhaust into divers, Cleanse into crowd control) are compared without that context.
+
+### ADR-084 · Win probability stays logistic: richer models were measured and change too little
+
+- **Context:** win probability is the baseline every WPA estimate subtracts (wpa-method.md, section 1), and production fits two candidates, keeping the lower validation log loss: logistic on leads, minute and lead × minute, and LightGBM with plain trees (ADR-030). On 16.21 logistic always wins. Richer models could predict better, and a better baseline might change what Stronk claims and imports, so alternatives were measured on Emerald+ 16.21 (113,519 games, 6.36 million frames, production's split: 4.45 million training, 0.95 million validation and test frames).
+- **Tried:** the logistic form with the minute as a spline (`gam-minute`), with gold, XP and kill leads also curved (`gam-curves`), and with gold paired with each other lead (`gam-odd-pairs`); LightGBM with plain trees and with linear trees (a linear model in each leaf), 15, 63 or 255 leaves, 200 or 2,000 rows per leaf, every lead monotone.
+- **What they predict** (test matches; gain is the drop in log loss from logistic's 0.5156, its standard error clustered by match):
+
+  | Model | Gain | Calibration error, all / 30+ min | Fit |
+  |---|---|---|---|
+  | logistic (production) | — | 0.0029 / 0.0076 | 12 s |
+  | gam-minute | 0.00065 ± 0.00011 | 0.0040 / 0.0050 | 6 min |
+  | gam-curves | 0.00071 ± 0.00012 | 0.0017 / 0.0052 | 11 min |
+  | gam-odd-pairs | 0.00082 ± 0.00013 | 0.0012 / 0.0036 | 12 min |
+  | LightGBM, plain trees (best of 6) | −0.0011 ± 0.0003 | 0.0057 / 0.024 | 35 s |
+  | LightGBM, linear trees, 63 leaves, seeds 0, 1, 2 | 0.00078 to 0.00084 ± 0.00025 | 0.0010 / 0.0031 to 0.0041 | 40 s |
+
+  The better models gain 0.16% of the log loss and halve the calibration error, most in long games. Plain products of two leads add exactly nothing: they are even in the leads, so the symmetric prediction (ADR-030) cancels them; pairs that flip with the side (`gold × |other|`) add 0.0001. Linear-tree LightGBM is as good on average under every seed, but single predictions move between seeds (mean 0.003, 99.9th percentile 0.05 to 0.07, at most 0.26).
+- **What they change downstream:** production's `wpa.estimate` was run with each model on the same decisions (17.1 million). With the stored production model it reproduces the published estimates exactly. Against production, per (champion, role, slot), with the core's choice rule:
+
+  | | Contrast moves (production's standard errors, mean / p99) | Slots importing another option, of 23,790 | Clear claims (q ≤ 0.05), of 40 |
+  |---|---|---|---|
+  | gam-odd-pairs | 0.026 / 0.17 | 15 | 39 (2 lost, 1 gained) |
+  | LightGBM linear, seed 0 | 0.037 / 0.24 | 24 | 34 |
+  | LightGBM linear, seed 1 | 0.038 / 0.26 | 26 | 34 |
+  | seed 0 against seed 1 | 0.008 / 0.08 | 6 | 34 and 34 |
+  | seed 0 against gam-odd-pairs | 0.030 / 0.20 | 17 | 34 and 39 |
+
+  Every changed import is an option at the best-bet line (ADR-065), moving between best bet and most played. The two better models disagree with each other about as much as either disagrees with production, so neither points to a truer set of builds.
+- **Decision:** production keeps its learners and logistic stays the model. A better log loss this small changes about one import in a thousand, in no consistent direction, at the cost of a fit 60 times slower (the splines) or a model whose predictions depend on its seed (linear trees). Production's selection rule would also pick linear trees over the splines on validation (0.50876 against 0.50893) though they tie on test.
+- **Consequences:** the experiment is kept in `tools/experiments/winprob/` to rerun on more data: `fit_compare.py` (the prediction table), `wpa_compare.py` (WPA with each model) and `compare_estimates.py` (what changes, by the core's choice rule, tested). Recheck when a bracket has several times the games, when frames gain features (player skill, ADR-081's open point), or if long-game calibration becomes a concern: that is where the richer models help most. If one is adopted, the spline logistic is the candidate: deterministic, on the existing chunked fit, and as good as LightGBM with half its standard error.
