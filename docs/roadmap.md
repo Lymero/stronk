@@ -54,12 +54,13 @@ Build a thin version end to end first, then improve each part. Structure is set 
 
 ## M4 · Public release
 
-- [ ] All champions and roles, elo filters, several regions
+- [x] All champions and roles, elo filters, several regions: 173 champions, 824 champion-roles on 16.21 from EUW, KR and NA; Master+, Diamond+ and Emerald+ (ADR-076, ADR-078, ADR-079)
+- [x] Beyond runes and items: summoner spells (ADR-083), skill order (ADR-085), boots against the enemy team (ADR-074), item set on lock-in (ADR-082)
 - [ ] `R2Publisher`; scheduled pipeline on a VPS
 - [x] Product site with method, privacy policy and terms (`site/`, Cloudflare Workers, ADR-054); riot.txt goes there
-- [ ] Web build viewer (`HttpBackend`): built and runs locally (`just viewer`, ADR-086); goes live with the site once the data is on R2
-- [ ] Production key application (submitted 2026-10-19, site verified with riot.txt; awaiting Riot's review: [production-key.md](production-key.md))
-- [ ] Privacy note, Riot legal notice, `ATTRIBUTION.md` complete
+- [ ] Web build viewer (`HttpBackend`): built and runs locally (`just viewer`, ADR-086); goes live with the site once the data is on R2 and the production key is granted (public data from a development key isn't allowed)
+- [ ] Production key application (submitted 2026-10-19, site verified with riot.txt, brought up to date 2026-11-03; awaiting Riot's review: [production-key.md](production-key.md))
+- [x] Privacy note, Riot legal notice (app and every site page), `ATTRIBUTION.md` complete
 - [ ] Signed installers and app auto-update
 
 ## M5 · Statistics v2
@@ -75,6 +76,9 @@ Build a thin version end to end first, then improve each part. Structure is set 
   - Items 1 to 3 against the enemy's damage: no swing so far (+1.4, 95% −1.7 to +4.6; tanks −0.2, −4.3 to +3.9).
   - First components (ADR-072): the death-forced bias (planned backs only) and whether the planned-back order carries over to backs after a death (8 of 10 clear pairs).
   - Lane matchups (a champion against its lane opponent), once there is data for champion pairs.
+  - Win probability models (ADR-084): rerun `tools/experiments/winprob/` on the larger 16.21 crawl; switch only if the slot choices stop moving between the richer models.
+  - Skill order (ADR-085): do the eight Emerald+ first-levels claims hold on 16.22, or were they lane matchups?
+- [ ] Intermittent Polars reader error on WPA's decision parts ("Dictionary Index is out-of-bounds", passed on rerun): pin it down before the pipeline runs unattended
 
 ## Later
 

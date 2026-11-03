@@ -190,7 +190,7 @@ class RiotApiSource:
             self._requests += 1
             try:
                 response = await self._client.get(url, params=params, headers=headers)
-            except httpx.TransportError as e:
+            except (httpx.TransportError, httpx.DecodingError) as e:  # decoding: damaged in transit
                 problem = f"{type(e).__name__} on {_path(url)}"
             else:
                 if self._limiter is not None and method is not None:

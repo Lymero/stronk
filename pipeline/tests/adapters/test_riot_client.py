@@ -1,3 +1,6 @@
+import gzip
+import json
+
 import httpx
 import pytest
 from riot_builders import (
@@ -219,6 +222,24 @@ def test_transport_errors_are_retried() -> None:
         return httpx.Response(200, json=league([puuid(1)]))
 
     assert run(source(httpx.MockTransport(flaky)).players("CHALLENGER", "I", 1)) == Ok([puuid(1)])
+
+
+def test_a_corrupt_compressed_body_is_retried() -> None:
+    # Regression: a gzip body damaged in transit ("incorrect data check") ended a 16.21 crawl.
+    calls = 0
+    body = bytearray(gzip.compress(json.dumps(league([puuid(1)])).encode()))
+    body[-5] ^= 0xFF  # the CRC
+
+    def damaged_once(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(200, headers={"content-encoding": "gzip"}, content=bytes(body))
+        return httpx.Response(200, json=league([puuid(1)]))
+
+    src = source(httpx.MockTransport(damaged_once))
+    assert run(src.players("CHALLENGER", "I", 1)) == Ok([puuid(1)])
+    assert src.stats().retries == 1
 
 
 def test_requests_respect_the_rate_limit() -> None:
