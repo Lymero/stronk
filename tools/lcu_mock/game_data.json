@@ -155,7 +155,8 @@
       "perks": [
        8214,
        8229,
-       8230
+       8230,
+       8992
       ]
      },
      {
@@ -461,6 +462,11 @@
    "id": 8230,
    "name": "Phase Rush",
    "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8230.png"
+  },
+  {
+   "id": 8992,
+   "name": "Deathfire Touch",
+   "iconPath": "/lol-game-data/assets/v1/perk-images/Styles/Runes/8992.png"
   },
   {
    "id": 8226,
