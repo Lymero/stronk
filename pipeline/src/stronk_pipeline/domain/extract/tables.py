@@ -9,7 +9,12 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from stronk_pipeline.domain.decisions import DecisionTable
-from stronk_pipeline.domain.extract.decision_points import decision_points
+from stronk_pipeline.domain.extract.decision_points import (
+    LATE_SLOT,
+    PURCHASE_SLOTS,
+    DecisionPoint,
+    decision_points,
+)
 from stronk_pipeline.domain.extract.situation import (
     PLAYER_FEATURES,
     SITUATION_FEATURES,
@@ -52,10 +57,13 @@ def extract(
     matches: Iterable[Match],
     statics: Mapping[str, StaticData],
     skill: Mapping[PlayerGame, tuple[float, float]] | None = None,
+    changed: Mapping[str, frozenset[int]] | None = None,
 ) -> Extracted:
     """Build both tables. `statics` maps a patch to its game data; matches without it drop.
     `skill` is `prior_skill` over every game; given, `matches` are read once, one at a time,
-    so they can stream from disk (ADR-079)."""
+    so they can stream from disk (ADR-079). `changed` maps an older patch to the items changed
+    since (`patches.changed_since`): its games' choices of those items are left out, so they are
+    measured on the newest patch alone (ADR-088)."""
     if skill is None:
         matches = list(matches)
         skill = prior_skill(matches)
@@ -67,6 +75,7 @@ def extract(
             continue
         stats.matches += 1
         static = statics[match.patch]
+        gone = (changed or {}).get(match.patch, frozenset[int]())
         for frame in match.frames[1:]:
             for team in TEAMS:
                 frames.add(
@@ -77,6 +86,9 @@ def extract(
                     features=situation(match, frame.timestamp, team),
                 )
         for point in decision_points(match, static, stats.dropped):
+            if gone and _buys_any(point, gone):
+                stats.dropped["changed_item_older_patch"] += 1
+                continue
             p = match.participant(point.participant_id)
             champion = static.champions[p.champion_id]
             stats.decisions_by_slot[point.slot] += 1
@@ -121,6 +133,14 @@ def extract(
         ),
         stats=stats,
     )
+
+
+def _buys_any(point: DecisionPoint, items: frozenset[int]) -> bool:
+    """An item decision (a slot, the start, the first components, boots) whose option holds one
+    of `items`."""
+    if not (1 <= point.slot <= LATE_SLOT or point.slot in PURCHASE_SLOTS):
+        return False
+    return any(int(i) in items for i in point.option.split(","))
 
 
 def _usable(match: Match, statics: Mapping[str, StaticData], stats: ExtractStats) -> bool:

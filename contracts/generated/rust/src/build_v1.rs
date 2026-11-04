@@ -10,6 +10,12 @@ pub struct BootsOption {
     #[doc = "Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game."]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub against: ::std::option::Option<BootsOptionAgainst>,
+    #[doc = "The patch that last changed these boots among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged."]
+    #[serde(
+        rename = "changedIn",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub changed_in: ::std::option::Option<Patch>,
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub ci: ::std::option::Option<Interval>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -80,7 +86,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BootsOptionAgainst {
         value.parse()
     }
 }
-#[doc = "Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json."]
+#[doc = "Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json from that patch's games, and at /{patch}/{region}/{elo}/pooled/{champion}/{role}.json from the games of `patches` pooled (ADR-088)."]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Build {
@@ -108,6 +114,9 @@ pub struct Build {
     )]
     pub late_slot: ::std::option::Option<::std::num::NonZeroU64>,
     pub patch: Patch,
+    #[doc = "The patches whose games this file pools, oldest first, `patch` last (ADR-088). Absent: `patch` alone."]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub patches: ::std::option::Option<::std::vec::Vec<Patch>>,
     #[doc = "Riot platform or region id, lower case (for example \"euw1\")."]
     pub region: BuildRegion,
     pub role: Role,
@@ -435,6 +444,12 @@ impl ::std::convert::From<[f64; 2usize]> for Interval {
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ItemOption {
+    #[doc = "The patch that last changed this item among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged."]
+    #[serde(
+        rename = "changedIn",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub changed_in: ::std::option::Option<Patch>,
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub ci: ::std::option::Option<Interval>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
@@ -524,6 +539,12 @@ pub struct PurchaseComparison {
 pub struct PurchaseOption {
     #[doc = "What is most often bought with these items, supplies included and repeated as bought: what an import lists."]
     pub buy: ::std::vec::Vec<::std::num::NonZeroU64>,
+    #[doc = "The latest patch that changed one of `items` among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged."]
+    #[serde(
+        rename = "changedIn",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub changed_in: ::std::option::Option<Patch>,
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub ci: ::std::option::Option<Interval>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]

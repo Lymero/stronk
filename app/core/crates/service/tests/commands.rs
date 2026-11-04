@@ -298,9 +298,14 @@ fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
         json!({"champion": "Viego", "role": "JUNGLE"}),
     )
     .unwrap();
+    // Pooled by default (ADR-088): 16.19's games too.
     assert_eq!(
         (&out["games"], &out["elo"], &out["region"]),
-        (&json!(18432), &json!("master_plus"), &json!("euw1"))
+        (&json!(18483), &json!("master_plus"), &json!("euw1"))
+    );
+    assert_eq!(
+        (&out["window"], &out["patches"]),
+        (&json!("pooled"), &json!(["26.19", "26.20"]))
     );
     let alternatives = &out["alternatives"];
     assert_eq!(
@@ -308,6 +313,7 @@ fn plan_ranks_each_slots_alternatives_by_the_same_rule() {
         json!([{"slot": 1, "more": 0, "rows": [
             {"value": 6672, "played": 6100, "share": 6100.0 / 8540.0, "wpa": 0.008,
              "ci": [0.001, 0.015], "versus": "alternatives", "confidence": "most_played",
+             "changed_in": "26.20",
              "fragile": false, "chosen": false, "listed": true, "judged": 0.0},
             // Stronk's judgement: the head-to-head gain, shrunk by its uncertainty.
             {"value": 6693, "played": 2300, "share": 2300.0 / 8540.0, "wpa": 0.021,
@@ -848,4 +854,47 @@ fn restore_writes_nothing_when_the_client_cant_be_read() {
     assert_eq!(err.code, ErrorCode::Unavailable);
     assert!(client.state().item_set_writes.is_empty());
     assert_eq!(backups.saved.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn plan_reads_the_patch_alone_when_asked_and_marks_changed_items() {
+    let out = run(
+        &ctx(NoClient),
+        "build.plan",
+        json!({"champion": "Viego", "role": "JUNGLE", "window": "patch"}),
+    )
+    .unwrap();
+    assert_eq!(
+        (&out["games"], &out["window"], &out["patches"]),
+        (&json!(18432), &json!("patch"), &json!(["26.20"]))
+    );
+    // Item 6672 changed in 26.20 (the example's `changedIn`); 6693 didn't.
+    let rows = out["alternatives"]["items"][0]["rows"].as_array().unwrap();
+    let changed: Vec<_> = rows
+        .iter()
+        .map(|r| (r["value"].clone(), r.get("changed_in").cloned()))
+        .collect();
+    assert_eq!(
+        changed,
+        [
+            (json!(6672), Some(json!("26.20"))),
+            (json!(6693), None),
+            (json!(6692), None)
+        ]
+    );
+}
+
+#[test]
+fn a_bracket_without_a_pooled_build_keeps_the_bracket_over_the_window() {
+    // Diamond+ has 16.20 alone: the player's bracket wins over Master+ pooled (ADR-088).
+    let out = run(
+        &ctx(NoClient),
+        "build.plan",
+        json!({"champion": "Viego", "role": "JUNGLE", "elo": "diamond_plus"}),
+    )
+    .unwrap();
+    assert_eq!(
+        (&out["elo"], &out["window"], &out["games"]),
+        (&json!("diamond_plus"), &json!("patch"), &json!(7))
+    );
 }

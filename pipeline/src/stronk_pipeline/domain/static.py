@@ -11,6 +11,8 @@ and which ones start one. ADR-026 records the definitions:
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from functools import cached_property
@@ -48,6 +50,9 @@ class Item:
     builds_from: tuple[int, ...]
     builds_into: tuple[int, ...]
     champion_specific: bool = False
+    fingerprint: str = ""
+    """What the item does and costs (`item_fingerprint`): differs between two patches when it
+    was changed; "" in game data stored before fingerprints were kept."""
 
 
 @dataclass(frozen=True)
@@ -126,3 +131,18 @@ def _is_completed(item: Item) -> bool:
         and item.total_gold >= COMPLETED_MIN_GOLD
         and not EXCLUDED_TAGS.intersection(item.tags)
     )
+
+
+def item_fingerprint(description: str, stats: Mapping[str, float], total_gold: int) -> str:
+    """A short hash of an item's description, stats and cost in Data Dragon: an item whose
+    fingerprint differs between two patches was changed. Data Dragon misses a change that shows
+    in none of them (a hidden value), and counts a reworded description as one."""
+    text = json.dumps(
+        {
+            "description": description,
+            "stats": {k: float(v) for k, v in stats.items()},
+            "gold": total_gold,
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(text.encode()).hexdigest()[:16]

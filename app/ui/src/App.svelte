@@ -1,12 +1,12 @@
 <script lang="ts">
-  import BracketSwitch from "./lib/features/build-view/BracketSwitch.svelte";
   import PlanView from "./lib/features/build-view/PlanView.svelte";
+  import Switch from "./lib/features/build-view/Switch.svelte";
   import ChampSelect from "./lib/features/champ-select/ChampSelect.svelte";
   import Settings from "./lib/features/settings/Settings.svelte";
   import Picker from "./lib/features/viewer/Picker.svelte";
   import type { App } from "./lib/state/app.svelte.ts";
   import { noPicks } from "./lib/state/picks.ts";
-  import { clientMissing } from "./lib/ui/labels.ts";
+  import { clientMissing, elo } from "./lib/ui/labels.ts";
 
   /** `viewer`: the web build viewer (ADR-086), read-only: the player picks a champion and role
    * instead of champion select, and nothing is imported. */
@@ -17,16 +17,32 @@
   );
   const picks = $derived(state.picks && state.picks.key === state.plan?.key ? state.picks.value : noPicks());
   const picked = $derived(picks.runes !== undefined || picks.spells !== undefined || Object.keys(picks.items).length > 0);
-  /** The picks, or the bracket the build comes from (ADR-078), changed since that import. */
+  /** The picks, or the bracket or window the build comes from (ADR-078, ADR-088), changed since
+   * that import. */
   const changed = $derived(
     !!imported &&
-      (JSON.stringify(state.imported?.picks) !== JSON.stringify(picks) || state.imported?.elo !== state.plan?.value.elo),
+      (JSON.stringify(state.imported?.picks) !== JSON.stringify(picks) ||
+        state.imported?.elo !== state.plan?.value.elo ||
+        state.imported?.window !== state.plan?.window),
   );
   /** The client isn't open: not an error, the app waits for it. */
   const waiting = $derived(clientMissing(state.error));
   const showPlan = $derived(!!state.plan && !!state.champSelect?.champion);
   /** The brackets the data has builds for, highest first (ADR-078). */
   const elos = $derived(state.data?.elos ?? []);
+  /** The games builds can count (ADR-088): offered when the data has both windows. */
+  const windows = $derived(
+    (state.data?.windows ?? []).length > 1 && state.data
+      ? [
+          { id: "pooled", label: "Recent patches" },
+          { id: "patch", label: `${state.data.patch} only` },
+        ]
+      : [],
+  );
+  const aboutElo =
+    "Each bracket includes the games of those above it. A champion with no build in yours shows the closest bracket's, and says so.";
+  const aboutWindow =
+    "Recent patches: this patch's games and the last one's, for more games; an item changed this patch counts this patch's games only, and says so.";
 </script>
 
 <main>
@@ -58,7 +74,22 @@
     actions={showPlan ? actions : undefined}
   />
   {#snippet actions()}
-    {#if elos.length > 1}<BracketSwitch {elos} value={state.settings.elo} onelo={(elo) => void app.setElo(elo)} />{/if}
+    {#if windows.length}<Switch
+        name="window"
+        label="Games from"
+        about={aboutWindow}
+        options={windows}
+        value={state.settings.window}
+        onchange={(w) => void app.setWindow(w === "patch" ? "patch" : "pooled")}
+      />{/if}
+    {#if elos.length > 1}<Switch
+        name="elo"
+        label="Builds from"
+        about={aboutElo}
+        options={elos.map((id) => ({ id, label: elo(id) }))}
+        value={state.settings.elo}
+        onchange={(id) => void app.setElo(id)}
+      />{/if}
     {#if picked}<button type="button" class="quiet" onclick={() => app.resetPicks()}>Use Stronk's picks</button>{/if}
     {#if !viewer}<button type="button" class="primary" onclick={() => void app.importBuild()}>Import</button>{/if}
   {/snippet}

@@ -4,18 +4,21 @@
 // and icons come from CommunityDragon's mirror of the client's game data. What the app reads
 // from champion select, the viewer reads from the champion and role the player picks.
 
-import type { Backend, ChampSelectState, CommandId, Commands, DataStatus, GameNames, Result, Role } from "./backend.ts";
+import type { Backend, ChampSelectState, CommandId, Commands, DataStatus, GameNames, Result, Role, Window } from "./backend.ts";
 import { err, ok } from "./backend.ts";
 
 /** A patch's verified data, as the core holds it. */
 export interface CoreData {
   elos(): string[];
+  /** The windows with builds, pooled first (ADR-088). */
+  windows(): string[];
   /** `[{champion, role}]` as JSON: every build the manifest lists. */
   builds(): string;
-  /** The bracket the app would read for `wanted`: that one, else the closest with a build. */
-  bracket(champion: string, role: string, wanted: string): string | undefined;
+  /** Where the app would read for `wanted` and `window`, as JSON `{elo, window}`: that bracket in
+   * that window, then in the other, then the closest bracket with a build. */
+  found(champion: string, role: string, wanted: string, window: string): string | undefined;
   /** The plan for a build file's bytes, as `build.plan` returns it (JSON); throws on a bad file. */
-  plan(champion: string, role: string, bracket: string, data: Uint8Array): string;
+  plan(champion: string, role: string, bracket: string, window: string, data: Uint8Array): string;
 }
 
 /** The viewer's core (`crates/web`). Every call may throw: the error's message says why. */
@@ -23,7 +26,7 @@ export interface WebCore {
   /** Verifies a patch's manifest against its signature and the public key. */
   open(publicKey: string, patch: string, manifest: Uint8Array, signature: Uint8Array): CoreData;
   /** A build's path inside its patch directory. */
-  file(champion: string, role: string, bracket: string): string;
+  file(champion: string, role: string, bracket: string, window: string): string;
   /** `{names, icons}` as JSON, from the five game data documents. */
   gameNames(champions: string, perkStyles: string, perks: string, spells: string, items: string): string;
   /** A champion's ability icon paths by ability id (`abilityId`), as JSON, from its own document. */
@@ -40,6 +43,8 @@ const DOCUMENTS = ["champion-summary.json", "perkstyles.json", "perks.json", "su
 /** Where the client serves its game data; CommunityDragon mirrors it per patch. */
 const ASSETS = "/lol-game-data/assets/";
 const DEFAULT_ELO = "master_plus";
+/** The window `build.plan` reads without one (ADR-088). */
+const DEFAULT_WINDOW = "pooled";
 
 export interface HttpOptions {
   /** The published data's root, where `index.json` is (a `just serve-data` URL, or the CDN). */
@@ -123,6 +128,7 @@ export class HttpBackend implements Backend {
       const status: DataStatus = {
         patch,
         elos: data.elos(),
+        windows: data.windows().filter((w): w is Window => w === "pooled" || w === "patch"),
         files: parsed.files?.length ?? 0,
         run_id: parsed.runId ?? "",
         key_id: parsed.keyId ?? "",
@@ -210,16 +216,18 @@ export class HttpBackend implements Backend {
     return paths;
   }
 
-  /** The build of the bracket the app would read, checked against the manifest and planned by the core. */
+  /** The build of the bracket and window the app would read, checked against the manifest and
+   * planned by the core. */
   private async plan(params: Commands["build.plan"]["params"]): Promise<Out<"build.plan">> {
     return this.attempt(async () => {
       const { patch, data } = await this.data();
-      const bracket = data.bracket(params.champion, params.role, params.elo ?? DEFAULT_ELO);
-      if (!bracket) throw new NotFound(`no build for ${params.champion} ${params.role}`);
+      const found = data.found(params.champion, params.role, params.elo ?? DEFAULT_ELO, params.window ?? DEFAULT_WINDOW);
+      if (!found) throw new NotFound(`no build for ${params.champion} ${params.role}`);
+      const { elo, window } = JSON.parse(found) as { elo: string; window: Window };
       const core = await this.loadedCore();
-      const path = core.file(params.champion, params.role, bracket);
+      const path = core.file(params.champion, params.role, elo, window);
       const bytes = await this.bytes(`${this.options.data}${patch}/${path}`);
-      return JSON.parse(data.plan(params.champion, params.role, bracket, bytes)) as Commands["build.plan"]["result"];
+      return JSON.parse(data.plan(params.champion, params.role, elo, window, bytes)) as Commands["build.plan"]["result"];
     });
   }
 

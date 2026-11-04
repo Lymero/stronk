@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "patch": "26.20",
+  "patches": ["26.19", "26.20"],
   "region": "euw1",
   "elo": "diamond_plus",
   "champion": "Viego",
@@ -17,7 +18,7 @@
     }
   ],
   "items": [
-    { "slot": 1, "item": 6672, "wpa": 0.008, "ci": [0.001, 0.015], "n": 5400, "flags": [], "picks": 6100 },
+    { "slot": 1, "item": 6672, "wpa": 0.008, "ci": [0.001, 0.015], "n": 5400, "flags": [], "picks": 6100, "changedIn": "26.20" },
     {
       "slot": 1,
       "item": 6693,

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::Build;
 use stronk_contracts::champions_v1::Champions;
 use stronk_domain::owned::PageInfo;
-use stronk_domain::{BuildKey, Patch, Role};
+use stronk_domain::{BuildKey, Patch, Role, Window};
 
 use crate::{CommandError, ErrorCode};
 
@@ -43,6 +43,10 @@ pub struct DataStatus {
     pub files: usize,
     /// The elo brackets the patch has builds for, highest first (ADR-078, ADR-079).
     pub elos: Vec<String>,
+    /// The windows the patch has builds for, pooled first (ADR-088): `patch` alone for data
+    /// published before pooling.
+    #[serde(default)]
+    pub windows: Vec<Window>,
 }
 
 /// Published build files (docs/architecture.md, section 5, "Data source"). Every

@@ -4,7 +4,7 @@ The published data contract shared by the pipeline (Python) and the app (Rust, T
 
 | Path | What |
 |---|---|
-| `schemas/build.v1.schema.json` | One champion and role: `/{patch}/{region}/{elo}/{champion}/{role}.json` |
+| `schemas/build.v1.schema.json` | One champion and role: `/{patch}/{region}/{elo}/{champion}/{role}.json`, and with earlier patches pooled at `/{patch}/{region}/{elo}/pooled/{champion}/{role}.json` (ADR-088) |
 | `schemas/manifest.v1.schema.json` | Every file of one patch with its hash: `/{patch}/manifest.json` |
 | `schemas/index.v1.schema.json` | The published patches, oldest first: `/index.json` (unsigned, see below) |
 | `examples/` | One valid file per schema, checked by the contract tests |

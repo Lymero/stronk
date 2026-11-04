@@ -11,7 +11,9 @@ pub mod runes;
 pub mod select;
 pub mod skills;
 pub mod spells;
+pub mod window;
 
 pub use build_key::{BuildKey, InvalidKey};
 pub use patch::{InvalidPatch, Patch};
 pub use role::Role;
+pub use window::Window;

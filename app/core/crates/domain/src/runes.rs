@@ -204,6 +204,7 @@ mod tests {
                 wpa,
                 ci: Some(ci),
             }),
+            changed_in: None,
         }
     }
 

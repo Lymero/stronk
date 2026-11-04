@@ -78,6 +78,9 @@ pub struct Candidate<T> {
     /// Flagged `fragile`: a modest hidden confounder could overturn it.
     pub fragile: bool,
     pub comparison: Option<Comparison>,
+    /// The patch that last changed the item, or one of the purchase's items, among the
+    /// patches the build counts (ADR-088).
+    pub changed_in: Option<String>,
 }
 
 impl<T> Candidate<T> {
@@ -230,6 +233,10 @@ pub struct Row<T> {
     /// Stronk's judgement against the most played option, for ordering (ADR-070): the gain the
     /// best bet is chosen by, 0 when not measured against it. See [`by_judgement`].
     pub judged: f64,
+    /// The patch that last changed the item, or one of the purchase's items (ADR-088): in a
+    /// pooled build, measured on that patch's games and later ones only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub changed_in: Option<String>,
 }
 
 /// Stronk's order of a slot's options (ADR-070): its choice, then the larger judged gain
@@ -295,6 +302,7 @@ pub fn rank<T: Clone + PartialEq>(candidates: &[Candidate<T>], chosen: Option<&T
                 chosen: is_chosen(c),
                 listed: i < SHOWN || is_chosen(c),
                 judged: c.judged_against(popular),
+                changed_in: c.changed_in.clone(),
             }
         })
         .collect();
@@ -356,6 +364,7 @@ mod tests {
             unclear: false,
             fragile: false,
             comparison,
+            changed_in: None,
         }
     }
 

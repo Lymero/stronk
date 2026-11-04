@@ -7,6 +7,7 @@ import type * as Core from "./commands.ts";
 
 export type Commands = Core.Commands;
 export type Role = Core.Role;
+export type Window = Core.Window;
 export type ErrorCode = Core.ErrorCode;
 export type CommandError = Core.CommandError;
 export type Result<T> = { ok: true; value: T } | { ok: false; error: CommandError };

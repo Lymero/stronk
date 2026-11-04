@@ -27,6 +27,8 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
   games: 1000,
   elo: "master_plus",
   region: "all",
+  window: "patch",
+  patches: ["16.20"],
   runes: null,
   spells: { value: [11, 4], label: "popular" },
   items: [{ slot: 4, value: 10, label: "popular", block: 4 }],

@@ -1,15 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Role;
+use crate::{Role, Window};
 
 /// Which published build file a champion and role need: `{region}/{elo}/{champion}/{role}.json`
-/// inside a patch (contracts/README.md).
+/// inside a patch, or `{region}/{elo}/pooled/{champion}/{role}.json` for earlier patches'
+/// games pooled with it (contracts/README.md, ADR-088).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BuildKey {
     pub region: String,
     pub elo: String,
     pub champion: String,
     pub role: Role,
+    pub window: Window,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -35,13 +37,24 @@ impl BuildKey {
             elo: elo.to_owned(),
             champion: champion.to_owned(),
             role,
+            window: Window::Patch,
         })
+    }
+
+    /// The same file in another window.
+    #[must_use]
+    pub fn in_window(self, window: Window) -> Self {
+        Self { window, ..self }
     }
 
     /// The file's path inside its patch, as the manifest lists it.
     pub fn path(&self) -> String {
+        let window = match self.window {
+            Window::Pooled => "pooled/",
+            Window::Patch => "",
+        };
         format!(
-            "{}/{}/{}/{}.json",
+            "{}/{}/{window}{}/{}.json",
             self.region,
             self.elo,
             self.champion,
@@ -69,6 +82,12 @@ mod tests {
         assert_eq!(
             key.map(|k| k.path()),
             Ok("all/master_plus/LeeSin/JUNGLE.json".to_owned())
+        );
+        let pooled = BuildKey::new("all", "master_plus", "LeeSin", Role::Jungle)
+            .map(|k| k.in_window(Window::Pooled).path());
+        assert_eq!(
+            pooled,
+            Ok("all/master_plus/pooled/LeeSin/JUNGLE.json".to_owned())
         );
     }
 

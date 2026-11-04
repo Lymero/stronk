@@ -54,7 +54,7 @@ export type Interval4 = [number, number];
 export type Interval5 = [number, number];
 
 /**
- * Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json.
+ * Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json from that patch's games, and at /{patch}/{region}/{elo}/pooled/{champion}/{role}.json from the games of `patches` pooled (ADR-088).
  */
 export interface Build {
   /**
@@ -62,6 +62,12 @@ export interface Build {
    */
   schemaVersion: 1;
   patch: Patch;
+  /**
+   * The patches whose games this file pools, oldest first, `patch` last (ADR-088). Absent: `patch` alone.
+   *
+   * @minItems 1
+   */
+  patches?: [Patch, ...Patch[]];
   /**
    * Riot platform or region id, lower case (for example "euw1").
    */
@@ -176,6 +182,10 @@ export interface ItemOption {
    * Times this item was chosen at this slot.
    */
   picks?: number;
+  /**
+   * Game patch, major.minor (for example "26.20").
+   */
+  changedIn?: string;
   comparison?: Comparison;
 }
 export interface SpellOption {
@@ -234,6 +244,10 @@ export interface PurchaseOption {
    */
   buy: [number, ...number[]];
   /**
+   * Game patch, major.minor (for example "26.20").
+   */
+  changedIn?: string;
+  /**
    * Games with this purchase.
    */
   games: number;
@@ -281,6 +295,10 @@ export interface BootsOption {
    * Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game.
    */
   against?: "physical" | "mixed" | "magic";
+  /**
+   * Game patch, major.minor (for example "26.20").
+   */
+  changedIn?: string;
   /**
    * Games with these boots.
    */

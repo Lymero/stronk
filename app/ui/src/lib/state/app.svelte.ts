@@ -17,6 +17,7 @@ import type {
   Plan,
   Restored,
   Role,
+  Window,
 } from "../backend/backend.ts";
 import { ABILITY_KEYS, abilityId } from "../backend/backend.ts";
 import {
@@ -36,6 +37,10 @@ import {
 /** The elo bracket builds come from unless the player chooses another (ADR-078). */
 export const DEFAULT_ELO = "master_plus";
 
+/** The games builds count unless the player chooses otherwise (ADR-088): the patch's and the
+ * earlier ones' pooled, for more games. */
+export const DEFAULT_WINDOW: Window = "pooled";
+
 export interface Settings {
   /** Write Stronk's item set on lock-in, and again until the game starts whenever it changes
    * (ADR-082); on by default: it adds a set and leaves the player's alone. */
@@ -46,9 +51,12 @@ export interface Settings {
   /** The elo bracket the builds come from (ADR-078); a champion and role it has no build for
    * get Master+'s, and the plan says so. */
   elo: string;
+  /** The games the builds count (ADR-088): earlier patches' pooled with the newest, or the
+   * newest alone; data without that window gets the other, and the plan says so. */
+  window: Window;
 }
 
-const defaults: Settings = { autoItemSet: true, autoImport: false, elo: DEFAULT_ELO };
+const defaults: Settings = { autoItemSet: true, autoImport: false, elo: DEFAULT_ELO, window: DEFAULT_WINDOW };
 
 export interface AppState {
   data: DataStatus | null;
@@ -61,15 +69,23 @@ export interface AppState {
   /** What an import would write for the champion picked or hovered, and each slot's
    * alternatives; loaded as soon as known. */
   /** The plan for `key` (champion/role), asked with these enemy picks (sorted ids, ADR-074) in
-   * this elo bracket (ADR-078); the plan's own `elo` is where it came from. */
-  plan: { key: string; value: Plan; enemies?: string; elo: string } | null;
+   * this elo bracket (ADR-078) and window (ADR-088); the plan's own `elo` and `window` are where
+   * it came from. */
+  plan: { key: string; value: Plan; enemies?: string; elo: string; window: Window } | null;
   /** The player's picks instead of Stronk's choices, for one champion and role (ADR-050);
    * kept between runs until the patch changes (ADR-051). */
   picks: { key: string; value: Picks } | null;
   /** The last import, for which champion and role, with which picks, from which bracket, and
    * what its item set was written from (`itemSetOf`); parts an import didn't write keep the
    * outcome and picks of the one before. */
-  imported: { key: string; value: Imported; picks: Picks; elo: string; itemSet: string | null } | null;
+  imported: {
+    key: string;
+    value: Imported;
+    picks: Picks;
+    elo: string;
+    window: Window;
+    itemSet: string | null;
+  } | null;
   settings: Settings;
   /** Item set backups in settings: listed when settings open, and the last restore. */
   restore: { backups: Backup[] | null; done: Restored | null; error: CommandError | null };
@@ -103,7 +119,8 @@ export const browserSettings: SettingsStore = {
       if (parsed && typeof parsed === "object") {
         const saved = parsed as Partial<Record<keyof Settings, unknown>>;
         const elo = typeof saved.elo === "string" && /^[a-z_]{2,32}$/.test(saved.elo) ? saved.elo : DEFAULT_ELO;
-        return { autoItemSet: saved.autoItemSet !== false, autoImport: saved.autoImport === true, elo };
+        const window = saved.window === "patch" ? "patch" : DEFAULT_WINDOW;
+        return { autoItemSet: saved.autoItemSet !== false, autoImport: saved.autoImport === true, elo, window };
       }
     } catch {
       // unreadable or unavailable storage: defaults
@@ -146,10 +163,12 @@ export function createApp(
     if (!state.plan) return;
     const { key } = state.plan;
     const { elo } = state.plan.value;
+    const { window } = state.plan; // asked: a plan without that window fell back the same way
     const picks = currentPicks();
     const params: ImportParams = {
       ...(parts ? { parts } : {}),
       ...(elo !== DEFAULT_ELO ? { elo } : {}),
+      ...(window !== DEFAULT_WINDOW ? { window } : {}),
       ...(picks.runes ? { runes: picks.runes } : {}),
       ...(picks.spells ? { spells: picks.spells } : {}),
       ...(picks.sections.start ? { start: picks.sections.start } : {}),
@@ -174,7 +193,7 @@ export function createApp(
         [kept.items, kept.sections, kept.skills] = [before.picks.items, before.picks.sections, before.picks.skills];
       }
       const itemSet = asked("item_set") ? itemSetOf() : (before?.itemSet ?? null);
-      state.imported = { key, value, picks: kept, elo, itemSet };
+      state.imported = { key, value, picks: kept, elo, window, itemSet };
       state.error = null;
     } else {
       state.error = imported.error;
@@ -293,12 +312,14 @@ export function createApp(
     // player chooses another bracket (ADR-078).
     const enemies = session?.enemies ?? [];
     const seen = [...enemies].sort((a, b) => a - b).join(",");
-    const elo = state.settings.elo;
-    if (state.plan?.key !== key || (state.plan.enemies ?? "") !== seen || state.plan.elo !== elo) {
+    const { elo, window } = state.settings;
+    const asked = state.plan?.key === key && state.plan.elo === elo && state.plan.window === window;
+    if (!asked || (state.plan?.enemies ?? "") !== seen) {
       const plan = await backend.run("build.plan", {
         champion,
         role,
         ...(elo !== DEFAULT_ELO ? { elo } : {}),
+        ...(window !== DEFAULT_WINDOW ? { window } : {}),
         ...(enemies.length ? { enemies } : {}),
       });
       if (!plan.ok) {
@@ -306,9 +327,9 @@ export function createApp(
         state.error = plan.error;
         return;
       }
-      // Another bracket has other options: the saved picks are matched against them again.
-      const fresh = state.plan?.key !== key || state.plan.elo !== elo;
-      state.plan = { key, value: plan.value, enemies: seen, elo }; // hovered earlier: lock-in is a cache hit
+      // Another bracket or window has other options: the saved picks are matched against them again.
+      const fresh = !asked;
+      state.plan = { key, value: plan.value, enemies: seen, elo, window }; // hovered earlier: lock-in is a cache hit
       state.error = null;
       if (fresh) restorePicks(key, plan.value);
     }
@@ -335,7 +356,7 @@ export function createApp(
     if (!plan) return null;
     const { items, sections, skills } = currentPicks();
     const { start, components, boots, skill_levels, skill_max } = plan;
-    return JSON.stringify([plan.elo, plan.items, start, components, boots, skill_levels, skill_max, items, sections, skills ?? {}]);
+    return JSON.stringify([plan.elo, plan.window, plan.items, start, components, boots, skill_levels, skill_max, items, sections, skills ?? {}]);
   }
 
   /** The picks for the champion and role on screen; none for any other. */
@@ -414,6 +435,13 @@ export function createApp(
     await refresh();
   }
 
+  /** Builds from other games (ADR-088): the plan on screen is asked again. */
+  async function setWindow(window: Window): Promise<void> {
+    state.settings = { ...state.settings, window };
+    store.save(state.settings);
+    await refresh();
+  }
+
   async function loadBackups(): Promise<void> {
     const listed = await backend.run("item_sets.backups", {});
     state.restore = listed.ok
@@ -436,7 +464,20 @@ export function createApp(
     await refresh();
   }
 
-  return { state, refresh, importBuild, pick, resetPicks, setAutoImport, setAutoItemSet, setElo, loadBackups, restoreItemSets, choose };
+  return {
+    state,
+    refresh,
+    importBuild,
+    pick,
+    resetPicks,
+    setAutoImport,
+    setAutoItemSet,
+    setElo,
+    setWindow,
+    loadBackups,
+    restoreItemSets,
+    choose,
+  };
 }
 
 export type App = ReturnType<typeof createApp>;

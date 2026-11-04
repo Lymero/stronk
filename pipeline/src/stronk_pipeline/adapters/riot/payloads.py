@@ -28,7 +28,7 @@ from stronk_pipeline.domain.match import (
     patch_of,
 )
 from stronk_pipeline.domain.result import Err, Ok, Result
-from stronk_pipeline.domain.static import Champion, Item, StaticData
+from stronk_pipeline.domain.static import Champion, Item, StaticData, item_fingerprint
 from stronk_pipeline.ports import MatchHeader
 
 RIFT = 11
@@ -250,6 +250,8 @@ class _ItemEntry(_Payload):
     in_store: bool = Field(default=True, alias="inStore")
     required_champion: str = Field(default="", alias="requiredChampion")
     required_ally: str = Field(default="", alias="requiredAlly")
+    description: str = ""
+    stats: dict[str, float] = Field(default_factory=dict[str, float])
 
 
 class ItemsPayload(_Payload):
@@ -375,6 +377,7 @@ def to_static(version: str, champions: ChampionsPayload, items: ItemsPayload) ->
                     builds_from=tuple(int(c) for c in i.builds_from),
                     builds_into=tuple(int(c) for c in i.builds_into),
                     champion_specific=bool(i.required_champion or i.required_ally),
+                    fingerprint=item_fingerprint(i.description, i.stats, i.gold.total),
                 )
                 for item_id, i in items.data.items()
             },

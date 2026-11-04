@@ -158,11 +158,12 @@ publish estimates crawl key="~/.config/stronk/signing.key" out="dist/data":
     uv run stronk-pipeline run publish --params '{"estimates": "{{ estimates }}", "crawl": '"$crawls"', "key": "'"$(eval echo {{ key }})"'", "out": "{{ out }}"}'
 
 # Example: just publish-brackets "m/estimates.json=crawl/m d/estimates.json=crawl/m,crawl/d"
-# Every bracket of a patch under one manifest (ADR-079), each "<estimates>=<crawl,…>"
+# Every bracket of a patch under one manifest (ADR-079), each "<estimates>=<crawl,…>"; one
+# prefixed "pooled:" holds several patches and is published under the newest's pooled/ (ADR-088)
 publish-brackets brackets key="~/.config/stronk/signing.key" out="dist/data":
     #!/usr/bin/env bash
     set -euo pipefail
-    sources=$(printf '%s' "{{ brackets }}" | python3 -c 'import json, sys; print(json.dumps([{"estimates": e, "crawl": c.split(",")} for e, c in (b.split("=", 1) for b in sys.stdin.read().split())]))')
+    sources=$(printf '%s' "{{ brackets }}" | python3 -c 'import json, sys; print(json.dumps([{"estimates": e.removeprefix("pooled:"), "crawl": c.split(","), "window": "pooled" if e.startswith("pooled:") else "patch"} for e, c in (b.split("=", 1) for b in sys.stdin.read().split())]))')
     uv run stronk-pipeline run publish --params '{"brackets": '"$sources"', "key": "'"$(eval echo {{ key }})"'", "out": "{{ out }}"}'
 
 # Real data for the app from the full corpus (crawl-all-16.20), signed with your key (stops if

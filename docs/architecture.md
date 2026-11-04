@@ -220,7 +220,8 @@ Published files, each with its schema in `contracts/schemas/` and a valid exampl
 | `/index.json` | `index.v1` | The published patches, for clients over HTTP; unsigned, as every patch it names has its own signed manifest (ADR-046) |
 | `/{patch}/manifest.json` (+ `.minisig`) | `manifest.v1` | Every file of the patch with its sha256, signed |
 | `/{patch}/champions.json` | `champions.v1` | Each champion's damage ratings and the enemy-profile cuts (ADR-074) |
-| `/{patch}/{region}/{elo}/{champion}/{role}.json` | `build.v1` | One build: games; rune pages and each rune row (`runeChoices`); spells; starts, first components, boots by enemy damage; items per slot and the late slot; each option with its estimate, interval, games, flags and head-to-head comparison |
+| `/{patch}/{region}/{elo}/{champion}/{role}.json` | `build.v1` | One build: games; rune pages and each rune row (`runeChoices`); spells; starts, first components, boots by enemy damage; items per slot and the late slot; each option with its estimate, interval, games, flags and head-to-head comparison, and the patch that changed an item (`changedIn`) |
+| `/{patch}/{region}/{elo}/pooled/{champion}/{role}.json` | `build.v1` | The same with earlier patches' games pooled (`patches`), an item changed within them counted on its new patch's games only (ADR-088) |
 
 `region` is `all` or a platform; `elo` is a bracket, a band of tiers with every band above it: `master_plus`, `diamond_plus` (Diamond and Master+ games) or `emerald_plus` (Emerald, Diamond and Master+) (ADR-079; data published before it may hold `diamond`, Diamond alone, ADR-076). `data.status` lists the brackets the manifest has builds for; `build.plan` and `build.import` read the player's bracket and, when it has no build for the champion and role, the closest one that has, wider first, the plan's `elo` saying which (ADR-078, ADR-079). `build.get` reads the exact file asked for.
 

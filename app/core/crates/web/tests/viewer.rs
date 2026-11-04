@@ -5,8 +5,8 @@
 
 use std::path::PathBuf;
 
-use stronk_domain::Role;
-use stronk_web::{Data, Listed, abilities_of, names_of};
+use stronk_domain::{Role, Window};
+use stronk_web::{Data, Found, Listed, abilities_of, names_of};
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..")
@@ -51,20 +51,34 @@ fn lists_every_champion_and_role_with_a_build() {
 fn reads_the_closest_bracket_with_a_build_as_the_app_does() {
     let data = data();
     assert_eq!(data.elos(), ["master_plus"]);
-    // The fixture has Master+ only: Diamond+ falls back to it (ADR-079).
-    let bracket = data.bracket_for("LeeSin", "JUNGLE", "diamond_plus");
-    assert_eq!(bracket.as_deref(), Some("master_plus"));
-    assert_eq!(data.bracket_for("LeeSin", "TOP", "master_plus"), None);
-    assert_eq!(data.bracket_for("../x", "JUNGLE", "master_plus"), None);
+    assert_eq!(data.windows(), ["patch"]);
+    // The fixture has Master+ of 16.20 alone: Diamond+ pooled falls back to it (ADR-079,
+    // ADR-088).
+    let found = data.found_for("LeeSin", "JUNGLE", "diamond_plus", Window::Pooled);
+    assert_eq!(
+        found,
+        Some(Found {
+            elo: "master_plus".into(),
+            window: Window::Patch
+        })
+    );
+    assert_eq!(
+        data.found_for("LeeSin", "TOP", "master_plus", Window::Patch),
+        None
+    );
+    assert_eq!(
+        data.found_for("../x", "JUNGLE", "master_plus", Window::Patch),
+        None
+    );
 }
 
 #[test]
 fn plans_a_verified_build_as_build_plan_does() {
     let data = data();
-    let path = Data::path("LeeSin", "JUNGLE", "master_plus").unwrap();
+    let path = Data::path("LeeSin", "JUNGLE", "master_plus", Window::Patch).unwrap();
     let bytes = read(&format!("fixtures/data/16.20/{path}"));
     let plan = data
-        .plan_of("LeeSin", "JUNGLE", "master_plus", &bytes)
+        .plan_of("LeeSin", "JUNGLE", "master_plus", Window::Patch, &bytes)
         .unwrap();
     assert_eq!(
         (plan.champion.as_str(), plan.role),
@@ -80,12 +94,12 @@ fn plans_a_verified_build_as_build_plan_does() {
     let mut changed = bytes.clone();
     changed.push(b'\n');
     assert!(
-        data.plan_of("LeeSin", "JUNGLE", "master_plus", &changed)
+        data.plan_of("LeeSin", "JUNGLE", "master_plus", Window::Patch, &changed)
             .is_err()
     );
     let other = read("fixtures/data/16.20/all/master_plus/Graves/JUNGLE.json");
     assert!(
-        data.plan_of("LeeSin", "JUNGLE", "master_plus", &other)
+        data.plan_of("LeeSin", "JUNGLE", "master_plus", Window::Patch, &other)
             .is_err()
     );
 }

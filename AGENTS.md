@@ -32,6 +32,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just corpus [name…]` | Fetch and verify the pinned corpora (`crawl-ci-16.20` for checks, `crawl-all-16.20` for real runs) |
 | `just pipeline` | Full pipeline on the committed fixture (crawl replay, extract, winprob, wpa, publish) into `runs/pipeline/`, signed with a throwaway key |
 | `just publish <estimates> <crawl,…> [key] [out]` | Signed build files into `dist/data/` |
+| `just publish-brackets "<estimates>=<crawl,…> pooled:<estimates>=<crawl,…>" [key] [out]` | Every bracket of a patch under one manifest; `pooled:` marks one pooling several patches, published under the newest's `pooled/` (ADR-079, ADR-088). Crawls stored before item fingerprints need `uv run python tools/corpus/refresh_static.py <crawl>…` first |
 | `just pipeline-stage <name>` | One stage: `crawl`, `extract`, `winprob`, `wpa`, `publish` |
 | `just crawl <platform> <games> [out] [bracket]` | Crawl ranked games from the Riot API (needs `RIOT_API_KEY`); rerun to resume. `bracket`: `master_plus` (default) or `diamond`, one per directory, carried to the published `elo` (ADR-076) |
 | `just extract [crawl,…] [out] [--retry-quarantine]` | Frames and decision points from one or more crawl directories (comma-separated) into one table; the flag first re-reads games the crawl quarantined |

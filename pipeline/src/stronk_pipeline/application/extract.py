@@ -26,6 +26,7 @@ from stronk_pipeline.domain.bracket import ordered, published
 from stronk_pipeline.domain.extract.skill import GameHeader, PlayerGame, prior_skill
 from stronk_pipeline.domain.extract.tables import ExtractStats, extract
 from stronk_pipeline.domain.match import Match
+from stronk_pipeline.domain.patches import MissingFingerprintsError, changed_since, in_order
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
 from stronk_pipeline.ports import (
@@ -105,8 +106,22 @@ def extract_command(
             case Ok(value=(headers, unreadable, games)):
                 pass
         out = Path(params.out)
+        patches = in_order(h.patch for h in headers)
+        try:
+            changed = changed_since(statics, patches) if len(patches) > 1 else {}
+        except MissingFingerprintsError as e:
+            return Err(CommandError(code="invalid_input", message=f"can't pool patches: {e}"))
+        except KeyError as e:
+            message = f"can't pool patches: no game data for {e}"
+            return Err(CommandError(code="invalid_input", message=message))
         match _write_tables(
-            games, statics, prior_skill(headers), out=out, frames=frames, decisions=decisions
+            games,
+            statics,
+            prior_skill(headers),
+            changed,
+            out=out,
+            frames=frames,
+            decisions=decisions,
         ):
             case Err(error=e):
                 return Err(e)
@@ -136,7 +151,8 @@ def extract_command(
             "stage": "extract",
             "params": params.model_dump(),
             "inputs": {"matches": len(headers), "match_ids_sha256": _ids_hash(headers)},
-            "patches": sorted({h.patch for h in headers}),
+            "patches": patches,
+            "changed_items": {p: sorted(items) for p, items in changed.items()},
             "static_versions": {p: s.version for p, s in sorted(statics.items())},
             "result": result.model_dump(),
         }
@@ -164,6 +180,7 @@ def _write_tables(
     games: Iterable[Match],
     statics: Mapping[str, StaticData],
     skill: Mapping[PlayerGame, tuple[float, float]],
+    changed: Mapping[str, frozenset[int]],
     *,
     out: Path,
     frames: FrameStore,
@@ -175,7 +192,7 @@ def _write_tables(
     frame_rows = decision_rows = 0
     frames_path, decisions_path = out / "frames.parquet", out / "decisions.parquet"
     for part, chunk in enumerate(itertools.batched(games, CHUNK_GAMES, strict=False)):
-        extracted = extract(chunk, statics, skill)
+        extracted = extract(chunk, statics, skill, changed)
         stats.add(extracted.stats)
         frame_rows += len(extracted.frames)
         decision_rows += len(extracted.decisions)

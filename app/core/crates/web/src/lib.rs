@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 use stronk_data::{TrustedKey, VerifiedManifest};
-use stronk_domain::{BuildKey, Patch, Role, elo};
+use stronk_domain::{BuildKey, Patch, Role, Window, elo};
 use stronk_service::commands::build_plan::{Plan, plan};
 use stronk_service::game_data::{
     ChampionDetail, ChampionSummary, GameData, Named, PerkStyles, ability_id,
@@ -26,6 +26,13 @@ const REGION: &str = "all";
 #[wasm_bindgen]
 pub struct Data {
     manifest: VerifiedManifest,
+}
+
+/// Where the app reads a champion and role's build: its bracket and window.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Found {
+    pub elo: String,
+    pub window: Window,
 }
 
 /// A champion and role with a build in at least one bracket.
@@ -61,8 +68,9 @@ impl Data {
             .iter()
             .filter_map(|f| {
                 let parts: Vec<&str> = f.path.as_str().split('/').collect();
-                let [_, _, champion, file] = parts.as_slice() else {
-                    return None;
+                let (champion, file) = match parts.as_slice() {
+                    [_, _, champion, file] | [_, _, "pooled", champion, file] => (champion, file),
+                    _ => return None,
                 };
                 let role = role(file.strip_suffix(".json")?)?;
                 Some(Listed {
@@ -76,27 +84,45 @@ impl Data {
         out
     }
 
-    /// The bracket whose build of `champion` and `role` the app would read for `wanted`: that
-    /// one, else the closest with a build, wider first (`elo::fallbacks`, ADR-079).
-    pub fn bracket_for(&self, champion: &str, role: &str, wanted: &str) -> Option<String> {
+    /// The bracket and window whose build of `champion` and `role` the app would read for
+    /// `wanted` and `window`, in `build_get::fetch_preferring`'s order: the bracket in that
+    /// window, then in the other, then the closest bracket with a build, wider first
+    /// (`elo::fallbacks`, ADR-079, ADR-088).
+    pub fn found_for(
+        &self,
+        champion: &str,
+        role: &str,
+        wanted: &str,
+        window: Window,
+    ) -> Option<Found> {
         let role = self::role(role)?;
         elo::fallbacks(wanted).into_iter().find_map(|bracket| {
-            let key = BuildKey::new(REGION, bracket, champion, role).ok()?;
-            self.manifest.entry(&key.path()).map(|_| bracket.to_owned())
+            window.fallbacks().into_iter().find_map(|window| {
+                let key = BuildKey::new(REGION, bracket, champion, role)
+                    .ok()?
+                    .in_window(window);
+                self.manifest.entry(&key.path()).map(|_| Found {
+                    elo: bracket.to_owned(),
+                    window,
+                })
+            })
         })
     }
 
-    /// The plan for the build `data` holds, if it is the manifest's file for `champion`, `role`
-    /// and `bracket`: `build.plan`'s, with no enemies known (boots over every game).
+    /// The plan for the build `data` holds, if it is the manifest's file for `champion`, `role`,
+    /// `bracket` and `window`: `build.plan`'s, with no enemies known (boots over every game).
     pub fn plan_of(
         &self,
         champion: &str,
         role: &str,
         bracket: &str,
+        window: Window,
         data: &[u8],
     ) -> Result<Plan, String> {
         let role = self::role(role).ok_or_else(|| format!("{role} is not a role"))?;
-        let key = BuildKey::new(REGION, bracket, champion, role).map_err(|e| e.to_string())?;
+        let key = BuildKey::new(REGION, bracket, champion, role)
+            .map_err(|e| e.to_string())?
+            .in_window(window);
         let build = self
             .manifest
             .parse_build(&key, data)
@@ -104,11 +130,17 @@ impl Data {
         Ok(plan(&build, role, None))
     }
 
-    /// Where the build of `champion`, `role` and `bracket` is, inside the patch directory.
-    pub fn path(champion: &str, role: &str, bracket: &str) -> Result<String, String> {
+    /// Where the build of `champion`, `role`, `bracket` and `window` is, inside the patch
+    /// directory.
+    pub fn path(
+        champion: &str,
+        role: &str,
+        bracket: &str,
+        window: Window,
+    ) -> Result<String, String> {
         let role = self::role(role).ok_or_else(|| format!("{role} is not a role"))?;
         let key = BuildKey::new(REGION, bracket, champion, role).map_err(|e| e.to_string())?;
-        Ok(key.path())
+        Ok(key.in_window(window).path())
     }
 }
 
@@ -131,19 +163,42 @@ impl Data {
         self.manifest.elos()
     }
 
+    /// The windows with builds, pooled first (ADR-088): `"pooled"`, `"patch"`.
+    pub fn windows(&self) -> Vec<String> {
+        self.manifest
+            .windows()
+            .into_iter()
+            .map(|w| w.as_str().to_owned())
+            .collect()
+    }
+
     /// [`Data::listed`] as JSON: `[{"champion": "LeeSin", "role": "JUNGLE"}, …]`.
     pub fn builds(&self) -> Result<String, JsError> {
         serde_json::to_string(&self.listed()).map_err(|e| JsError::new(&e.to_string()))
     }
 
-    /// [`Data::bracket_for`].
-    pub fn bracket(&self, champion: &str, role: &str, wanted: &str) -> Option<String> {
-        self.bracket_for(champion, role, wanted)
+    /// [`Data::found_for`] as JSON, `{"elo": "diamond_plus", "window": "pooled"}`, if any.
+    pub fn found(
+        &self,
+        champion: &str,
+        role: &str,
+        wanted: &str,
+        window: &str,
+    ) -> Result<Option<String>, JsError> {
+        let found = self.found_for(champion, role, wanted, self::window(window)?);
+        found
+            .map(|f| serde_json::to_string(&f).map_err(|e| JsError::new(&e.to_string())))
+            .transpose()
     }
 
     /// [`Data::path`].
-    pub fn file(champion: &str, role: &str, bracket: &str) -> Result<String, JsError> {
-        Self::path(champion, role, bracket).map_err(|e| JsError::new(&e))
+    pub fn file(
+        champion: &str,
+        role: &str,
+        bracket: &str,
+        window: &str,
+    ) -> Result<String, JsError> {
+        Self::path(champion, role, bracket, self::window(window)?).map_err(|e| JsError::new(&e))
     }
 
     /// [`Data::plan_of`] as JSON, the shape `build.plan` returns.
@@ -152,10 +207,11 @@ impl Data {
         champion: &str,
         role: &str,
         bracket: &str,
+        window: &str,
         data: &[u8],
     ) -> Result<String, JsError> {
         let plan = self
-            .plan_of(champion, role, bracket, data)
+            .plan_of(champion, role, bracket, self::window(window)?, data)
             .map_err(|e| JsError::new(&e))?;
         serde_json::to_string(&plan).map_err(|e| JsError::new(&e.to_string()))
     }
@@ -246,4 +302,12 @@ fn kind_name(kind: IconKind) -> &'static str {
 
 fn role(name: &str) -> Option<Role> {
     Role::ALL.into_iter().find(|r| r.as_str() == name)
+}
+
+/// A window by its name in JSON, `"pooled"` or `"patch"` (ADR-088).
+fn window(name: &str) -> Result<Window, JsError> {
+    Window::ALL
+        .into_iter()
+        .find(|w| w.as_str() == name)
+        .ok_or_else(|| JsError::new(&format!("{name} is not a window")))
 }

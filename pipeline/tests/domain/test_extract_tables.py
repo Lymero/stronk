@@ -70,3 +70,21 @@ def test_no_matches_gives_empty_tables() -> None:
     extracted = extract([], {"16.20": STATIC})
     assert len(extracted.frames) == 0
     assert len(extracted.decisions) == 0
+
+
+def test_older_patch_choices_of_changed_items_are_left_out() -> None:
+    # Regression guard for pooling (ADR-088): Pickaxe (1037) and 6333 changed in 16.20, so a
+    # 16.19 game's choices of them don't count; the rest of that game does.
+    new = replace(matches()[0], match_id="EUW1_3")
+    old = replace(matches()[0], patch="16.19")
+    statics = {"16.19": STATIC, "16.20": STATIC}
+    extracted = extract([old, new], statics, changed={"16.19": frozenset({1037, 6333})})
+    d = extracted.decisions
+    bought = (d.slot >= 1) & ((d.slot <= 4) | (d.slot >= 60_000)) & (d.slot < 70_000)
+    options = {
+        m: sorted(d.option[bought & (d.match_id == m)].tolist()) for m in ("EUW1_1", "EUW1_3")
+    }
+    assert options == {"EUW1_1": ["1038", "3031"], "EUW1_3": ["1037", "1038", "3031", "6333"]}
+    assert extracted.stats.dropped["changed_item_older_patch"] == 2
+    keystones = d.slot == 0
+    assert (d.match_id[keystones] == "EUW1_1").sum() == (d.match_id[keystones] == "EUW1_3").sum()

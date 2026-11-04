@@ -469,3 +469,73 @@ def test_missing_key_is_not_found_and_nothing_is_published(tmp_path: Path) -> No
     assert isinstance(result, Err)
     assert result.error.code == "not_found"
     assert not (tmp_path / "dist").exists()
+
+
+def two_patches(tmp_path: Path) -> str:
+    """setup's crawl with a 16.19 game too, and Doran's Blade (1055) changed in 16.20."""
+    setup(tmp_path, patches=("16.20", "16.19"))
+    old = domain_static()
+    blade = replace(old.items[1055], fingerprint="before 16.20")
+    FileMatchStore(tmp_path / "crawl").put_static(
+        "16.19", replace(old, version="16.19.1", items={**old.items, 1055: blade})
+    )
+    return str(tmp_path / "crawl")
+
+
+def one_patch(tmp_path: Path, name: str, patch: str) -> str:
+    store = FileMatchStore(tmp_path / name)
+    store.put_static(patch, domain_static())
+    store.put(replace(domain_match(f"EUW1_{len(name)}0"), patch=patch))
+    return str(tmp_path / name)
+
+
+def test_a_pooled_bracket_goes_under_the_newest_patch_with_changed_items_marked(
+    tmp_path: Path,
+) -> None:
+    crawl, estimates = two_patches(tmp_path), str(tmp_path / "estimates.json")
+    brackets = [{"estimates": estimates, "crawl": crawl, "window": "pooled"}]
+    assert isinstance(publish(tmp_path, estimates=None, crawl=None, brackets=brackets), Ok)
+    root = tmp_path / "dist" / "16.20" / "all" / "master_plus"
+    build = json.loads((root / "pooled" / "Champ1" / "TOP.json").read_text())
+    assert (build["patch"], build["patches"], build["games"]) == ("16.20", ["16.19", "16.20"], 2)
+    starts = {s["items"][0]: s.get("changedIn") for s in build["starts"]}
+    assert starts == {1055: "16.20", 1036: None}  # Doran's Blade changed, Long Sword didn't
+    assert all("changedIn" not in i for i in (*build["items"], *build["boots"]))
+    assert not (root / "Champ1").exists()  # no bracket for 16.20 alone was given
+
+
+def test_both_windows_share_one_manifest_and_end_on_one_patch(tmp_path: Path) -> None:
+    pooled, estimates = two_patches(tmp_path), str(tmp_path / "estimates.json")
+    latest = one_patch(tmp_path, "latest", "16.20")
+    brackets = [
+        {"estimates": estimates, "crawl": latest},
+        {"estimates": estimates, "crawl": pooled, "window": "pooled"},
+    ]
+    assert isinstance(publish(tmp_path, estimates=None, crawl=None, brackets=brackets), Ok)
+    root = tmp_path / "dist" / "16.20"
+    paths = {f["path"] for f in json.loads((root / "manifest.json").read_text())["files"]}
+    assert {"all/master_plus/Champ1/TOP.json", "all/master_plus/pooled/Champ1/TOP.json"} <= paths
+    alone = json.loads((root / "all" / "master_plus" / "Champ1" / "TOP.json").read_text())
+    assert "patches" not in alone
+    assert alone["starts"][0]["changedIn"] == "16.20"  # 16.20's own builds say so too
+    # A bracket ending on an earlier patch can't share the manifest.
+    older = FileMatchStore(tmp_path / "older")
+    older.put_static("16.19", replace(domain_static(), version="16.19.1"))
+    older.put(replace(domain_match("EUW1_8"), patch="16.19"))
+    brackets[0]["crawl"] = str(tmp_path / "older")
+    refused = publish(
+        tmp_path, estimates=None, crawl=None, brackets=brackets, out=str(tmp_path / "d2")
+    )
+    assert isinstance(refused, Err)
+    assert "every bracket must end on one patch" in refused.error.message
+
+
+def test_patches_are_not_pooled_without_item_fingerprints(tmp_path: Path) -> None:
+    crawl, estimates = two_patches(tmp_path), str(tmp_path / "estimates.json")
+    old = domain_static()
+    unknown = {i: replace(item, fingerprint="") for i, item in old.items.items()}
+    FileMatchStore(tmp_path / "crawl").put_static("16.19", replace(old, items=unknown))
+    brackets = [{"estimates": estimates, "crawl": crawl, "window": "pooled"}]
+    result = publish(tmp_path, estimates=None, crawl=None, brackets=brackets)
+    assert isinstance(result, Err)
+    assert "no item fingerprints" in result.error.message

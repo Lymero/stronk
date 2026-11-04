@@ -53,6 +53,9 @@ export interface Scenario {
   /** Plans from other elo brackets than Master+, by bracket; a champion and role without one
    * gets Master+'s, the only other bracket here, as from the core (ADR-078, ADR-079). */
   brackets?: Record<string, Record<string, Plan>>;
+  /** Plans counting earlier patches' games too (ADR-088), by champion and role: what the core
+   * reads unless asked for the patch alone; without one, the patch's plan. */
+  pooled?: Record<string, Plan>;
   status: DataStatus | CommandError;
   /** The client's game data names; without them the UI shows ids. */
   names?: GameNames | CommandError;
@@ -72,6 +75,7 @@ const status: DataStatus = {
   key_id: "036EAC4B585E4DCA",
   files: 80,
   elos: ["master_plus", "diamond_plus"],
+  windows: ["patch"],
 };
 
 function selecting(champion: string, champion_id: number, phase: string, locked = false, enemies: number[] = []): ChampSelectState {
@@ -444,6 +448,8 @@ const leeSin: Plan = {
   games: 1840,
   elo: "master_plus",
   region: "all",
+  window: "patch",
+  patches: ["16.20"],
   runes: {
     value: { primary_style: 8000, sub_style: 8300, perks: [8010, 9111, 9104, 8014, 8304, 8347, 5005, 5008, 5001] },
     label: "popular",
@@ -495,6 +501,21 @@ const graves: Plan = {
   skill_max: null,
 };
 
+/** Lee Sin with 16.19's games too (ADR-088): more games, and Stridebreaker (6631, at slot 1),
+ * changed in 16.20, counted on 16.20's games only. */
+const leeSinPooled: Plan = {
+  ...leeSin,
+  window: "pooled",
+  patches: ["16.19", "16.20"],
+  games: 4310,
+  alternatives: {
+    ...leeSinAlternatives,
+    items: leeSinAlternatives.items.map((s) =>
+      s.slot === 1 ? { ...s, rows: s.rows.map((r) => (r.value === 6631 ? { ...r, changed_in: "16.20" } : r)) } : s,
+    ),
+  },
+};
+
 export const scenarios = {
   "ranked-jungle": {
     steps: rankedJungle,
@@ -518,6 +539,14 @@ export const scenarios = {
     steps: [{ code: "unavailable", message: "no lockfile: is the League client running?" }],
     plans: {},
     status,
+  },
+  "two-patches": {
+    steps: rankedJungle,
+    plans: { "Graves/JUNGLE": graves, "LeeSin/JUNGLE": leeSin },
+    pooled: { "LeeSin/JUNGLE": leeSinPooled },
+    status: { ...status, windows: ["pooled", "patch"] },
+    names,
+    backups: backups(),
   },
   "bad-data": {
     steps: [selecting("LeeSin", 64, "FINALIZATION", true)],
@@ -601,9 +630,10 @@ export class MockBackend implements Backend {
         return ok(icons) as Out;
       }
       case "build.plan": {
-        const { champion, role, enemies, elo } = params as Commands["build.plan"]["params"];
+        const { champion, role, enemies, elo, window } = params as Commands["build.plan"]["params"];
         const key = `${champion}/${role}`;
-        const plan = (elo ? this.scenario.brackets?.[elo]?.[key] : undefined) ?? this.scenario.plans[key];
+        const pooled = (window ?? "pooled") === "pooled" ? this.scenario.pooled?.[key] : undefined;
+        const plan = (elo ? this.scenario.brackets?.[elo]?.[key] : undefined) ?? pooled ?? this.scenario.plans[key];
         if (!plan) return err("not_found", `no build for ${champion} ${role}`) as Out;
         // Three enemies or more: the core reads their damage; here, always a magic team.
         const against = (enemies?.length ?? 0) >= 3 && "boots" in plan && plan.boots;

@@ -137,6 +137,19 @@ test("restores item sets from a backup after confirming", async ({ page }) => {
   await expect(backups).toHaveCount(3);
 });
 
+test("counts the last patch's games too, an item changed this patch marked, or this patch's alone", async ({ page }) => {
+  await page.goto("/?scenario=two-patches");
+  await next(page);
+  await next(page);
+  await expect(page.getByText("Patches 16.19–16.20")).toBeVisible();
+  await page.getByRole("tab", { name: /^Item 1:/ }).click();
+  await expect(page.getByText("Changed in 16.20")).toBeVisible();
+  await screenshot(page, "mock-two-patches");
+  await page.getByRole("radiogroup", { name: "Games from" }).getByText("16.20 only").click();
+  await expect(page.getByText("Patch 16.20", { exact: true })).toBeVisible();
+  await expect(page.getByText("1,840 games")).toBeVisible();
+});
+
 test("builds from the bracket switched to beside Import, or Master+'s and says so", async ({ page }) => {
   await page.goto("/?scenario=ranked-jungle");
   await next(page);

@@ -17,6 +17,13 @@ export type Patch = string;
  */
 export type Role = "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
 /**
+ * The patches a build file's games come from, named in its path.
+ *
+ * This interface was referenced by `Commands`'s JSON-Schema
+ * via the `definition` "Window".
+ */
+export type Window = "pooled" | "patch";
+/**
  * A part of the import, written on its own or with the others.
  *
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -509,6 +516,10 @@ export interface BuildGetParams {
   patch?: Patch | null;
   region?: string;
   role: Role;
+  /**
+   * The patch's own games (the default), or earlier patches' pooled with them (ADR-088).
+   */
+  window?: Window & string;
 }
 /**
  * The player's picks: published spells and items, and any rune page the client's trees allow;
@@ -556,6 +567,10 @@ export interface ImportParams {
    * A published start's items, in any order (ADR-071).
    */
   start?: number[] | null;
+  /**
+   * The window of the plan shown (ADR-088); the other one when it has no build.
+   */
+  window?: Window | null;
 }
 /**
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -611,6 +626,12 @@ export interface PlanParams {
   patch?: string | null;
   region?: string | null;
   role: Role;
+  /**
+   * The player's window (ADR-088): earlier patches' games pooled (the default) or the
+   * patch's own; data without it gets the other, and the plan's `window` says which.
+   * Without a `patch` or `region`, as `elo`; with one, the exact file in this window.
+   */
+  window?: Window | null;
 }
 /**
  * This interface was referenced by `Commands`'s JSON-Schema
@@ -639,6 +660,7 @@ export interface Plan {
    */
   late_slot: number | null;
   patch: string;
+  patches: string[];
   region: string;
   role: Role;
   runes: PageChoice | null;
@@ -659,6 +681,10 @@ export interface Plan {
    * The start (ADR-071): its items without supplies, smallest id first.
    */
   start: PurchaseChoice | null;
+  /**
+   * The games' window (ADR-088), and the patches they come from, oldest first.
+   */
+  window: Window;
 }
 /**
  * Every option of each slot, the most played and the chosen one marked as listed.
@@ -717,6 +743,11 @@ export interface Int64Ranked {
  */
 export interface Int64Row {
   /**
+   * The patch that last changed the item, or one of the purchase's items (ADR-088): in a
+   * pooled build, measured on that patch's games and later ones only.
+   */
+  changed_in?: string | null;
+  /**
    * Stronk's choice for the slot.
    */
   chosen: boolean;
@@ -772,6 +803,11 @@ export interface ArrayOfInt64Ranked {
  * via the `definition` "Array_of_int64Row".
  */
 export interface ArrayOfInt64Row {
+  /**
+   * The patch that last changed the item, or one of the purchase's items (ADR-088): in a
+   * pooled build, measured on that patch's games and later ones only.
+   */
+  changed_in?: string | null;
   /**
    * Stronk's choice for the slot.
    */
@@ -861,6 +897,11 @@ export interface PageRanked {
  */
 export interface PageRow {
   /**
+   * The patch that last changed the item, or one of the purchase's items (ADR-088): in a
+   * pooled build, measured on that patch's games and later ones only.
+   */
+  changed_in?: string | null;
+  /**
    * Stronk's choice for the slot.
    */
   chosen: boolean;
@@ -917,6 +958,11 @@ export interface ArrayOfStringRanked {
  */
 export interface ArrayOfStringRow {
   /**
+   * The patch that last changed the item, or one of the purchase's items (ADR-088): in a
+   * pooled build, measured on that patch's games and later ones only.
+   */
+  changed_in?: string | null;
+  /**
    * Stronk's choice for the slot.
    */
   chosen: boolean;
@@ -972,6 +1018,11 @@ export interface TupleOfInt64AndInt64Ranked {
  * via the `definition` "Tuple_of_int64_and_int64Row".
  */
 export interface TupleOfInt64AndInt64Row {
+  /**
+   * The patch that last changed the item, or one of the purchase's items (ADR-088): in a
+   * pooled build, measured on that patch's games and later ones only.
+   */
+  changed_in?: string | null;
   /**
    * Stronk's choice for the slot.
    */
@@ -1071,6 +1122,11 @@ export interface DataStatus {
   key_id: string;
   patch: Patch;
   run_id: string;
+  /**
+   * The windows the patch has builds for, pooled first (ADR-088): `patch` alone for data
+   * published before pooling.
+   */
+  windows: Window[];
 }
 /**
  * The ids wanted, by kind.

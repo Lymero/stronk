@@ -540,7 +540,7 @@ describe("App with MockBackend", () => {
   it("loads icons only after an auto-import, so they never delay it", async () => {
     const locked = scenarios["ranked-jungle"].steps.at(-1);
     const backend = new MockBackend({ ...scenarios["ranked-jungle"], steps: locked ? [locked] : [] });
-    const app = createApp(backend, memory({ autoItemSet: true, autoImport: true, elo: "master_plus" }));
+    const app = createApp(backend, memory({ autoItemSet: true, autoImport: true, elo: "master_plus", window: "pooled" }));
     await app.refresh();
     expect(backend.calls.map((c) => c.id).slice(-2)).toEqual(["build.import", "icons.get"]);
   });
@@ -625,11 +625,11 @@ describe("App with MockBackend", () => {
     const { backend, app, next } = setup("ranked-jungle", store);
     await fireEvent.click(screen.getByText("Settings"));
     await fireEvent.click(screen.getByLabelText("Import runes and spells on lock-in"));
-    expect(store.saved).toEqual({ autoItemSet: true, autoImport: true, elo: "master_plus" });
+    expect(store.saved).toEqual({ autoItemSet: true, autoImport: true, elo: "master_plus", window: "pooled" });
     for (let i = 0; i < 3; i++) await next();
     expect(imported(backend)).toEqual([{}]);
 
-    const off = memory({ autoItemSet: false, autoImport: false, elo: "master_plus" });
+    const off = memory({ autoItemSet: false, autoImport: false, elo: "master_plus", window: "pooled" });
     const again = new MockBackend(scenarios["ranked-jungle"]);
     const app2 = createApp(again, off, memoryPicks());
     for (let i = 0; i < 3; i++) again.step();
@@ -703,7 +703,7 @@ describe("settings", () => {
     await fireEvent.click(bracket.getByRole("radio", { name: "Diamond+" }));
     expect(await within(build).findByText("Master+ (no Diamond+ build)")).toBeInTheDocument();
     expect(bracket.getByRole("radio", { name: "Diamond+" })).toBeChecked();
-    expect(store.saved).toEqual({ autoItemSet: true, autoImport: false, elo: "diamond_plus" });
+    expect(store.saved).toEqual({ autoItemSet: true, autoImport: false, elo: "diamond_plus", window: "pooled" });
     await next(); // Lee Sin has a Diamond+ build
     expect(await screen.findByText("2,960 games")).toBeInTheDocument();
     expect(within(build).getByText("Diamond+")).toBeInTheDocument();
@@ -716,13 +716,63 @@ describe("settings", () => {
     expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ elo: "diamond_plus" });
   });
 
+  it("counts the last patch's games too unless switched to this patch's, and remembers it", async () => {
+    const store = memory();
+    const { backend, app, next } = setup("two-patches", store);
+    await app.refresh();
+    await next(); // Graves: this patch's games only
+    const build = screen.getByRole("region", { name: "Build" });
+    expect(await within(build).findByText("Patch 16.20")).toBeInTheDocument();
+    await next(); // Lee Sin: 16.19's games too (ADR-088)
+    expect(await within(build).findByText("Patches 16.19–16.20")).toBeInTheDocument();
+    expect(within(build).getByText("4,310 games")).toBeInTheDocument();
+    const games = within(screen.getByRole("radiogroup", { name: "Games from" }));
+    expect(games.getAllByRole("radio").map((r) => r.closest("label")?.textContent?.trim())).toEqual(["Recent patches", "16.20 only"]);
+    expect(games.getByRole("radio", { name: "Recent patches" })).toBeChecked();
+    // Stridebreaker changed in 16.20: its numbers count 16.20's games only, and it says so.
+    const item1 = await open("Item 1");
+    const changed = item1.getByRole("radio", { name: /^Stridebreaker/ });
+    expect(within(changed).getByText("Changed in 16.20")).toHaveAttribute("title", expect.stringContaining("from 16.20 on"));
+    expect(item1.getAllByText(/^Changed in/)).toHaveLength(1);
+
+    await fireEvent.click(games.getByRole("radio", { name: "16.20 only" }));
+    expect(await within(build).findByText("Patch 16.20")).toBeInTheDocument();
+    expect(within(build).getByText("1,840 games")).toBeInTheDocument();
+    expect(store.saved).toEqual({ autoItemSet: true, autoImport: false, elo: "master_plus", window: "patch" });
+    const asked = backend.calls.filter((c) => c.id === "build.plan").map((c) => c.params);
+    expect(asked.slice(-2)).toEqual([
+      { champion: "LeeSin", role: "JUNGLE" },
+      { champion: "LeeSin", role: "JUNGLE", window: "patch" },
+    ]);
+    await fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    expect(backend.calls.filter((c) => c.id === "build.import").at(-1)?.params).toEqual({ window: "patch" });
+  });
+
+  it("doesn't ask to import again when the plan's window fell back to this patch's", async () => {
+    // Regression: the pooled window asked, this patch's read (data of one patch), and the
+    // banner compared the two after every auto-import.
+    const { app, next } = setup("ranked-jungle");
+    await app.refresh();
+    for (let i = 0; i < 3; i++) await next(); // Lee Sin, locked in: the item set imported
+    expect(await screen.findByRole("status")).toHaveTextContent("Imported: Item set.");
+    expect(screen.getByRole("status")).not.toHaveTextContent("Your picks changed since");
+  });
+
+  it("offers no choice of games for data of one patch", async () => {
+    const { app, next } = setup("ranked-jungle");
+    await app.refresh();
+    await next();
+    await screen.findByRole("radiogroup", { name: "Builds from" });
+    expect(screen.queryByRole("radiogroup", { name: "Games from" })).toBeNull();
+  });
+
   it("reads settings saved before the bracket choice as Master+", () => {
     localStorage.setItem("stronk.settings", JSON.stringify({ autoImport: true }));
-    expect(browserSettings.load()).toEqual({ autoItemSet: true, autoImport: true, elo: "master_plus" });
+    expect(browserSettings.load()).toEqual({ autoItemSet: true, autoImport: true, elo: "master_plus", window: "pooled" });
     localStorage.setItem("stronk.settings", JSON.stringify({ autoImport: false, elo: "../x" }));
-    expect(browserSettings.load()).toEqual({ autoItemSet: true, autoImport: false, elo: "master_plus" });
+    expect(browserSettings.load()).toEqual({ autoItemSet: true, autoImport: false, elo: "master_plus", window: "pooled" });
     localStorage.setItem("stronk.settings", JSON.stringify({ autoItemSet: false, autoImport: false }));
-    expect(browserSettings.load()).toEqual({ autoItemSet: false, autoImport: false, elo: "master_plus" });
+    expect(browserSettings.load()).toEqual({ autoItemSet: false, autoImport: false, elo: "master_plus", window: "pooled" });
     localStorage.removeItem("stronk.settings");
   });
 

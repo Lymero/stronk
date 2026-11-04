@@ -15,6 +15,7 @@ Status: **missing** · **partial** · **done**
 | Per-slot item ranking | Coachless | partial: per slot in build files, items 1 to 3 each and the late items pooled as "4+" (ADR-067); ranking claims need FDR survivors |
 | Elo filters | Coachless, u.gg | partial: Master+, Diamond+ and Emerald+, each pooling the bands above it (ADR-079); the app builds from the bracket chosen in settings, the closest one's where it has no build (ADR-078). Diamond+ runs end to end on 16.21 (ADR-080); Emerald+ waits on its comparison with Diamond+. Lower brackets aren't crawled |
 | Matchup-adjusted builds | u.gg, Blitz | missing |
+| Early-patch data | u.gg (previous patch shown until enough games) | done: builds pool the previous patch's games by default, an item changed in the new patch counted on its games only and marked; a switch shows the new patch alone (ADR-088) |
 | Starting items | u.gg, Blitz, Coachless | done: the start (items bought before leaving base, potions and wards aside) estimated and ranked like a slot, imported as the item set's first block (ADR-071) |
 | First back | u.gg, Blitz | done: the first components, what is bought on the first trip back without supplies, boots or completed items, as one choice (Dark Seal + Amplifying Tome), imported as the second block (ADR-072) |
 | Boots | u.gg, Blitz | done: the first upgraded boots, estimated and ranked like a slot, shown and imported after the first item (ADR-073), chosen against the enemy team's damage once three enemies are picked (ADR-074) |

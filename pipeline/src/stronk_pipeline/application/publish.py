@@ -12,10 +12,11 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, model_validator
 
@@ -38,6 +39,7 @@ from stronk_pipeline.domain.extract.decision_points import (
 )
 from stronk_pipeline.domain.extract.situation import MAGIC_FROM, PHYSICAL_BELOW, PROFILES
 from stronk_pipeline.domain.match import Match
+from stronk_pipeline.domain.patches import MissingFingerprintsError, changed_in, in_order
 from stronk_pipeline.domain.publish import Played, played
 from stronk_pipeline.domain.result import Err, Ok, Result
 from stronk_pipeline.domain.static import StaticData
@@ -68,6 +70,9 @@ class BracketSource(BaseModel):
 
     estimates: Annotated[str, Field(min_length=1, description="Estimates from wpa.estimate")]
     crawl: Crawls
+    window: Literal["patch", "pooled"] = "patch"
+    """`patch`: the crawls hold one patch. `pooled`: they may hold several, published under the
+    newest at `{region}/{elo}/pooled/` (ADR-088)."""
 
 
 class PublishParams(BaseModel):
@@ -126,30 +131,16 @@ def publish_command(
                 return Err(_error(e))
             case Ok(value=signer):
                 pass
-        files: dict[str, bytes] = {}
-        patches: set[str] = set()
-        statics: dict[str, StaticData] = {}
-        named: set[str] = set()
-        for source in params.sources():
-            match _bracket(estimates, stores, source, params):
-                case Err(error=e):
-                    return Err(e)
-                case Ok(value=(elo, rows, seen, found, held)):
-                    pass
-            if elo in named:
-                message = f"two sources make {elo}: give each bracket once"
-                return Err(CommandError(code="invalid_params", message=message))
-            named.add(elo)
-            patches |= found
-            statics = {**held, **statics}
-            if len(patches) != 1:
-                message = f"crawls must hold one patch, found {sorted(patches) or 'none'}"
-                return Err(CommandError(code="invalid_input", message=message))
-            try:
-                files |= _builds(rows, seen, next(iter(patches)), params.region, elo)
-            except (ValidationError, ValueError) as e:
-                return Err(CommandError(code="invalid_input", message=f"not publishable: {e}"))
-        patch = next(iter(patches))
+        match _changes(stores, params.sources()):
+            case Err() as e:
+                return e
+            case Ok(value=(statics, changed)):
+                pass
+        match _every_build(estimates, stores, params, changed):
+            case Err() as e:
+                return e
+            case Ok(value=(files, patch)):
+                pass
         if patch in statics:
             files[CHAMPIONS] = _champions(statics[patch], patch)
         now = clock()
@@ -194,6 +185,43 @@ def publish_command(
         result=PublishResult,
         run=run,
     )
+
+
+def _every_build(
+    estimates: EstimateStore,
+    stores: Callable[[Path], MatchStore],
+    params: PublishParams,
+    changed: Mapping[int, str],
+) -> Result[tuple[dict[str, bytes], str], CommandError]:
+    """Every bracket's builds, in each window, and the patch they're published under: the one
+    every bracket ends on."""
+    files: dict[str, bytes] = {}
+    newest: set[str] = set()
+    named: set[tuple[str, str]] = set()
+    for source in params.sources():
+        match _bracket(estimates, stores, source, params):
+            case Err(error=e):
+                return Err(e)
+            case Ok(value=(elo, rows, seen, found, _)):
+                pass
+        if (elo, source.window) in named:
+            message = f"two sources make {elo} ({source.window}): give each bracket once"
+            return Err(CommandError(code="invalid_params", message=message))
+        named.add((elo, source.window))
+        if not found or (source.window == "patch" and len(found) != 1):
+            message = f"crawls must hold one patch, found {sorted(found) or 'none'}"
+            return Err(CommandError(code="invalid_input", message=message))
+        pooled = in_order(found) if source.window == "pooled" else None
+        newest.add(in_order(found)[-1])
+        if len(newest) != 1:
+            message = f"every bracket must end on one patch, found {in_order(newest)}"
+            return Err(CommandError(code="invalid_input", message=message))
+        where = _Where(next(iter(newest)), params.region, elo, pooled)
+        try:
+            files |= _builds(rows, seen, where, changed)
+        except (ValidationError, ValueError) as e:
+            return Err(CommandError(code="invalid_input", message=f"not publishable: {e}"))
+    return Ok((files, next(iter(newest))))
 
 
 type _Bracket = tuple[str, list[OptionEstimate], Played, set[str], dict[str, StaticData]]
@@ -248,6 +276,26 @@ def _bracket(
     return Ok((elo, list(rows), seen, patches, statics))
 
 
+def _changes(
+    stores: Callable[[Path], MatchStore], sources: Sequence[BracketSource]
+) -> Result[tuple[dict[str, StaticData], dict[int, str]], CommandError]:
+    """Every source's game data, and each item changed within its patches with the latest patch
+    that changed it (ADR-088); nothing to compare with one patch."""
+    statics: dict[str, StaticData] = {}
+    for source in sources:
+        match _statics(stores, source.crawl):
+            case Err(error=e):
+                return Err(_error(e))
+            case Ok(value=found):
+                statics = {**found, **statics}
+    if len(statics) < 2:
+        return Ok((statics, {}))
+    try:
+        return Ok((statics, changed_in(statics, statics)))
+    except MissingFingerprintsError as e:
+        return Err(CommandError(code="invalid_input", message=f"can't tell changed items: {e}"))
+
+
 def _statics(
     stores: Callable[[Path], MatchStore], crawls: Sequence[str]
 ) -> Result[dict[str, StaticData], StoreError]:
@@ -266,10 +314,31 @@ SPELL_PAIRS = 5
 """Spell pairs published per champion and role without estimates, most played first."""
 
 
+@dataclass(frozen=True)
+class _Where:
+    """Where a bracket's builds go: the patch they're published under, their region and
+    bracket, and the patches pooled (None: the patch alone)."""
+
+    patch: str
+    region: str
+    elo: str
+    pooled: list[str] | None
+
+    def path(self, champion: str, role: str) -> str:
+        window = "pooled/" if self.pooled is not None else ""
+        return f"{self.region}/{self.elo}/{window}{champion}/{role}.json"
+
+
 def _builds(
-    rows: Sequence[OptionEstimate], seen: Played, patch: str, region: str, elo: str
+    rows: Sequence[OptionEstimate], seen: Played, where: _Where, changed: Mapping[int, str]
 ) -> dict[str, bytes]:
-    """`{region}/{elo}/{champion}/{role}.json` -> canonical bytes, validated by the contract."""
+    """`{region}/{elo}/[pooled/]{champion}/{role}.json` -> canonical bytes, validated by the
+    contract; an item option changed within the published patches says which changed it."""
+
+    def since(*items: int) -> dict[str, str]:
+        found = in_order(changed[i] for i in items if i in changed)
+        return {"changedIn": found[-1]} if found else {}
+
     by_pick: defaultdict[tuple[str, str], list[OptionEstimate]] = defaultdict(list)
     for e in rows:
         by_pick[(e.champion, e.role)].append(e)
@@ -290,7 +359,13 @@ def _builds(
             for page, games in [found]
         ]
         items = [
-            {"slot": e.slot, "item": int(e.option), "picks": e.chosen, **_numbers(e)}
+            {
+                "slot": e.slot,
+                "item": int(e.option),
+                "picks": e.chosen,
+                **_numbers(e),
+                **since(int(e.option)),
+            }
             for e in _ranked(o for o in options if 1 <= o.slot <= LATE_SLOT)
         ]
         choices = [
@@ -306,18 +381,25 @@ def _builds(
         build = Build.model_validate(
             {
                 "schemaVersion": 1,
-                "patch": patch,
-                "region": region,
-                "elo": elo,
+                "patch": where.patch,
+                **({"patches": where.pooled} if where.pooled is not None else {}),
+                "region": where.region,
+                "elo": where.elo,
                 "champion": champion,
                 "role": role,
                 "games": seen.games[(champion, role)],
                 "runes": runes,
                 "items": items,
-                "starts": _purchases(options, seen, START_SLOT),
-                "firstComponents": _purchases(options, seen, COMPONENTS_SLOT),
+                "starts": _purchases(options, seen, START_SLOT, since),
+                "firstComponents": _purchases(options, seen, COMPONENTS_SLOT, since),
                 "boots": [
-                    {"item": int(e.option), **_against(e.slot), "games": e.chosen, **_numbers(e)}
+                    {
+                        "item": int(e.option),
+                        **_against(e.slot),
+                        "games": e.chosen,
+                        **_numbers(e),
+                        **since(int(e.option)),
+                    }
                     for e in _ranked(o for o in options if BOOTS_SLOT <= o.slot <= BOOTS_SLOT + 3)
                 ],
                 "lateSlot": LATE_SLOT,
@@ -329,19 +411,26 @@ def _builds(
         )
         skills = {k for k in ("skill_levels", "skill_max") if not getattr(build, k)}
         data = build.model_dump(mode="json", by_alias=True, exclude={"skill_order", *skills})
+        if data.get("patches") is None:  # optional: absent, not null
+            data.pop("patches", None)
         every = (*data["runes"], *data["items"], *data["runeChoices"], *data["spells"])
         orders = (*data.get("skillLevels", []), *data.get("skillMax", []))
         for option in (*every, *data["starts"], *data["firstComponents"], *data["boots"], *orders):
-            for key in ("style", "row", "against"):  # optional: absent, not null
+            for key in ("style", "row", "against", "changedIn"):  # optional: absent, not null
                 if option.get(key, 0) is None:
                     option.pop(key)
             if option.get("comparison") is None:  # optional: absent, not null
                 option.pop("comparison", None)
-        files[f"{region}/{elo}/{champion}/{role}.json"] = _canonical(data)
+        files[where.path(champion, role)] = _canonical(data)
     return files
 
 
-def _purchases(options: list[OptionEstimate], seen: Played, slot: int) -> list[dict[str, object]]:
+def _purchases(
+    options: list[OptionEstimate],
+    seen: Played,
+    slot: int,
+    since: Callable[..., dict[str, str]],
+) -> list[dict[str, object]]:
     """A start or first components (ADR-071, ADR-072): the items estimated, and what is most
     often bought with them."""
     return [
@@ -350,6 +439,7 @@ def _purchases(options: list[OptionEstimate], seen: Played, slot: int) -> list[d
             "buy": list(seen.purchases.get((e.champion, e.role, slot, e.option), _perks(e.option))),
             "games": e.chosen,
             **_numbers(e, versus=_perks),
+            **since(*_perks(e.option)),
         }
         for e in _ranked(o for o in options if o.slot == slot)
     ]

@@ -13,15 +13,21 @@ function fakeCore(calls: string[], fail?: string): WebCore {
       if (fail === "open") throw new Error("signature rejected");
       return {
         elos: () => ["master_plus", "diamond_plus"],
+        windows: () => ["pooled", "patch"],
         builds: () => JSON.stringify([{ champion: "LeeSin", role: "JUNGLE" }, { champion: "Zed", role: "MIDDLE" }]),
-        bracket: (champion, _role, wanted) => (champion === "LeeSin" ? (wanted === "emerald_plus" ? "diamond_plus" : wanted) : undefined),
-        plan: (champion, role, bracket, data) => {
+        // Lee Sin in every bracket but Emerald+, which reads Diamond+, the patch's alone.
+        found: (champion, _role, wanted, window) => {
+          if (champion !== "LeeSin") return undefined;
+          const elo = wanted === "emerald_plus" ? "diamond_plus" : wanted;
+          return JSON.stringify({ elo, window: elo === "diamond_plus" ? "patch" : window });
+        },
+        plan: (champion, role, bracket, window, data) => {
           if (fail === "plan") throw new Error("hash mismatch");
-          return JSON.stringify({ champion, role, elo: bracket, bytes: data.length });
+          return JSON.stringify({ champion, role, elo: bracket, window, bytes: data.length });
         },
       };
     },
-    file: (champion, role, bracket) => `all/${bracket}/${champion}/${role}.json`,
+    file: (champion, role, bracket, window) => `all/${bracket}/${window === "pooled" ? "pooled/" : ""}${champion}/${role}.json`,
     gameNames: () =>
       JSON.stringify({
         names: { champions: { 64: "Lee Sin" } },
@@ -60,6 +66,7 @@ const PUBLISHED = {
   [`${DATA}16.21/manifest.json`]: JSON.stringify({ runId: "run-1", keyId: "ABCD", files: [{}, {}, {}] }),
   [`${DATA}16.21/manifest.json.minisig`]: "sig",
   [`${DATA}16.21/all/master_plus/LeeSin/JUNGLE.json`]: "{build}",
+  [`${DATA}16.21/all/master_plus/pooled/LeeSin/JUNGLE.json`]: "{pooled build}",
   [`${DATA}16.21/all/diamond_plus/LeeSin/JUNGLE.json`]: "{diamond build!}",
   [`${DOCS}champion-summary.json`]: JSON.stringify([{ id: 64, alias: "LeeSin", name: "Lee Sin" }]),
   [`${DOCS}perkstyles.json`]: "{}",
@@ -76,19 +83,31 @@ describe("HttpBackend", () => {
     const { http, calls } = backend(PUBLISHED);
     expect(await http.run("data.status", {})).toEqual({
       ok: true,
-      value: { patch: "16.21", elos: ["master_plus", "diamond_plus"], files: 3, run_id: "run-1", key_id: "ABCD" },
+      value: {
+        patch: "16.21",
+        elos: ["master_plus", "diamond_plus"],
+        windows: ["pooled", "patch"],
+        files: 3,
+        run_id: "run-1",
+        key_id: "ABCD",
+      },
     });
     await http.run("data.status", {});
     expect(calls).toEqual(["open KEY 16.21"]);
   });
 
-  it("plans the build of the bracket the core chooses, from the patch's directory", async () => {
+  it("plans the build of the bracket and window the core chooses, from the patch's directory", async () => {
     const { http, fetched } = backend(PUBLISHED);
     const plan = await http.run("build.plan", { champion: "LeeSin", role: "JUNGLE", elo: "emerald_plus" });
-    expect(plan).toEqual({ ok: true, value: { champion: "LeeSin", role: "JUNGLE", elo: "diamond_plus", bytes: 16 } });
+    expect(plan).toEqual({ ok: true, value: { champion: "LeeSin", role: "JUNGLE", elo: "diamond_plus", window: "patch", bytes: 16 } });
     expect(fetched).toContain(`${DATA}16.21/all/diamond_plus/LeeSin/JUNGLE.json`);
+    // Pooled unless asked otherwise (ADR-088).
     const popular = await http.run("build.plan", { champion: "LeeSin", role: "JUNGLE" });
-    expect(popular.ok && (popular.value as unknown as { elo: string }).elo).toBe("master_plus");
+    expect(popular.ok && popular.value).toMatchObject({ elo: "master_plus", window: "pooled" });
+    expect(fetched).toContain(`${DATA}16.21/all/master_plus/pooled/LeeSin/JUNGLE.json`);
+    const alone = await http.run("build.plan", { champion: "LeeSin", role: "JUNGLE", window: "patch" });
+    expect(alone.ok && alone.value).toMatchObject({ elo: "master_plus", window: "patch" });
+    expect(fetched).toContain(`${DATA}16.21/all/master_plus/LeeSin/JUNGLE.json`);
   });
 
   it("says why a build can't be shown: missing, unreachable, or refused", async () => {

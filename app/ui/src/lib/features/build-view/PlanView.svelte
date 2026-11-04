@@ -10,7 +10,7 @@
   // the item set's first block names it.
   import { abilityId, type GameNames, type Imported, type Outcome, type Page, type Plan } from "../../backend/backend.ts";
   import Facts from "../../ui/Facts.svelte";
-  import { elo, games, type Icons, icon, name, region, runePage } from "../../ui/labels.ts";
+  import { elo, games, type Icons, icon, name, patches, region, runePage } from "../../ui/labels.ts";
   import { asItems, type Pick, type Picks, SECTIONS, type Section, SKILLS, type SkillPart } from "../../state/picks.ts";
   import Loadout, { type LoadoutSlot } from "./Loadout.svelte";
   import OptionTable from "./OptionTable.svelte";
@@ -55,7 +55,7 @@
   } = $props();
 
   const source = $derived([
-    `Patch ${plan.patch}`,
+    patches(plan.patches?.length ? plan.patches : [plan.patch]),
     games(plan.games),
     plan.elo === wanted ? elo(plan.elo) : `${elo(plan.elo)} (no ${elo(wanted)} build)`,
     region(plan.region),

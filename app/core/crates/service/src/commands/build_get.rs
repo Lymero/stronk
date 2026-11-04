@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::Build;
-use stronk_domain::{BuildKey, Patch, Role, elo};
+use stronk_domain::{BuildKey, Patch, Role, Window, elo};
 
 use crate::registry::Command;
 use crate::{CommandError, Context, ErrorCode};
@@ -22,6 +22,13 @@ pub struct Params {
     pub region: String,
     #[serde(default = "master_plus")]
     pub elo: String,
+    /// The patch's own games (the default), or earlier patches' pooled with them (ADR-088).
+    #[serde(default = "patch_alone")]
+    pub window: Window,
+}
+
+fn patch_alone() -> Window {
+    Window::Patch
 }
 
 fn all() -> String {
@@ -69,6 +76,7 @@ fn run(ctx: &Context, params: Params) -> Result<BuildFile, CommandError> {
         patch.as_deref(),
         Some(&params.region),
         Some(&params.elo),
+        params.window,
     )
     .map(BuildFile)
 }
@@ -81,6 +89,7 @@ pub fn fetch(
     patch: Option<&str>,
     region: Option<&str>,
     elo: Option<&str>,
+    window: Window,
 ) -> Result<Build, CommandError> {
     let invalid =
         |e: &dyn std::fmt::Display| CommandError::new(ErrorCode::InvalidParams, e.to_string());
@@ -90,7 +99,8 @@ pub fn fetch(
         champion,
         role,
     )
-    .map_err(|e| invalid(&e))?;
+    .map_err(|e| invalid(&e))?
+    .in_window(window);
     let patch: Patch = match patch {
         Some(text) => text.parse().map_err(|e| invalid(&e))?,
         None => ctx.builds.status()?.patch,
@@ -98,19 +108,24 @@ pub fn fetch(
     Ok(ctx.builds.build(patch, &key)?)
 }
 
-/// The newest patch's build in the player's elo bracket, or in the first wider bracket that
-/// has one for this champion and role (ADR-078, ADR-079): the build's own `elo` says which.
+/// The newest patch's build in the player's elo bracket and window; else in the other window,
+/// for data published without it (ADR-088); else the same in the first wider bracket that has
+/// one for this champion and role (ADR-078, ADR-079): the bracket is who the player is, the
+/// window only how many games. The build's own `elo` and `patches` say which.
 pub fn fetch_preferring(
     ctx: &Context,
     champion: &str,
     role: Role,
     elo: Option<&str>,
+    window: Option<Window>,
 ) -> Result<Build, CommandError> {
     let mut missing = None;
     for bracket in elo::fallbacks(elo.unwrap_or(elo::DEFAULT)) {
-        match fetch(ctx, champion, role, None, None, Some(bracket)) {
-            Err(e) if e.code == ErrorCode::NotFound => missing = missing.or(Some(e)),
-            found => return found,
+        for window in window.unwrap_or_default().fallbacks() {
+            match fetch(ctx, champion, role, None, None, Some(bracket), window) {
+                Err(e) if e.code == ErrorCode::NotFound => missing = missing.or(Some(e)),
+                found => return found,
+            }
         }
     }
     Err(missing.unwrap_or_else(|| CommandError::new(ErrorCode::NotFound, "no build")))

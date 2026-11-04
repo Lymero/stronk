@@ -147,6 +147,10 @@ class BootsOption(BaseModel):
     """
     Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game.
     """
+    changed_in: Annotated[Patch | None, Field(alias="changedIn")] = None
+    """
+    The patch that last changed these boots among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged.
+    """
     games: Annotated[int, Field(ge=0)]
     """
     Games with these boots.
@@ -244,6 +248,10 @@ class PurchaseOption(BaseModel):
     """
     What is most often bought with these items, supplies included and repeated as bought: what an import lists.
     """
+    changed_in: Annotated[Patch | None, Field(alias="changedIn")] = None
+    """
+    The latest patch that changed one of `items` among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged.
+    """
     games: Annotated[int, Field(ge=0)]
     """
     Games with this purchase.
@@ -318,6 +326,10 @@ class ItemOption(BaseModel):
     picks: Annotated[int | None, Field(ge=0)] = None
     """
     Times this item was chosen at this slot.
+    """
+    changed_in: Annotated[Patch | None, Field(alias="changedIn")] = None
+    """
+    The patch that last changed this item among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged.
     """
     comparison: Comparison | None = None
 
@@ -414,7 +426,7 @@ class SkillOrderOption(BaseModel):
 
 class Build(BaseModel):
     """
-    Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json.
+    Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json from that patch's games, and at /{patch}/{region}/{elo}/pooled/{champion}/{role}.json from the games of `patches` pooled (ADR-088).
     """
 
     model_config = ConfigDict(
@@ -425,6 +437,10 @@ class Build(BaseModel):
     Contract major version. A breaking change publishes a new version alongside this one.
     """
     patch: Patch
+    patches: Annotated[list[Patch] | None, Field(min_length=1)] = None
+    """
+    The patches whose games this file pools, oldest first, `patch` last (ADR-088). Absent: `patch` alone.
+    """
     region: Annotated[str, Field(pattern="^[a-z0-9]{2,8}$")]
     """
     Riot platform or region id, lower case (for example "euw1").

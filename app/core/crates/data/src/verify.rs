@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use stronk_contracts::build_v1::Build;
 use stronk_contracts::champions_v1::Champions;
 use stronk_contracts::manifest_v1::{FileEntry, Manifest};
-use stronk_domain::{BuildKey, Patch};
+use stronk_domain::{BuildKey, Patch, Window};
 use stronk_service::ports::{CHAMPIONS, PortError};
 
 /// The public key the app trusts for published data.
@@ -64,15 +64,32 @@ impl VerifiedManifest {
         })
     }
 
-    /// The elo brackets the manifest has builds for (`{region}/{elo}/{champion}/{role}.json`),
-    /// highest first.
+    /// The elo brackets the manifest has builds for, in either window, highest first.
     pub fn elos(&self) -> Vec<String> {
-        stronk_domain::elo::sorted(self.manifest.files.iter().filter_map(|f| {
+        stronk_domain::elo::sorted(self.builds().map(|(elo, _)| elo.to_owned()))
+    }
+
+    /// The windows the manifest has builds for (ADR-088), pooled first.
+    pub fn windows(&self) -> Vec<Window> {
+        let found: Vec<Window> = self.builds().map(|(_, window)| window).collect();
+        Window::ALL
+            .into_iter()
+            .filter(|w| found.contains(w))
+            .collect()
+    }
+
+    /// Each build file's bracket and window: `{region}/{elo}/{champion}/{role}.json` or
+    /// `{region}/{elo}/pooled/{champion}/{role}.json`.
+    fn builds(&self) -> impl Iterator<Item = (&str, Window)> {
+        self.manifest.files.iter().filter_map(|f| {
             match f.path.as_str().split('/').collect::<Vec<_>>().as_slice() {
-                [_, elo, _, role] if role.ends_with(".json") => Some((*elo).to_owned()),
+                [_, elo, _, role] if role.ends_with(".json") => Some((*elo, Window::Patch)),
+                [_, elo, "pooled", _, role] if role.ends_with(".json") => {
+                    Some((*elo, Window::Pooled))
+                }
                 _ => None,
             }
-        }))
+        })
     }
 
     pub fn entry(&self, path: &str) -> Option<&FileEntry> {
@@ -100,7 +117,11 @@ impl VerifiedManifest {
         let (patch, path) = (self.patch, key.path());
         let build: Build = serde_json::from_slice(self.check_file(&path, data)?)
             .map_err(|e| PortError::Invalid(format!("{patch} {path}: not a build.v1 ({e})")))?;
-        if build.champion.as_str() != key.champion || build.patch.as_str() != patch.to_string() {
+        let pooled = build.patches.is_some();
+        if build.champion.as_str() != key.champion
+            || build.patch.as_str() != patch.to_string()
+            || pooled != (key.window == Window::Pooled)
+        {
             return Err(PortError::Invalid(format!(
                 "{patch} {path}: describes another build"
             )));
@@ -129,4 +150,78 @@ impl VerifiedManifest {
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    // Tests may panic: that is how they fail.
+    #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
+
+    use stronk_domain::Role;
+
+    use super::*;
+
+    /// The contract's example pooling 26.19 and 26.20 at `pooled`, and as 26.20 alone at
+    /// `alone`, listed with their hashes.
+    fn manifest(pooled: &str, alone: &str) -> (VerifiedManifest, Vec<u8>, Vec<u8>) {
+        let example = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../contracts/examples/build.v1.json"
+        );
+        let mut build: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(example).unwrap()).unwrap();
+        let pooled_bytes = serde_json::to_vec(&build).unwrap();
+        build.as_object_mut().unwrap().remove("patches");
+        let alone_bytes = serde_json::to_vec(&build).unwrap();
+        let entry = |path: &str, data: &[u8]| serde_json::json!({"path": path, "sha256": hex(&Sha256::digest(data)), "bytes": data.len()});
+        let manifest: Manifest = serde_json::from_value(serde_json::json!({
+            "schemaVersion": 1, "patch": "26.20", "generatedAt": "2026-11-04T12:00:00Z",
+            "runId": "r", "keyId": "0123456789ABCDEF",
+            "files": [entry(pooled, &pooled_bytes), entry(alone, &alone_bytes)],
+        }))
+        .unwrap();
+        let verified = VerifiedManifest {
+            patch: "26.20".parse().unwrap(),
+            manifest,
+        };
+        (verified, pooled_bytes, alone_bytes)
+    }
+
+    fn key(window: Window) -> BuildKey {
+        BuildKey::new("euw1", "diamond_plus", "Viego", Role::Jungle)
+            .unwrap()
+            .in_window(window)
+    }
+
+    #[test]
+    fn lists_both_windows_pooled_first() {
+        let (m, _, _) = manifest(
+            "euw1/diamond_plus/pooled/Viego/JUNGLE.json",
+            "euw1/diamond_plus/Viego/JUNGLE.json",
+        );
+        assert_eq!(m.windows(), [Window::Pooled, Window::Patch]);
+        assert_eq!(m.elos(), ["diamond_plus"]);
+    }
+
+    #[test]
+    fn a_build_must_count_the_games_its_path_says() {
+        // The pooled file listed where the patch's own belongs, and the other way round.
+        let (swapped, pooled, alone) = manifest(
+            "euw1/diamond_plus/Viego/JUNGLE.json",
+            "euw1/diamond_plus/pooled/Viego/JUNGLE.json",
+        );
+        for (window, data) in [(Window::Patch, &pooled), (Window::Pooled, &alone)] {
+            let refused = swapped.parse_build(&key(window), data);
+            assert!(
+                matches!(&refused, Err(PortError::Invalid(m)) if m.contains("another build")),
+                "{refused:?}"
+            );
+        }
+        let (right, pooled, alone) = manifest(
+            "euw1/diamond_plus/pooled/Viego/JUNGLE.json",
+            "euw1/diamond_plus/Viego/JUNGLE.json",
+        );
+        assert!(right.parse_build(&key(Window::Pooled), &pooled).is_ok());
+        assert!(right.parse_build(&key(Window::Patch), &alone).is_ok());
+    }
 }

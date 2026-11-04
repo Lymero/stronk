@@ -1,5 +1,7 @@
 from riot_builders import domain_static
 
+from stronk_pipeline.domain.static import item_fingerprint
+
 STATIC = domain_static()
 
 
@@ -26,3 +28,32 @@ def test_items_built_from_components() -> None:
 def test_champion_class_is_the_main_tag() -> None:
     assert STATIC.champions[1].champion_class == "fighter"
     assert STATIC.champions[2].champion_class == "mage"
+
+
+def test_an_item_fingerprint_follows_what_it_does_and_costs() -> None:
+    base = item_fingerprint("<stats>+10 Attack Damage</stats>", {"FlatPhysicalDamageMod": 10}, 350)
+    assert base == item_fingerprint(
+        "<stats>+10 Attack Damage</stats>", {"FlatPhysicalDamageMod": 10.0}, 350
+    )
+    assert (
+        len(
+            {
+                base,
+                item_fingerprint(
+                    "<stats>+12 Attack Damage</stats>", {"FlatPhysicalDamageMod": 10}, 350
+                ),
+                item_fingerprint(
+                    "<stats>+10 Attack Damage</stats>", {"FlatPhysicalDamageMod": 12}, 350
+                ),
+                item_fingerprint(
+                    "<stats>+10 Attack Damage</stats>", {"FlatPhysicalDamageMod": 10}, 400
+                ),
+            }
+        )
+        == 4
+    )
+
+
+def test_game_data_from_data_dragon_fingerprints_every_item() -> None:
+    static = domain_static()
+    assert all(item.fingerprint for item in static.items.values())

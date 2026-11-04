@@ -1,28 +1,31 @@
 <script lang="ts">
-  // The elo bracket builds come from, switched beside the import (ADR-078): one click asks the
-  // plan again from the bracket chosen, which the app remembers.
-  import { elo } from "../../ui/labels.ts";
-
+  // A choice beside the import, each option a segment: the elo bracket builds come from (ADR-078)
+  // and the games they count (ADR-088). One click asks the plan again, and the app remembers it.
   let {
-    elos,
+    name,
+    label,
+    about,
+    options,
     value,
-    onelo,
+    onchange,
   }: {
-    /** The brackets the data has builds for, highest first. */
-    elos: string[];
+    /** The radios' group name. */
+    name: string;
+    /** What the choice is, for assistive technology. */
+    label: string;
+    /** What the options mean, on hover. */
+    about: string;
+    options: { id: string; label: string }[];
     value: string;
-    onelo: (elo: string) => void;
+    onchange: (id: string) => void;
   } = $props();
-
-  const about =
-    "Each bracket includes the games of those above it. A champion with no build in yours shows the closest bracket's, and says so.";
 </script>
 
-<div class="switch" role="radiogroup" aria-label="Builds from" title={about}>
-  {#each elos as id (id)}
-    <label class:on={id === value}>
-      <input type="radio" name="elo" value={id} checked={id === value} onchange={() => onelo(id)} />
-      {elo(id)}
+<div class="switch" role="radiogroup" aria-label={label} title={about}>
+  {#each options as option (option.id)}
+    <label class:on={option.id === value}>
+      <input type="radio" {name} value={option.id} checked={option.id === value} onchange={() => onchange(option.id)} />
+      {option.label}
     </label>
   {/each}
 </div>

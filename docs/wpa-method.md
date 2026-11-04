@@ -61,7 +61,7 @@ Real differences between good items are often 0.5–2%. Therefore:
 
 - Popular champions in high elo can separate options about 1% apart.
 - Niche champions and rare items often cannot. The output is then **"no clear difference"**, never a winner picked from noise.
-- More data beats a fancier method: pool across regions, across patches without relevant changes, and across similar champions (section 5, shrinkage).
+- More data beats a fancier method: pool across regions, across patches without relevant changes, and across similar champions (section 5, shrinkage). Patches pool by default, the previous patch's games counting for every option Riot didn't change; a changed item is measured on the new patch's games only (ADR-088).
 
 ## 5. Estimators
 

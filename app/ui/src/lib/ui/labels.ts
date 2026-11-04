@@ -62,6 +62,17 @@ export function elo(id: string): string {
   return plus === "plus" ? `${word}+` : id === "all" ? "All ranks" : word;
 }
 
+/** Why an option says "Changed in 16.22" (ADR-088). */
+export const changedNote = (patch: string): string =>
+  `Riot changed it in patch ${patch}: its numbers count games from ${patch} on, never older ones.`;
+
+/** The patches a build's games come from: `Patch 16.22`, or `Patches 16.21–16.22` pooled
+ * (ADR-088). */
+export function patches(list: string[]): string {
+  const [first, last] = [list[0], list[list.length - 1]];
+  return list.length > 1 ? `Patches ${first}–${last}` : `Patch ${first ?? ""}`;
+}
+
 /** A region id (`euw1`, `all`) as players say it. */
 export const region = (id: string): string => (id === "all" ? "All regions" : id.toUpperCase());
 

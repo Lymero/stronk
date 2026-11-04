@@ -4,15 +4,15 @@
 
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{
-    BootsOption, BootsOptionAgainst, Build, Comparison, Flag, Interval, PurchaseComparison,
-    PurchaseOption, RuneChoice, RuneChoiceComparison, RuneChoiceKind, Skill, SkillComparison,
-    SkillOption, SpellComparison,
+    BootsOption, BootsOptionAgainst, Build, Comparison, Flag, Interval, Patch as ContractPatch,
+    PurchaseComparison, PurchaseOption, RuneChoice, RuneChoiceComparison, RuneChoiceKind, Skill,
+    SkillComparison, SkillOption, SpellComparison,
 };
-use stronk_domain::Role;
 use stronk_domain::damage::{self, Against};
 use stronk_domain::item_set::{block_order, block_others, block_size, purchase_id, purchase_items};
 use stronk_domain::runes::{Page, RowKey, RowKind, in_page, perks_id, with_row_bets};
 use stronk_domain::select::{self, Candidate, Choice, Ranked, choose, choose_items, rank};
+use stronk_domain::{Role, Window};
 use stronk_domain::{skills, spells};
 
 use crate::commands::build_get;
@@ -31,6 +31,10 @@ pub struct Params {
     /// bracket's, wider first, and the plan's `elo` says which (ADR-078, ADR-079). Ignored with
     /// a `patch` or `region`, which ask for that exact file.
     pub elo: Option<String>,
+    /// The player's window (ADR-088): earlier patches' games pooled (the default) or the
+    /// patch's own; data without it gets the other, and the plan's `window` says which.
+    /// Without a `patch` or `region`, as `elo`; with one, the exact file in this window.
+    pub window: Option<Window>,
     /// The enemy champions picked so far: boots are chosen against their damage (ADR-074).
     #[serde(default)]
     pub enemies: Vec<i64>,
@@ -123,6 +127,9 @@ pub struct Plan {
     pub games: u64,
     pub elo: String,
     pub region: String,
+    /// The games' window (ADR-088), and the patches they come from, oldest first.
+    pub window: Window,
+    pub patches: Vec<String>,
     pub runes: Option<Choice<Page>>,
     /// D then F, in the pair's usual order; the import moves Flash to the player's key.
     pub spells: Option<Choice<(i64, i64)>>,
@@ -154,7 +161,13 @@ pub fn command() -> Command {
 
 fn run(ctx: &Context, params: Params) -> Result<Plan, CommandError> {
     let build = if params.patch.is_none() && params.region.is_none() {
-        build_get::fetch_preferring(ctx, &params.champion, params.role, params.elo.as_deref())?
+        build_get::fetch_preferring(
+            ctx,
+            &params.champion,
+            params.role,
+            params.elo.as_deref(),
+            params.window,
+        )?
     } else {
         build_get::fetch(
             ctx,
@@ -163,6 +176,7 @@ fn run(ctx: &Context, params: Params) -> Result<Plan, CommandError> {
             params.patch.as_deref(),
             params.region.as_deref(),
             params.elo.as_deref(),
+            params.window.unwrap_or(Window::Patch),
         )?
     };
     let against = against_for(ctx, &build, &params.enemies);
@@ -259,6 +273,15 @@ pub fn plan(build: &Build, role: Role, against: Option<Against>) -> Plan {
         games: build.games,
         elo: build.elo.to_string(),
         region: build.region.to_string(),
+        window: if build.patches.is_some() {
+            Window::Pooled
+        } else {
+            Window::Patch
+        },
+        patches: build.patches.as_ref().map_or_else(
+            || vec![build.patch.to_string()],
+            |p| p.iter().map(|p| p.as_str().to_owned()).collect(),
+        ),
         runes: runes_choice,
         spells: spells_choice,
         start: purchase(&build.starts, start_choice),
@@ -304,6 +327,15 @@ fn candidate<T>(
         unclear: flags.contains(&Flag::NoClearDifference),
         fragile: flags.contains(&Flag::Fragile),
         comparison,
+        changed_in: None,
+    }
+}
+
+/// `candidate` for an item or purchase changed in `patch` (ADR-088).
+fn changed<T>(candidate: Candidate<T>, patch: Option<&ContractPatch>) -> Candidate<T> {
+    Candidate {
+        changed_in: patch.map(|p| p.as_str().to_owned()),
+        ..candidate
     }
 }
 
@@ -409,7 +441,7 @@ fn item_candidates(build: &Build) -> Vec<(u64, Vec<Candidate<i64>>)> {
                     let item = to_i64(o.item.get());
                     let played = o.picks.unwrap_or(o.n);
                     let comparison = o.comparison.as_ref().map(compared);
-                    candidate(
+                    let found = candidate(
                         item,
                         item,
                         played,
@@ -417,7 +449,8 @@ fn item_candidates(build: &Build) -> Vec<(u64, Vec<Candidate<i64>>)> {
                         o.ci.as_ref(),
                         &o.flags,
                         comparison,
-                    )
+                    );
+                    changed(found, o.changed_in.as_ref())
                 })
                 .collect();
             (slot, candidates)
@@ -440,7 +473,7 @@ fn boots_candidates(
         .map(|o| {
             let item = to_i64(o.item.get());
             let comparison = o.comparison.as_ref().map(compared);
-            candidate(
+            let found = candidate(
                 item,
                 item,
                 o.games,
@@ -448,7 +481,8 @@ fn boots_candidates(
                 o.ci.as_ref(),
                 &o.flags,
                 comparison,
-            )
+            );
+            changed(found, o.changed_in.as_ref())
         })
         .collect();
     (boots, used)
@@ -557,7 +591,7 @@ fn purchase_candidates(options: &[PurchaseOption]) -> Vec<Candidate<Vec<i64>>> {
             let value = purchase_items(&o.items);
             let id = purchase_id(&value);
             let comparison = o.comparison.as_ref().map(purchase_compared);
-            candidate(
+            let found = candidate(
                 value,
                 id,
                 o.games,
@@ -565,7 +599,8 @@ fn purchase_candidates(options: &[PurchaseOption]) -> Vec<Candidate<Vec<i64>>> {
                 o.ci.as_ref(),
                 &o.flags,
                 comparison,
-            )
+            );
+            changed(found, o.changed_in.as_ref())
         })
         .collect()
 }

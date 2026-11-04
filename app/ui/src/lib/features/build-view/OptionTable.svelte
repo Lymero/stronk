@@ -5,7 +5,7 @@
   // only when clearly better or worse; nothing when short of games. Clicking a row picks it. The
   // rarely played ones are behind "Show N more".
   import Icon from "../../ui/Icon.svelte";
-  import { games } from "../../ui/labels.ts";
+  import { changedNote, games } from "../../ui/labels.ts";
   import { compared, figure, type Shown, type Slot, verdict, wins } from "./options.ts";
 
   let {
@@ -62,6 +62,7 @@
         {#if row.confidence === "best_bet"}<span class="tag bet">Best bet</span>{/if}
         {#if row.chosen && !row.selected}<span class="tag stronk">Stronk's pick</span>{/if}
         {#if elsewhere(row.value)}<span class="tag">{elsewhere(row.value)}</span>{/if}
+        {#if row.changed_in}<span class="tag" title={changedNote(row.changed_in)}>Changed in {row.changed_in}</span>{/if}
       </span>
       <span class="num {n.tone}">{n.text}</span>
       <span class="share">

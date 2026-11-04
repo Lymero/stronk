@@ -1,5 +1,6 @@
 import copy
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -257,3 +258,39 @@ def test_tables_are_written_a_chunk_of_games_at_a_time(
     assert whole.value.model_dump(exclude={"outputs"}) == chunked.value.model_dump(
         exclude={"outputs"}
     )
+
+
+def two_patches(directory: Path, *, fingerprints: bool = True) -> Path:
+    """`crawled` and a 16.19 game whose player 1 completes 6333, which changed in 16.20."""
+    crawled(directory)
+    old = domain_static()
+    items = {
+        i: replace(
+            item, fingerprint="before" if i == 6333 or not fingerprints else item.fingerprint
+        )
+        for i, item in old.items.items()
+    }
+    if not fingerprints:
+        items = {i: replace(item, fingerprint="") for i, item in items.items()}
+    store = FileMatchStore(directory)
+    store.put_static("16.19", replace(old, version="16.19.1", items=items))
+    events = [buy(5 * MIN, 1, 1037), buy(8 * MIN, 1, 6333)]
+    store.put(replace(domain_match("EUW1_3", events=events, minutes=20), patch="16.19"))
+    return directory
+
+
+def test_two_patches_pool_without_the_older_ones_changed_items(tmp_path: Path) -> None:
+    result = run(two_patches(tmp_path / "crawl"), tmp_path / "out")
+    assert isinstance(result, Ok)
+    assert result.value.matches == 3
+    assert result.value.dropped["changed_item_older_patch"] == 1  # 16.19's 6333; 16.20's stays
+    assert result.value.decisions_by_slot[1] == 1
+    report = json.loads((tmp_path / "out" / "report.json").read_text())
+    assert report["patches"] == ["16.19", "16.20"]
+    assert report["changed_items"] == {"16.19": [6333]}
+
+
+def test_patches_dont_pool_without_item_fingerprints(tmp_path: Path) -> None:
+    result = run(two_patches(tmp_path / "crawl", fingerprints=False), tmp_path / "out")
+    assert isinstance(result, Err)
+    assert "no item fingerprints" in result.error.message

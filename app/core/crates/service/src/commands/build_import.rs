@@ -8,13 +8,13 @@
 
 use serde::{Deserialize, Serialize};
 use stronk_contracts::build_v1::{Build, PurchaseOption, SkillOption};
-use stronk_domain::Role;
 use stronk_domain::item_set::purchase_items;
 use stronk_domain::owned::{PREFIX, plan_rune_page};
 use stronk_domain::runes::{Page, valid_page};
 use stronk_domain::select::{Choice, Label};
 use stronk_domain::skills;
 use stronk_domain::spells::arrange_spells;
+use stronk_domain::{Role, Window};
 
 use crate::commands::build_get;
 use crate::commands::build_plan::{
@@ -58,6 +58,9 @@ pub struct Params {
     /// none (ADR-079).
     #[serde(default)]
     pub elo: Option<String>,
+    /// The window of the plan shown (ADR-088); the other one when it has no build.
+    #[serde(default)]
+    pub window: Option<Window>,
     /// The parts to write, all of them when absent (ADR-082); the others are left as they are.
     #[serde(default)]
     pub parts: Option<Vec<Part>>,
@@ -127,7 +130,8 @@ fn run(ctx: &Context, params: Params) -> Result<Imported, CommandError> {
         return Err(not_ready("champion"));
     }
     let champion = client.champion_key(session.champion_id)?;
-    let build = build_get::fetch_preferring(ctx, &champion, role, params.elo.as_deref())?;
+    let build =
+        build_get::fetch_preferring(ctx, &champion, role, params.elo.as_deref(), params.window)?;
     let against = against_for(ctx, &build, &session.enemies);
     let plan = with_picks(plan(&build, role, against), &build, &params, client)?;
     let asked = |part| {

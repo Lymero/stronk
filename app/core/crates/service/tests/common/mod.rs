@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use stronk_contracts::build_v1::Build;
 use stronk_contracts::champions_v1::Champions;
 use stronk_domain::owned::PageInfo;
-use stronk_domain::{BuildKey, Patch, Role};
+use stronk_domain::{BuildKey, Patch, Role, Window};
 use stronk_service::Context;
 use stronk_service::ports::{
     Backup, Backups, BuildSource, ChampSelect, DataStatus, GameNames, Icon, IconKind, LeagueClient,
@@ -35,17 +35,26 @@ impl BuildSource for FakeBuilds {
             key_id: "K".into(),
             files: 2,
             elos: vec!["master_plus".into(), "diamond_plus".into()],
+            windows: vec![Window::Pooled, Window::Patch],
         })
     }
 
     /// Viego JUNGLE in Master+, and in Diamond+ with its own `elo` and games; Viego TOP in
-    /// Diamond+ only.
+    /// Diamond+ only. Each of 16.20 alone, but Viego JUNGLE Master+ also pooled with 16.19 and
+    /// its 51 more games (ADR-088).
     fn build(&self, patch: Patch, key: &BuildKey) -> Result<Build, PortError> {
         if patch.to_string() != "16.20" {
             return Err(PortError::NotFound(key.path()));
         }
         let mut build = example_build();
+        let pooled = build.patches.take();
         match key.path().as_str() {
+            "all/master_plus/pooled/Viego/JUNGLE.json" => {
+                build.elo = "master_plus".parse().unwrap();
+                build.patches = pooled;
+                build.games += 51;
+                Ok(build)
+            }
             "all/master_plus/Viego/JUNGLE.json" => {
                 build.elo = "master_plus".parse().unwrap();
                 Ok(build)

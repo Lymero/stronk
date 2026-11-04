@@ -2,13 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://stronk.gg/schemas/build.v1.schema.json",
   "title": "Build",
-  "description": "Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json.",
+  "description": "Build statistics for one champion and role, published at /{patch}/{region}/{elo}/{champion}/{role}.json from that patch's games, and at /{patch}/{region}/{elo}/pooled/{champion}/{role}.json from the games of `patches` pooled (ADR-088).",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "patch", "region", "elo", "champion", "role", "games", "runes", "items", "spells"],
   "properties": {
     "schemaVersion": { "type": "integer", "enum": [1], "description": "Contract major version. A breaking change publishes a new version alongside this one." },
     "patch": { "$ref": "#/$defs/Patch" },
+    "patches": { "type": "array", "items": { "$ref": "#/$defs/Patch" }, "minItems": 1, "uniqueItems": true, "description": "The patches whose games this file pools, oldest first, `patch` last (ADR-088). Absent: `patch` alone." },
     "region": { "type": "string", "pattern": "^[a-z0-9]{2,8}$", "description": "Riot platform or region id, lower case (for example \"euw1\")." },
     "elo": { "type": "string", "pattern": "^[a-z_]{2,32}$", "description": "Elo bracket id (for example \"diamond_plus\")." },
     "champion": { "type": "string", "pattern": "^[A-Za-z0-9]{1,32}$", "description": "Data Dragon champion key (for example \"Viego\")." },
@@ -113,6 +114,7 @@
       "properties": {
         "item": { "type": "integer", "minimum": 1, "description": "Data Dragon item id." },
         "against": { "type": "string", "enum": ["physical", "mixed", "magic"], "description": "Estimated only in games against this kind of enemy team (champions.v1's cuts, ADR-074); absent: every game." },
+        "changedIn": { "$ref": "#/$defs/Patch", "description": "The patch that last changed these boots among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged." },
         "games": { "type": "integer", "minimum": 0, "description": "Games with these boots." },
         "wpa": { "type": ["number", "null"], "description": "Win probability added against the other boots; null when not estimated." },
         "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
@@ -153,6 +155,7 @@
       "properties": {
         "items": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "description": "Data Dragon item ids, smallest first, each once." },
         "buy": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "description": "What is most often bought with these items, supplies included and repeated as bought: what an import lists." },
+        "changedIn": { "$ref": "#/$defs/Patch", "description": "The latest patch that changed one of `items` among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged." },
         "games": { "type": "integer", "minimum": 0, "description": "Games with this purchase." },
         "wpa": { "type": ["number", "null"], "description": "Win probability added against the other purchases of its kind; null when not estimated." },
         "ci": { "oneOf": [{ "$ref": "#/$defs/Interval" }, { "type": "null" }] },
@@ -191,6 +194,7 @@
         "n": { "type": "integer", "minimum": 0 },
         "flags": { "type": "array", "items": { "$ref": "#/$defs/Flag" }, "uniqueItems": true },
         "picks": { "type": "integer", "minimum": 0, "description": "Times this item was chosen at this slot." },
+        "changedIn": { "$ref": "#/$defs/Patch", "description": "The patch that last changed this item among the published patches (ADR-088): in a pooled file, estimated on that patch's games and later ones only. Absent: unchanged." },
         "comparison": { "$ref": "#/$defs/Comparison" }
       }
     },
