@@ -262,7 +262,9 @@ impl LeagueClient for LcuClient {
             let summary: Vec<ChampionSummary> = self
                 .get(CHAMPION_SUMMARY)?
                 .ok_or_else(|| PortError::NotFound("champion summary".into()))?;
-            *cache = Some(summary.into_iter().map(|c| (c.id, c.alias)).collect());
+            // The key builds are published under, not the client's alias (Fiddlesticks).
+            let key = |alias: &str| stronk_domain::champion::data_key(alias).to_owned();
+            *cache = Some(summary.into_iter().map(|c| (c.id, key(&c.alias))).collect());
         }
         cache
             .as_ref()

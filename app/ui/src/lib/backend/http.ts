@@ -86,7 +86,7 @@ export class HttpBackend implements Backend {
       if (!loaded.ok) return loaded;
       // Without names the champions have no ids: the picker shows their keys.
       const game = await this.attempt(() => this.gameData());
-      const id = (champion: string) => (game.ok ? (game.value.ids.get(champion) ?? 0) : 0);
+      const id = (champion: string) => (game.ok ? (game.value.ids.get(champion.toLowerCase()) ?? 0) : 0);
       return ok((JSON.parse(loaded.value) as Listed[]).map((b) => ({ ...b, id: id(b.champion) })));
     },
     select: (champion: string, role: Role): void => {
@@ -153,7 +153,8 @@ export class HttpBackend implements Backend {
       };
       const ids = new Map<string, number>();
       for (const c of JSON.parse(champions) as { id?: unknown; alias?: unknown }[]) {
-        if (typeof c.alias === "string" && typeof c.id === "number") ids.set(c.alias, c.id);
+        // By lower case: builds use Data Dragon's "Fiddlesticks", the client "FiddleSticks".
+        if (typeof c.alias === "string" && typeof c.id === "number") ids.set(c.alias.toLowerCase(), c.id);
       }
       return { ...parsed, ids };
     })();
@@ -167,7 +168,7 @@ export class HttpBackend implements Backend {
     const { champion, role } = this.selected;
     // Without names the champion has no id: its icon and name fall back to the key.
     const game = await this.attempt(() => this.gameData());
-    const champion_id = game.ok ? (game.value.ids.get(champion) ?? 0) : 0;
+    const champion_id = game.ok ? (game.value.ids.get(champion.toLowerCase()) ?? 0) : 0;
     return ok({
       champion,
       role,

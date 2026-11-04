@@ -14,7 +14,12 @@ function fakeCore(calls: string[], fail?: string): WebCore {
       return {
         elos: () => ["master_plus", "diamond_plus"],
         windows: () => ["pooled", "patch"],
-        builds: () => JSON.stringify([{ champion: "LeeSin", role: "JUNGLE" }, { champion: "Zed", role: "MIDDLE" }]),
+        builds: () =>
+          JSON.stringify([
+            { champion: "Fiddlesticks", role: "JUNGLE" },
+            { champion: "LeeSin", role: "JUNGLE" },
+            { champion: "Zed", role: "MIDDLE" },
+          ]),
         // Lee Sin in every bracket but Emerald+, which reads Diamond+, the patch's alone.
         found: (champion, _role, wanted, window) => {
           if (champion !== "LeeSin") return undefined;
@@ -68,7 +73,11 @@ const PUBLISHED = {
   [`${DATA}16.21/all/master_plus/LeeSin/JUNGLE.json`]: "{build}",
   [`${DATA}16.21/all/master_plus/pooled/LeeSin/JUNGLE.json`]: "{pooled build}",
   [`${DATA}16.21/all/diamond_plus/LeeSin/JUNGLE.json`]: "{diamond build!}",
-  [`${DOCS}champion-summary.json`]: JSON.stringify([{ id: 64, alias: "LeeSin", name: "Lee Sin" }]),
+  // The client spells Fiddlesticks "FiddleSticks"; builds use Data Dragon's "Fiddlesticks".
+  [`${DOCS}champion-summary.json`]: JSON.stringify([
+    { id: 64, alias: "LeeSin", name: "Lee Sin" },
+    { id: 9, alias: "FiddleSticks", name: "Fiddlesticks" },
+  ]),
   [`${DOCS}perkstyles.json`]: "{}",
   [`${DOCS}perks.json`]: "[]",
   [`${DOCS}summoner-spells.json`]: "[]",
@@ -134,6 +143,7 @@ describe("HttpBackend", () => {
     expect(await http.viewer.builds()).toEqual({
       ok: true,
       value: [
+        { champion: "Fiddlesticks", role: "JUNGLE", id: 9 }, // the client's "FiddleSticks"
         { champion: "LeeSin", role: "JUNGLE", id: 64 },
         { champion: "Zed", role: "MIDDLE", id: 0 },
       ],

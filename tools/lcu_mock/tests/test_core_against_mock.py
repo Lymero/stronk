@@ -67,6 +67,26 @@ def test_follows_champion_select(mock: Mock) -> None:
     assert locked["session"]["locked"] is True
 
 
+def test_a_champion_is_named_as_its_builds_are_not_as_the_client_spells_it(
+    tmp_path: Path,
+) -> None:
+    # Regression: the client's alias is "FiddleSticks", builds are published as "Fiddlesticks"
+    # (Data Dragon's id), so Fiddlesticks had no build, and in the viewer no pictures.
+    session = json.loads(SESSION.read_text())
+    session["champions"].append({"id": 9, "alias": "FiddleSticks", "name": "Fiddlesticks"})
+    last = session["steps"][-1]["session"]
+    last["myTeam"][1]["championId"] = last["actions"][1][0]["championId"] = 9
+    session["steps"] = [session["steps"][-1]]
+    path = tmp_path / "fiddlesticks.json"
+    path.write_text(json.dumps(session))
+    running = start(path, tmp_path / "mock")
+    try:
+        _, state = core(running, "champselect.state")
+    finally:
+        running.server.shutdown()
+    assert (state["champion"], state["session"]["champion_id"]) == ("Fiddlesticks", 9)
+
+
 def test_locked_champion_gets_its_verified_build(mock: Mock) -> None:
     for _ in range(3):
         step(mock)

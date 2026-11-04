@@ -1,6 +1,7 @@
 //! Pure app logic (docs/architecture.md, section 5): no I/O, no clocks, no panics.
 
 pub mod build_key;
+pub mod champion;
 pub mod damage;
 pub mod elo;
 pub mod item_set;
