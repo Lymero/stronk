@@ -225,6 +225,10 @@ winprob frames="runs/extract/euw1/frames.parquet" out="runs/winprob/euw1":
 crawl platform="euw1" games="100" out=("runs/crawl/" + platform) bracket="master_plus":
     uv run stronk-pipeline run crawl.run --params '{"platform": "{{ platform }}", "max_matches": {{ games }}, "out": "{{ out }}", "tiers": {{ if bracket == "diamond" { '["DIAMOND"]' } else if bracket == "emerald" { '["EMERALD"]' } else if bracket == "master_plus" { '["CHALLENGER", "GRANDMASTER", "MASTER"]' } else { error("bracket: master_plus, diamond or emerald") } }}}'
 
+# Every crawl of a patch: its games, whether it is running, when it last stored a game
+crawl-status patch:
+    @uv run python tools/corpus/crawl_status.py {{ patch }}
+
 # Frames and decision points from crawl directories (comma-separated for several);
 # --retry-quarantine re-reads quarantined games first
 extract crawl="runs/crawl/euw1" out="runs/extract/euw1" *flags:

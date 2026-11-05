@@ -35,6 +35,7 @@ All tasks go through `just`. Everything runs offline. Recipes arrive with their 
 | `just publish-brackets "<estimates>=<crawl,…> pooled:<estimates>=<crawl,…>" [key] [out]` | Every bracket of a patch under one manifest; `pooled:` marks one pooling several patches, published under the newest's `pooled/` (ADR-079, ADR-088). Crawls stored before item fingerprints need `uv run python tools/corpus/refresh_static.py <crawl>…` first |
 | `just pipeline-stage <name>` | One stage: `crawl`, `extract`, `winprob`, `wpa`, `publish` |
 | `just crawl <platform> <games> [out] [bracket]` | Crawl ranked games from the Riot API (needs `RIOT_API_KEY`); rerun to resume. `bracket`: `master_plus` (default) or `diamond`, one per directory, carried to the published `elo` (ADR-076) |
+| `just crawl-status <patch>` | Every crawl of a patch: its games, whether it is running, when it last stored a game (a crawl stopped by an expired key says why in `runs/logs/`) |
 | `just extract [crawl,…] [out] [--retry-quarantine]` | Frames and decision points from one or more crawl directories (comma-separated) into one table; the flag first re-reads games the crawl quarantined |
 | `just backtest <earlier> <later> [out]` | Compare two patches' WPA estimates (same sign on both?) and write `metrics/out/backtest.json` |
 | `just keygen [out]` | Create the data signing key outside the repository (default `~/.config/stronk/signing.key`) |
