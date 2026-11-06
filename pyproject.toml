@@ -19,6 +19,8 @@ dev = [
     "pre-commit",
     "pytest",
     "ruff",
+    "scipy>=1.18.1",
+    "scipy-stubs>=1.18.1.1",
 ]
 
 [tool.uv]
@@ -42,9 +44,10 @@ testpaths = [
     "tools/lcu_mock/tests",
     "contracts/tests",
     "tools/experiments/winprob/tests",
+    "tools/experiments/draft/tests",
 ]
 addopts = ["--import-mode=importlib", "--strict-markers", "-ra"]
-pythonpath = ["tools/checks", "tools/corpus", "tools/serve_data", "tools/lcu_mock", "tools/experiments/winprob", "pipeline/tests"]
+pythonpath = ["tools/checks", "tools/corpus", "tools/serve_data", "tools/lcu_mock", "tools/experiments/winprob", "tools/experiments/draft", "pipeline/tests"]
 markers = [
     "slow: statistical tests that take more than a few seconds",
     "corpus: needs the real-data corpus (`just corpus`); skipped when it is absent",
