@@ -5,8 +5,8 @@
 
 One step per pick, each the local player locked in on that champion and role, after a lobby
 step. The champions' ids and names come from the crawl's static data (by default the first
-`runs/corpus*/*/static/<patch>.json.gz` for the data's patch); the session also gives
-lcu-mock every item's name from it (`game_data`), so the board shows names rather than ids.
+`runs/corpus*/*/static/<patch>.json.gz` for the data's patch, else a crawl's); the session also
+gives lcu-mock every item's name from it (`game_data`), so the board shows names rather than ids.
 Without `--picks`: one popular champion per role, and the champion and role with the fewest
 games in the data, to see a sparse board too.
 """
@@ -47,12 +47,16 @@ def builds(data: Path) -> Path:
 
 
 def find_static(patch: str) -> Path:
-    """A crawl's static data for `patch` among the fetched and built corpora."""
+    """A crawl's static data for `patch` among the fetched and built corpora, else among the
+    crawls (a patch too new to have a corpus)."""
     root = Path(__file__).resolve().parents[2]
-    found = sorted(root.glob(f"runs/corpus*/*/static/{patch}.json.gz"))
+    found = sorted(root.glob(f"runs/corpus*/*/static/{patch}.json.gz")) or sorted(
+        root.glob(f"runs/crawl/*/static/{patch}.json.gz")
+    )
     if not found:
         raise ValueError(
-            f"no static data for {patch} under runs/corpus*/: `just corpus` or pass --static"
+            f"no static data for {patch} under runs/corpus*/ or runs/crawl/: "
+            "`just corpus` or pass --static"
         )
     return found[0]
 
